@@ -4,16 +4,16 @@ import (
 	"errors"
 
 	"main.go/clients/telegram"
-	tinkoffapi "main.go/clients/tinkoffApi"
 	"main.go/events"
 	"main.go/lib/e"
+	"main.go/service"
 	"main.go/storage"
 )
 
 type Processor struct {
-	tg         *telegram.Client
-	storage    storage.Storage
-	tinkoffapi *tinkoffapi.Client
+	tg      *telegram.Client
+	storage storage.Storage
+	service *service.Client
 }
 
 type Meta struct {
@@ -24,11 +24,11 @@ type Meta struct {
 var ErrUnknownEventType = errors.New("unknown event type")
 var ErrUnknownMetaType = errors.New("unknown meta type")
 
-func NewProccesor(client *telegram.Client, storage storage.Storage, tApi *tinkoffapi.Client) *Processor {
+func NewProccesor(client *telegram.Client, storage storage.Storage, serviceCLient *service.Client) *Processor {
 	return &Processor{
-		tg:         client,
-		storage:    storage,
-		tinkoffapi: tApi,
+		tg:      client,
+		storage: storage,
+		service: serviceCLient,
 	}
 }
 

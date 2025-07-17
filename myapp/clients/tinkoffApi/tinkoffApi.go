@@ -1,21 +1,24 @@
-package tinkoffapi
+package tinkoffApi
 
 import (
 	"context"
 
 	"github.com/russianinvestments/invest-api-go-sdk/investgo"
+	"main.go/clients/moex"
 	"main.go/lib/e"
 )
 
 type Client struct {
-	ctx    context.Context
-	Logg   investgo.Logger
-	config *investgo.Config
-	Client *investgo.Client
+	ctx        context.Context
+	Logg       investgo.Logger
+	config     *investgo.Config
+	Client     *investgo.Client
+	MoexClient *moex.Client
 }
 
 func New(ctx context.Context, logg investgo.Logger) *Client {
-	return &Client{ctx: context.Background(),
+	return &Client{
+		ctx:  context.Background(),
 		Logg: logg}
 }
 
@@ -35,7 +38,7 @@ func (c *Client) FillClient(token string) (err error) {
 func (c *Client) getConfig(token string) error {
 	config, err := investgo.LoadConfig("./configs/tinkoffApiConfig.yaml")
 	if err != nil {
-		return e.Wrap("can't load config", err)
+		panic("can't load config")
 	}
 	c.config = &config
 	c.config.Token = token

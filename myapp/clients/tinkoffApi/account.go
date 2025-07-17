@@ -1,10 +1,10 @@
-package tinkoffapi
+package tinkoffApi
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/russianinvestments/invest-api-go-sdk/investgo"
 	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"main.go/lib/e"
 )
@@ -26,8 +26,8 @@ type User struct {
 	Accounts []*Account
 }
 
-func GetAcc(client *investgo.Client) (string, error) {
-	usersService := client.NewUsersServiceClient()
+func (c *Client) GetAccToTgBot() (string, error) {
+	usersService := c.Client.NewUsersServiceClient()
 	status := pb.AccountStatus_ACCOUNT_STATUS_ALL // ПОтом надо обработать закрытые счета(например ИИС)
 	accsResp, err := usersService.GetAccounts(&status)
 	var accStr string = "По данному аккаунту доступны следующие счета:"
@@ -50,4 +50,26 @@ func GetAcc(client *investgo.Client) (string, error) {
 	}
 
 	return accStr, nil
+}
+
+func (c *Client) GetAcc() (map[string]Account, error) {
+	usersService := c.Client.NewUsersServiceClient()
+	accounts := make(map[string]Account)
+	status := pb.AccountStatus_ACCOUNT_STATUS_OPEN // ПОтом надо обработать закрытые счета(например ИИС)
+	accsResp, err := usersService.GetAccounts(&status)
+	if err != nil {
+		return nil, errors.New("GetAcc: operationsService.GetOperationsByCursor" + err.Error())
+	} else {
+		accs := accsResp.GetAccounts()
+		for _, acc := range accs {
+			account := Account{Id: acc.GetId(),
+				Name:       acc.GetName(),
+				OpenedDate: acc.GetOpenedDate().AsTime(),
+				ClosedDate: acc.GetClosedDate().AsTime(),
+			}
+			accounts[acc.GetId()] = account
+		}
+	}
+
+	return accounts, nil
 }

@@ -5,15 +5,20 @@ import (
 	"flag"
 	"log"
 
+	"main.go/clients/cbr"
+	"main.go/clients/moex"
 	tgClient "main.go/clients/telegram"
 	tinkoffapi "main.go/clients/tinkoffApi"
 	event_consumer "main.go/consumer/event-consumer"
 	"main.go/events/telegram"
 	loggAdapter "main.go/logger"
+	"main.go/service"
 	"main.go/storage/sqlite"
 )
 
 const (
+	moexHost       = "iss.moex.com"
+	cbrHost        = "www.cbr.ru"
 	tgBotHost      = "api.telegram.org"
 	storagePath    = "storage"
 	storageSqlPath = "data/sqlite/storage.db"
@@ -25,7 +30,13 @@ func main() {
 
 	logger := loggAdapter.SetupLogger()
 
+	moexApi := moex.New(moexHost)
+
+	cbrApi := cbr.New(cbrHost)
+
 	tinkoffApiClient := tinkoffapi.New(context.TODO(), logger)
+
+	serviceClient := service.New(tinkoffApiClient, moexApi, cbrApi)
 
 	storage, err := sqlite.New(storageSqlPath)
 	if err != nil {
@@ -39,7 +50,7 @@ func main() {
 	processor := telegram.NewProccesor(
 		telegrammClient,
 		storage,
-		tinkoffApiClient,
+		serviceClient,
 	)
 
 	fetcher := telegram.NewFetcher(telegrammClient)
@@ -51,7 +62,6 @@ func main() {
 	if err := consumer.Start(); err != nil {
 		logger.Fatalf("service is stopped")
 	}
-
 }
 
 func mustToken() string {
