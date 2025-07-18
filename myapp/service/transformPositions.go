@@ -5,15 +5,16 @@ import (
 	"fmt"
 
 	"main.go/clients/tinkoffApi"
+	"main.go/service/service_models"
 )
 
 // Обрабатываем в нормальный формат портфеля
-func (s *Client) TransPositions(account *tinkoffApi.Account, assetUidInstrumentUidMap map[string]string) (Portfolio, error) {
-	Portfolio := Portfolio{}
+func (s *Client) TransPositions(account *tinkoffApi.Account, assetUidInstrumentUidMap map[string]string) (service_models.Portfolio, error) {
+	Portfolio := service_models.Portfolio{}
 	for _, v := range account.Portfolio {
 		if v.InstrumentType == "bond" {
-			BondPosition := Bond{
-				Identifiers: Identifiers{
+			BondPosition := service_models.Bond{
+				Identifiers: service_models.Identifiers{
 					Figi:          v.GetFigi(),
 					InstrumentUid: v.GetInstrumentUid(),
 					PositionUid:   v.GetPositionUid(),
@@ -49,7 +50,7 @@ func (s *Client) TransPositions(account *tinkoffApi.Account, assetUidInstrumentU
 			// Добавляем позицию в срез позиций
 			Portfolio.BondPositions = append(Portfolio.BondPositions, BondPosition)
 		} else {
-			transPosionRet := PortfolioPosition{
+			transPosionRet := service_models.PortfolioPosition{
 				Figi:                     v.GetFigi(),
 				InstrumentType:           v.GetInstrumentType(),
 				Currency:                 v.GetAveragePositionPrice().Currency,

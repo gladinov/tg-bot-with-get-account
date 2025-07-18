@@ -3,7 +3,8 @@ package service
 import (
 	"errors"
 	"math"
-	"time"
+
+	"main.go/service/service_models"
 )
 
 const (
@@ -24,43 +25,7 @@ const (
 	baseTaxRate                                    = 0.13  // Налог с продажи ЦБ
 )
 
-type ReportPositions struct {
-	Quantity         float64
-	CurrentPositions []SharePosition
-	ClosePositions   []SharePosition
-}
-
-type SharePosition struct {
-	Name                  string
-	BuyDate               time.Time
-	SellDate              time.Time
-	BuyOperationID        string
-	SellOperationID       string
-	Quantity              float64
-	Figi                  string
-	InstrumentType        string
-	InstrumentUid         string
-	Ticker                string
-	ClassCode             string
-	Nominal               float64
-	BuyPrice              float64
-	SellPrice             float64 // Для открытых позиций.Текущая цена с биржи
-	BuyPayment            float64
-	SellPayment           float64
-	Currency              string
-	BuyAccruedInt         float64 // НКД при покупке
-	SellAccruedInt        float64
-	PartialEarlyRepayment float64 // Частичное досрочное гашение
-	TotalCoupon           float64
-	TotalDividend         float64
-	TotalComission        float64
-	PaidTax               float64 // Фактически уплаченный налог(Часть налога будет уплачена в конце года, либо при выводе средств)
-	TotalTax              float64 // Налог рассчитанный
-	PositionProfit        float64 // С учетом рассчитанных налогов(TotalTax)
-	ProfitInPercentage    float64 // В процентах строковая переменная
-}
-
-func (c *Client) GetSpecificationsFromTinkoff(position *SharePosition) error {
+func (c *Client) GetSpecificationsFromTinkoff(position *service_models.SharePosition) error {
 	resSpecFromTinkoff, err := c.Tinkoffapi.GetBondsActionsFromTinkoff(position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex" + err.Error())
@@ -79,8 +44,8 @@ func (c *Client) GetSpecificationsFromTinkoff(position *SharePosition) error {
 
 }
 
-func (c *Client) ProcessOperations(operations []Operation) (*ReportPositions, error) {
-	processPosition := &ReportPositions{}
+func (c *Client) ProcessOperations(operations []service_models.Operation) (*service_models.ReportPositions, error) {
+	processPosition := &service_models.ReportPositions{}
 	for _, operation := range operations {
 		switch operation.Type {
 		// 2	Удержание НДФЛ по купонам.
@@ -170,7 +135,7 @@ func (c *Client) ProcessOperations(operations []Operation) (*ReportPositions, er
 
 // 2	Удержание НДФЛ по купонам.
 // 8    Удержание налога по дивидендам.
-func processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation Operation, processPosition *ReportPositions) error {
+func processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -184,7 +149,7 @@ func processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation Operati
 }
 
 // 10	Частичное погашение облигаций.
-func processPartialRedemptionOfBonds(operation Operation, processPosition *ReportPositions) error {
+func processPartialRedemptionOfBonds(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -201,10 +166,10 @@ func processPartialRedemptionOfBonds(operation Operation, processPosition *Repor
 // 15	Покупка ЦБ.
 // 16	Покупка ЦБ с карты.
 // 57   Перевод ценных бумаг с ИИС на Брокерский счет
-func (c *Client) processPurchaseOfSecurities(operation Operation, processPosition *ReportPositions) error {
+func (c *Client) processPurchaseOfSecurities(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
 	// при обработке фьючерсов и акций, где была маржтнальная позиция,
 	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
-	position := SharePosition{
+	position := service_models.SharePosition{
 		Name:           operation.Name,
 		BuyDate:        operation.Date,
 		Figi:           operation.Figi,
@@ -228,10 +193,10 @@ func (c *Client) processPurchaseOfSecurities(operation Operation, processPositio
 }
 
 // 17	Перевод ценных бумаг из другого депозитария.
-func (c *Client) processTransferOfSecuritiesFromAnotherDepository(operation Operation, processPosition *ReportPositions) error {
+func (c *Client) processTransferOfSecuritiesFromAnotherDepository(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
 	// при обработке фьючерсов и акций, где была маржтнальная позиция,
 	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
-	position := SharePosition{
+	position := service_models.SharePosition{
 		Name:           operation.Name,
 		BuyDate:        operation.Date,
 		Figi:           operation.Figi,
@@ -261,7 +226,7 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(operation Oper
 }
 
 // 21	Выплата дивидендов.
-func processPaymentOfDividends(operation Operation, processPosition *ReportPositions) error {
+func processPaymentOfDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -276,7 +241,7 @@ func processPaymentOfDividends(operation Operation, processPosition *ReportPosit
 }
 
 // 23 Выплата купонов.
-func processPaymentOfCoupons(operation Operation, processPosition *ReportPositions) error {
+func processPaymentOfCoupons(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -291,7 +256,7 @@ func processPaymentOfCoupons(operation Operation, processPosition *ReportPositio
 }
 
 // 47	Гербовый сбор.
-func processStampDuty(operation Operation, processPosition *ReportPositions) error {
+func processStampDuty(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -306,7 +271,7 @@ func processStampDuty(operation Operation, processPosition *ReportPositions) err
 }
 
 // 22	Продажа ЦБ.
-func processSellOfSecurities(operation *Operation, processPosition *ReportPositions) error {
+func processSellOfSecurities(operation *service_models.Operation, processPosition *service_models.ReportPositions) error {
 	processPosition.Quantity -= operation.QuantityDone
 	// Переписать ПОЗЖЕ Переменная deleteCount отслеживает кол-во закрытых позиций для дальнейшего удаления в которых Кол-во проданных
 	// бумаг больше кол-ва бумаг в текущей позиции
@@ -346,7 +311,7 @@ end:
 	return nil
 }
 
-func isCurrentQuantityGreaterThanSellQuantity(operation *Operation, currPosition *SharePosition, processPosition *ReportPositions) error {
+func isCurrentQuantityGreaterThanSellQuantity(operation *service_models.Operation, currPosition *service_models.SharePosition, processPosition *service_models.ReportPositions) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64
@@ -397,7 +362,7 @@ func isCurrentQuantityGreaterThanSellQuantity(operation *Operation, currPosition
 	return nil
 }
 
-func isEqualCurrentQuantityAndSellQuantity(operation *Operation, currPosition *SharePosition, processPosition *ReportPositions) error {
+func isEqualCurrentQuantityAndSellQuantity(operation *service_models.Operation, currPosition *service_models.SharePosition, processPosition *service_models.ReportPositions) error {
 	// Создаем закрытую позицию
 	closePosition := createClosePosition(*currPosition, *operation)
 	// НКД
@@ -430,7 +395,7 @@ func isEqualCurrentQuantityAndSellQuantity(operation *Operation, currPosition *S
 	return nil
 }
 
-func isCurrentQuantityLessThanSellQuantity(operation *Operation, currPosition *SharePosition, processPosition *ReportPositions) error {
+func isCurrentQuantityLessThanSellQuantity(operation *service_models.Operation, currPosition *service_models.SharePosition, processPosition *service_models.ReportPositions) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64
@@ -478,7 +443,7 @@ func isCurrentQuantityLessThanSellQuantity(operation *Operation, currPosition *S
 }
 
 // Доход по позиции до вычета налога
-func getSecurityIncomeWithoutTax(p SharePosition) float64 {
+func getSecurityIncomeWithoutTax(p service_models.SharePosition) float64 {
 	// Для незакрытых позиций необходимо посчитать еще потенциальную комиссию при продаже
 	quantity := p.Quantity
 	buySellDifference := (p.SellPrice-p.BuyPrice)*quantity + p.SellAccruedInt - p.BuyAccruedInt
@@ -488,7 +453,7 @@ func getSecurityIncomeWithoutTax(p SharePosition) float64 {
 }
 
 // Расход полного налога по закрытой позиции
-func getTotalTaxFromPosition(p SharePosition, profit float64) float64 {
+func getTotalTaxFromPosition(p service_models.SharePosition, profit float64) float64 {
 	// Рассчитываем срок владения
 	buyDate := p.BuyDate
 	sellDate := p.SellDate
@@ -519,7 +484,7 @@ func getProfitInPercentage(profit, buyPrice, quantity float64) (float64, error) 
 }
 
 // Создаем закрытую позицию
-func createClosePosition(currentPosition SharePosition, operation Operation) SharePosition {
+func createClosePosition(currentPosition service_models.SharePosition, operation service_models.Operation) service_models.SharePosition {
 	closePosition := currentPosition
 	closePosition.SellPrice = operation.Price
 	closePosition.SellPayment = operation.Payment

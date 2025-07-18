@@ -2,12 +2,13 @@ package service
 
 import (
 	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
+	"main.go/service/service_models"
 )
 
-func (s *Client) TransOperations(operations []*pb.OperationItem) []Operation {
-	transformOperations := make([]Operation, 0)
+func (s *Client) TransOperations(operations []*pb.OperationItem) []service_models.Operation {
+	transformOperations := make([]service_models.Operation, 0)
 	for _, v := range operations {
-		transformOperation := Operation{
+		transformOperation := service_models.Operation{
 			Currency:          v.GetPrice().Currency,
 			BrokerAccountId:   v.GetBrokerAccountId(),
 			Operation_Id:      v.GetId(),

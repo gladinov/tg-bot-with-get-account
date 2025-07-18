@@ -1,9 +1,13 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"math"
 	"time"
+
+	"main.go/lib/e"
+	"main.go/service/service_models"
 )
 
 const (
@@ -12,31 +16,70 @@ const (
 	daysInYear = 365
 )
 
-type Report struct {
-	BondsInRUB []BondReport
-	BondsInCNY []BondReport
+func (c *Client) GetBondReports(chatID int, token string) (err error) {
+	defer func() { err = e.WrapIfErr("can't get bond reports", err) }()
+	client := c.Tinkoffapi
+
+	err = client.FillClient(token)
+	if err != nil {
+		return err
+	}
+
+	assetUidInstrumentUidMap, err := c.Tinkoffapi.GetAllAssetUids() // TODO: Переписать так чтобы запрос проходил один раз в день без вызова пользователя
+	if err != nil {
+		return err
+	}
+	accounts, err := c.Tinkoffapi.GetAcc()
+	if err != nil {
+		return err
+	}
+
+	for _, account := range accounts {
+		err := c.Tinkoffapi.GetOpp(&account)
+		if err != nil {
+			return err
+		}
+		operations := c.TransOperations(account.Operations)
+
+		err = c.Storage.SaveOperations(context.Background(), chatID, account.Id, operations)
+		if err != nil {
+			return err
+		}
+
+		err = c.Tinkoffapi.GetPortf(&account)
+		if err != nil {
+			return err
+		}
+
+		portfolio, err := c.TransPositions(&account, assetUidInstrumentUidMap)
+		if err != nil {
+			return err
+		}
+
+		for _, v := range portfolio.BondPositions {
+			operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.Identifiers.AssetUid, account.Id)
+			if err != nil {
+				return err
+			}
+			resultBondPosition, err := c.ProcessOperations(operationsDb)
+			if err != nil {
+				return err
+			}
+			bondReport, err := c.CreateBondReport(*resultBondPosition)
+			if err != nil {
+				return err
+			}
+			err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondReport.BondsInRUB)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
-type BondReport struct {
-	Name                      string
-	Ticker                    string
-	MaturityDate              string // Дата погашения
-	OfferDate                 string
-	Duration                  int64
-	BuyDate                   string
-	BuyPrice                  float64
-	YieldToMaturityOnPurchase float64 // Доходность к погашению при покупке
-	YieldToOfferOnPurchase    float64 // Доходность к оферте при покупке
-	YieldToMaturity           float64 // Текущая доходность к погашению
-	YieldToOffer              float64 // Текущая доходность к оферте
-	CurrentPrice              float64
-	Nominal                   float64
-	Profit                    float64 // Результат инвестиции
-	AnnualizedReturn          float64 // Годовая доходность
-}
-
-func (c *Client) CreateBondReport(reportPostions ReportPositions) (Report, error) {
-	var resultReports Report
+func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions) (service_models.Report, error) {
+	var resultReports service_models.Report
 	for i := range reportPostions.CurrentPositions {
 		position := reportPostions.CurrentPositions[i]
 		switch position.Currency {
@@ -59,8 +102,8 @@ func (c *Client) CreateBondReport(reportPostions ReportPositions) (Report, error
 	return resultReports, nil
 }
 
-func (c *Client) createBondReport(position SharePosition) (BondReport, error) {
-	var bondReport BondReport
+func (c *Client) createBondReport(position service_models.SharePosition) (service_models.BondReport, error) {
+	var bondReport service_models.BondReport
 	moexBuyData, err := c.MoexApi.GetSpecifications(position.Ticker, position.BuyDate)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
@@ -71,7 +114,7 @@ func (c *Client) createBondReport(position SharePosition) (BondReport, error) {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
 
-	bondReport = BondReport{
+	bondReport = service_models.BondReport{
 		Name:         position.Name,
 		Ticker:       position.Ticker,
 		BuyDate:      position.BuyDate.Format(layout),
@@ -132,7 +175,7 @@ func (c *Client) createBondReport(position SharePosition) (BondReport, error) {
 	return bondReport, nil
 }
 
-func getProfit(sharePosition SharePosition) (float64, error) {
+func getProfit(sharePosition service_models.SharePosition) (float64, error) {
 	profitWithoutTax := getSecurityIncomeWithoutTax(sharePosition)
 	totalTax := getTotalTaxFromPosition(sharePosition, profitWithoutTax)
 	profit := getSecurityIncome(profitWithoutTax, totalTax)
@@ -143,7 +186,7 @@ func getProfit(sharePosition SharePosition) (float64, error) {
 	return profitInPercentage, nil
 }
 
-func getAnnualizedReturnInPercentage(p SharePosition) (float64, error) {
+func getAnnualizedReturnInPercentage(p service_models.SharePosition) (float64, error) {
 	var totalReturn float64
 	profitWithoutTax := getSecurityIncomeWithoutTax(p)
 	totalTax := getTotalTaxFromPosition(p, profitWithoutTax)
