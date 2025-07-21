@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"log"
+	"strconv"
 	"strings"
 
 	"main.go/lib/e"
@@ -14,6 +15,7 @@ const (
 	StartCmd      = "/start"
 	AccountsCmd   = "/accounts"
 	GetBondReport = "/bondReport"
+	GetUSD        = "/usd"
 )
 
 func (p *Processor) doCmd(text string, chatID int, username string) error {
@@ -55,9 +57,22 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		return p.sendAccounts(chatID, token)
 	case GetBondReport:
 		return p.getBondReports(chatID, token)
+	case GetUSD:
+		return p.getUSD(chatID)
 	default:
 		return p.tg.SendMessage(chatID, msgUnknownCommand)
 	}
+}
+
+func (p *Processor) getUSD(chatId int) error {
+	usd, err := p.service.GetUsd()
+	if err != nil {
+		return e.WrapIfErr("can't get usd", err)
+	}
+	usdRes := strconv.FormatFloat(usd, 'f', 5, 64)
+	p.tg.SendMessage(chatId, usdRes)
+	return nil
+
 }
 
 func (p *Processor) isToken(token string) (res bool, err error) {
@@ -68,7 +83,7 @@ func (p *Processor) isToken(token string) (res bool, err error) {
 		if err != nil {
 			return false, err
 		}
-		_, err = p.service.Tinkoffapi.GetAccToTgBot()
+		_, err = p.service.Tinkoffapi.GetAcc()
 		if err != nil {
 			return false, err
 		}
@@ -78,15 +93,9 @@ func (p *Processor) isToken(token string) (res bool, err error) {
 }
 
 func (p *Processor) sendAccounts(chatID int, token string) error {
-	client := p.service.Tinkoffapi
-	err := client.FillClient(token)
+	accounts, err := p.service.GetAccounts(token)
 	if err != nil {
-		return e.WrapIfErr("sendAccounts: can't get tinkoffAPI client ", err)
-	}
-
-	accounts, err := p.service.Tinkoffapi.GetAccToTgBot()
-	if err != nil {
-		return e.WrapIfErr("sendAccounts: can't get accounts from tinkoffAPI client", err)
+		return e.WrapIfErr("can't get account", err)
 	}
 	p.tg.SendMessage(chatID, accounts)
 	return nil

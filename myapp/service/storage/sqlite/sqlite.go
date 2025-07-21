@@ -3,11 +3,17 @@ package servicet_sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"main.go/lib/e"
 	"main.go/service/service_models"
+)
+
+const (
+	hoursToUpdate = 12.0
 )
 
 type Storage struct {
@@ -52,6 +58,16 @@ func (s *Storage) Init(ctx context.Context) error {
 		return fmt.Errorf("can't create bond reports table: %w", err)
 	}
 
+	q_uids := `CREATE TABLE IF NOT EXISTS uids (
+		update_time DATETIME,
+		instrument_uid TEXT,
+		asset_uid TEXT
+	)`
+	_, err = s.db.ExecContext(ctx, q_uids)
+	if err != nil {
+		return fmt.Errorf("can't create uids table: %w", err)
+	}
+
 	q_operations := `CREATE TABLE IF NOT EXISTS operations (
         id integer primary key,
 		chatId 				REAL,
@@ -84,7 +100,7 @@ func (s *Storage) Init(ctx context.Context) error {
 	}
 
 	q_currencies := `CREATE TABLE IF NOT EXISTS currencies (
-		on_date DATETIME,
+		date DATETIME,
 		num_code TEXT,
 		char_code TEXT,
 		nominal INTEGER,
@@ -247,6 +263,136 @@ func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string
 
 }
 
-// func (s *Storage) GetCurrencies(ctx context.Context) {
+func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err error) {
+	defer func() { err = e.WrapIfErr("can't save uids", err) }()
 
-// }
+	if len(uids) == 0 {
+		return errors.New("empty uids map")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	q_delete := "DELETE FROM uids"
+	if _, err := tx.ExecContext(ctx, q_delete); err != nil {
+		return err
+	}
+
+	q_insert := `
+    INSERT INTO uids (
+		update_time, 
+		instrument_uid,
+		asset_uid
+		) VALUES (?, ?, ?)
+	`
+	now := time.Now()
+
+	stmt, err := tx.PrepareContext(ctx, q_insert)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for instrument_uid, asset_uid := range uids {
+		if _, err := stmt.ExecContext(ctx, now, instrument_uid, asset_uid); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Storage) IsUpdatedUids(ctx context.Context) (bool, error) {
+	q := `SELECT update_time FROM uids LIMIT 1`
+
+	var date time.Time
+
+	err := s.db.QueryRowContext(ctx, q).Scan(&date)
+	if err == sql.ErrNoRows {
+		return false, service_models.ErrEmptyUids
+	}
+	if err != nil {
+		return false, e.WrapIfErr("can't check update uids:", err)
+
+	}
+
+	if time.Since(date).Hours() > hoursToUpdate {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (string, error) {
+	q := "SELECT asset_uid FROM uids WHERE instrument_uid = ?"
+
+	var asset_uid string
+
+	err := s.db.QueryRowContext(ctx, q, instrumentUid).Scan(&asset_uid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", service_models.ErrEmptyUids
+		} else {
+			return "", e.WrapIfErr("can't get uid from DB", err)
+		}
+	}
+	return asset_uid, nil
+}
+
+func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Currencies) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, `
+        INSERT INTO currencies 
+        (date, num_code, char_code, nominal, name, value, vunit_rate)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, c := range currencies.CurrenciesMap {
+		_, err = stmt.ExecContext(ctx,
+			c.Date,
+			c.NumCode,
+			c.CharCode,
+			c.Nominal,
+			c.Name,
+			c.Value,
+			c.VunitRate,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Time) (float64, error) {
+	q := `
+    SELECT vunit_rate
+    FROM currencies
+    WHERE char_code = ? 
+    AND date(date) = date(?)
+    LIMIT 1
+    `
+
+	var vunit_rate float64
+	err := s.db.QueryRowContext(ctx, q, charCode, date.Format("2006-01-02")).Scan(&vunit_rate)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return vunit_rate, service_models.ErrNoCurrency
+		}
+		return vunit_rate, e.WrapIfErr("can't get currency from DB", err)
+	}
+
+	return vunit_rate, nil
+}

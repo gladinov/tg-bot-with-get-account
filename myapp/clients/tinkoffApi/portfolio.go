@@ -7,6 +7,10 @@ import (
 )
 
 func (c *Client) GetPortf(account *Account) error {
+	// По закрытым счетам не забираем данные
+	if account.Status == 3 {
+		return nil
+	}
 	operationsService := c.Client.NewOperationsServiceClient()
 	id := account.Id
 	portfolioResp, err := operationsService.GetPortfolio(id,

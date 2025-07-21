@@ -1,6 +1,12 @@
 package service_models
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var ErrEmptyUids = errors.New("no uids")
+var ErrNoCurrency = errors.New("no currency")
 
 type Operation struct {
 	BrokerAccountId   string
@@ -134,4 +140,18 @@ type Identifiers struct {
 	InstrumentUid string // T_Api_Getportfolio
 	PositionUid   string // T_Api_Getportfolio
 	AssetUid      string // GetBondsActionsFromPortfolio
+}
+
+type Currency struct {
+	Date      time.Time
+	NumCode   string
+	CharCode  string
+	Nominal   int
+	Name      string
+	Value     float64
+	VunitRate float64
+}
+
+type Currencies struct {
+	CurrenciesMap map[string]Currency
 }

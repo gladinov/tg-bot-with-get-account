@@ -2,6 +2,7 @@ package service_storage
 
 import (
 	"context"
+	"time"
 
 	"main.go/service/service_models"
 )
@@ -10,6 +11,7 @@ type Storage interface {
 	OperationStorage
 	BondReportStorage
 	CurrencyStorage
+	UidsStorage
 }
 
 type OperationStorage interface {
@@ -22,4 +24,12 @@ type BondReportStorage interface {
 }
 
 type CurrencyStorage interface {
+	SaveCurrency(ctx context.Context, currencies service_models.Currencies) error
+	GetCurrency(ctx context.Context, currency string, date time.Time) (float64, error)
+}
+
+type UidsStorage interface {
+	SaveUids(ctx context.Context, uids map[string]string) error
+	IsUpdatedUids(ctx context.Context) (bool, error)
+	GetUid(ctx context.Context, instrumentUid string) (string, error)
 }

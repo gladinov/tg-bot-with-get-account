@@ -1,12 +1,10 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"math"
 	"time"
 
-	"main.go/lib/e"
 	"main.go/service/service_models"
 )
 
@@ -15,68 +13,6 @@ const (
 	hoursInDay = 24
 	daysInYear = 365
 )
-
-func (c *Client) GetBondReports(chatID int, token string) (err error) {
-	defer func() { err = e.WrapIfErr("can't get bond reports", err) }()
-	client := c.Tinkoffapi
-
-	err = client.FillClient(token)
-	if err != nil {
-		return err
-	}
-
-	assetUidInstrumentUidMap, err := c.Tinkoffapi.GetAllAssetUids() // TODO: Переписать так чтобы запрос проходил один раз в день без вызова пользователя
-	if err != nil {
-		return err
-	}
-	accounts, err := c.Tinkoffapi.GetAcc()
-	if err != nil {
-		return err
-	}
-
-	for _, account := range accounts {
-		err := c.Tinkoffapi.GetOpp(&account)
-		if err != nil {
-			return err
-		}
-		operations := c.TransOperations(account.Operations)
-
-		err = c.Storage.SaveOperations(context.Background(), chatID, account.Id, operations)
-		if err != nil {
-			return err
-		}
-
-		err = c.Tinkoffapi.GetPortf(&account)
-		if err != nil {
-			return err
-		}
-
-		portfolio, err := c.TransPositions(&account, assetUidInstrumentUidMap)
-		if err != nil {
-			return err
-		}
-
-		for _, v := range portfolio.BondPositions {
-			operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.Identifiers.AssetUid, account.Id)
-			if err != nil {
-				return err
-			}
-			resultBondPosition, err := c.ProcessOperations(operationsDb)
-			if err != nil {
-				return err
-			}
-			bondReport, err := c.CreateBondReport(*resultBondPosition)
-			if err != nil {
-				return err
-			}
-			err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondReport.BondsInRUB)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions) (service_models.Report, error) {
 	var resultReports service_models.Report

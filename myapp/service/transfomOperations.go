@@ -5,7 +5,7 @@ import (
 	"main.go/service/service_models"
 )
 
-func (s *Client) TransOperations(operations []*pb.OperationItem) []service_models.Operation {
+func (c *Client) TransOperations(operations []*pb.OperationItem) []service_models.Operation {
 	transformOperations := make([]service_models.Operation, 0)
 	for _, v := range operations {
 		transformOperation := service_models.Operation{

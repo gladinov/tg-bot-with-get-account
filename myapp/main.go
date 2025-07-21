@@ -28,6 +28,7 @@ const (
 )
 
 func main() {
+
 	telegrammClient := tgClient.New(tgBotHost, mustToken())
 
 	logger := loggAdapter.SetupLogger()

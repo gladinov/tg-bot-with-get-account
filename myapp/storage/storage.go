@@ -13,6 +13,7 @@ type Storage interface {
 }
 
 var ErrNoSavePages = errors.New("no saved pages")
+var ErrNoSaveTokens = errors.New("no saved tokens")
 
 type Page struct {
 	URL      string

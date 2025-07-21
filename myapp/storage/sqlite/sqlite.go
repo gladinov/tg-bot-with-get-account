@@ -41,10 +41,10 @@ func (s *Storage) PickToken(ctx context.Context, chatId int) (string, error) {
 
 	err := s.db.QueryRowContext(ctx, q, chatId).Scan(&token)
 	if err == sql.ErrNoRows {
-		return "", storage.ErrNoSavePages
+		return "", storage.ErrNoSaveTokens
 	}
 	if err != nil {
-		return "", fmt.Errorf("can't pick random page: %w", err)
+		return "", fmt.Errorf("can't pick token: %w", err)
 
 	}
 
