@@ -5,10 +5,12 @@ import (
 )
 
 type BondIdentIdentifiers struct {
-	Ticker    string
-	ClassCode string
-	Name      string
-	Nominal   float64
+	Ticker          string
+	ClassCode       string
+	Name            string
+	Nominal         float64
+	NominalCurrency string
+	Replaced        bool
 }
 
 func (c *Client) GetBondsActionsFromTinkoff(instrumentUid string) (BondIdentIdentifiers, error) {
@@ -21,8 +23,12 @@ func (c *Client) GetBondsActionsFromTinkoff(instrumentUid string) (BondIdentIden
 	res.Ticker = bondUid.BondResponse.Instrument.GetTicker()
 	res.ClassCode = bondUid.BondResponse.Instrument.GetClassCode()
 	res.Name = bondUid.BondResponse.Instrument.GetName()
-	res.Nominal = bondUid.BondResponse.Instrument.GetNominal().ToFloat()
 
+	if bondUid.BondResponse.Instrument.GetBondType() == 1 {
+		res.Replaced = true
+	}
+	res.Nominal = bondUid.BondResponse.Instrument.GetNominal().ToFloat()
+	res.NominalCurrency = bondUid.Instrument.GetNominal().Currency
 	return res, nil
 }
 

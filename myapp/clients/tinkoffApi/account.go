@@ -19,11 +19,6 @@ type Account struct {
 	Operations  []*pb.OperationItem
 }
 
-type User struct {
-	Token    string
-	Accounts []*Account
-}
-
 func (c *Client) GetAcc() (map[string]Account, error) {
 	usersService := c.Client.NewUsersServiceClient()
 	accounts := make(map[string]Account)

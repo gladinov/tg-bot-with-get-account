@@ -3,7 +3,9 @@ package service
 import (
 	"errors"
 	"math"
+	"time"
 
+	"main.go/lib/e"
 	"main.go/service/service_models"
 )
 
@@ -32,13 +34,22 @@ func (c *Client) GetSpecificationsFromTinkoff(position *service_models.SharePosi
 	}
 	position.Ticker = resSpecFromTinkoff.Ticker
 	position.ClassCode = resSpecFromTinkoff.ClassCode
-	position.Nominal = resSpecFromTinkoff.Nominal
-
+	if resSpecFromTinkoff.Replaced {
+		date := time.Now()
+		isoCurrName := resSpecFromTinkoff.NominalCurrency
+		vunit_rate, err := c.GetCurrencyFromCB(isoCurrName, date)
+		if err != nil {
+			return e.WrapIfErr("getSpecificationsFromMoex err", err)
+		}
+		position.Nominal = resSpecFromTinkoff.Nominal * vunit_rate
+	} else {
+		position.Nominal = resSpecFromTinkoff.Nominal
+	}
 	resLastPriceFromTinkoff, err := c.Tinkoffapi.GetLastPriceFromTinkoffInPersentageToNominal(position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex:" + err.Error())
 	}
-	// Округляем до двух занков после запятой
+
 	position.SellPrice = math.Round(resLastPriceFromTinkoff/100*position.Nominal*100) / 100
 	return nil
 

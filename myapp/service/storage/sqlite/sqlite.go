@@ -116,6 +116,23 @@ func (s *Storage) Init(ctx context.Context) error {
 	return nil
 }
 
+func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountId string) (time.Time, error) {
+	q := "select date from operations where chatId == ? and broker_account_id == ? order by date desc LIMIT 1"
+
+	var date time.Time
+
+	err := s.db.QueryRowContext(ctx, q, chatID, accountId).Scan(&date)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return date, service_models.ErrNoOpperations
+		}
+		return date, e.WrapIfErr("query error", err)
+	}
+	return date, nil
+
+}
+
 func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []service_models.Operation) error {
 	q := `
     INSERT INTO operations (
@@ -176,7 +193,57 @@ func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId stri
 	return nil
 }
 
+func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) ([]service_models.Operation, error) {
+	q := "select name,date,type, figi, operation_id,quantity_done,instrument_type,instrument_uid,price,currency,accrued_int,commission, payment from operations where chatId == ? and broker_account_id == ? and asset_uid == ? order by date"
+
+	operationRes := make([]service_models.Operation, 0)
+
+	rows, err := s.db.QueryContext(ctx, q, chatId, accountId, assetUid)
+	if err != nil {
+		return nil, e.WrapIfErr("query error", err)
+	}
+	for rows.Next() {
+		var operation service_models.Operation
+		err := rows.Scan(&operation.Name,
+			&operation.Date,
+			&operation.Type,
+			&operation.Figi,
+			&operation.Operation_Id,
+			&operation.QuantityDone,
+			&operation.InstrumentType,
+			&operation.InstrumentUid,
+			&operation.Price,
+			&operation.Currency,
+			&operation.AccruedInt,
+			&operation.Commission,
+			&operation.Payment)
+		if err != nil {
+			return nil, e.WrapIfErr("can't get operations", err)
+		}
+		operationRes = append(operationRes, operation)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, e.WrapIfErr("GetOperationsFromDB: rows.Err()", err)
+	}
+
+	return operationRes, nil
+
+}
+
+func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error) {
+	defer func() { err = e.WrapIfErr("can't delete bond report by chatId and accountId", err) }()
+	q := "DELETE FROM bond_reports WHERE chatId = ? AND broker_account_id = ?"
+
+	if _, err := s.db.ExecContext(ctx,
+		q,
+		chatID, accountId); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) error {
+
 	q := `
     INSERT INTO bond_reports (
 		chatId,
@@ -224,43 +291,6 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
 		}
 	}
 	return nil
-}
-
-func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) ([]service_models.Operation, error) {
-	q := "select name,date,type, figi, operation_id,quantity_done,instrument_type,instrument_uid,price,currency,accrued_int,commission, payment from operations where chatId == ? and broker_account_id == ? and asset_uid == ? order by date"
-
-	operationRes := make([]service_models.Operation, 0)
-
-	rows, err := s.db.QueryContext(ctx, q, chatId, accountId, assetUid)
-	if err != nil {
-		return nil, e.WrapIfErr("query error", err)
-	}
-	for rows.Next() {
-		var operation service_models.Operation
-		err := rows.Scan(&operation.Name,
-			&operation.Date,
-			&operation.Type,
-			&operation.Figi,
-			&operation.Operation_Id,
-			&operation.QuantityDone,
-			&operation.InstrumentType,
-			&operation.InstrumentUid,
-			&operation.Price,
-			&operation.Currency,
-			&operation.AccruedInt,
-			&operation.Commission,
-			&operation.Payment)
-		if err != nil {
-			return nil, e.WrapIfErr("can't get operations", err)
-		}
-		operationRes = append(operationRes, operation)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, e.WrapIfErr("GetOperationsFromDB: rows.Err()", err)
-	}
-
-	return operationRes, nil
-
 }
 
 func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err error) {
@@ -340,13 +370,13 @@ func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (string, err
 	return asset_uid, nil
 }
 
-func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Currencies) error {
+func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Currencies, date time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
+	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	stmt, err := tx.PrepareContext(ctx, `
         INSERT INTO currencies 
         (date, num_code, char_code, nominal, name, value, vunit_rate)
@@ -359,7 +389,7 @@ func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Cu
 
 	for _, c := range currencies.CurrenciesMap {
 		_, err = stmt.ExecContext(ctx,
-			c.Date,
+			date,
 			c.NumCode,
 			c.CharCode,
 			c.Nominal,

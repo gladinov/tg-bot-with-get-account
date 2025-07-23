@@ -7,6 +7,7 @@ import (
 
 var ErrEmptyUids = errors.New("no uids")
 var ErrNoCurrency = errors.New("no currency")
+var ErrNoOpperations = errors.New("no operations")
 
 type Operation struct {
 	BrokerAccountId   string

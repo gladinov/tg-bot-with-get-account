@@ -3,7 +3,6 @@ package cbr
 import (
 	"bytes"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -47,7 +46,6 @@ func New(host string) *Client {
 func (c *Client) GetAllCurrencies(date time.Time) (curr ValCurs, err error) {
 	defer func() { err = e.WrapIfErr("getAllCurrencies error", err) }()
 	formatDate := date.Format(layout)
-	fmt.Println(formatDate)
 	Path := path.Join("scripts", "XML_daily.asp")
 	params := url.Values{}
 	params.Add("date_req", formatDate)
