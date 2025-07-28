@@ -16,7 +16,6 @@ type Account struct {
 	ClosedDate  time.Time
 	AccessLevel pb.AccessLevel
 	Portfolio   []*pb.PortfolioPosition
-	Operations  []*pb.OperationItem
 }
 
 func (c *Client) GetAcc() (map[string]Account, error) {

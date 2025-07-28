@@ -3,82 +3,30 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 
-	"main.go/clients/tinkoffApi"
+	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"main.go/lib/e"
 	"main.go/service/service_models"
 )
 
-// Обрабатываем в нормальный формат портфеля
-func (c *Client) TransPositions(account *tinkoffApi.Account) (portf service_models.Portfolio, err error) {
-	defer func() { err = e.WrapIfErr("TransPositions err ", err) }()
-	Portfolio := service_models.Portfolio{}
-	for _, v := range account.Portfolio {
+func (c *Client) TransformPositions(accountID string, portffolioPositions []*pb.PortfolioPosition) (_ []service_models.PortfolioPosition, err error) {
+	defer func() { err = e.WrapIfErr("transPositions err ", err) }()
+	portfolio := make([]service_models.PortfolioPosition, 0)
+	for _, v := range portffolioPositions {
 		assetUid, err := c.GetUidByInstrUid(v.GetInstrumentUid())
 		if err != nil {
-			return Portfolio, err
+			return portfolio, err
 		}
-		if v.InstrumentType == "bond" {
-			BondPosition := service_models.Bond{
-				Identifiers: service_models.Identifiers{
-					Figi:          v.GetFigi(),
-					InstrumentUid: v.GetInstrumentUid(),
-					PositionUid:   v.GetPositionUid(),
-				},
-				InstrumentType:           v.GetInstrumentType(),
-				Currency:                 v.GetAveragePositionPrice().Currency,
-				Quantity:                 v.GetQuantity().ToFloat(),
-				AveragePositionPrice:     v.GetAveragePositionPrice().ToFloat(),
-				ExpectedYield:            v.GetExpectedYield().ToFloat(),
-				CurrentNkd:               v.GetCurrentNkd().ToFloat(),
-				CurrentPrice:             v.GetCurrentPrice().ToFloat(),
-				AveragePositionPriceFifo: v.GetAveragePositionPriceFifo().ToFloat(),
-				Blocked:                  v.GetBlocked(),
-				ExpectedYieldFifo:        v.GetExpectedYieldFifo().ToFloat(),
-				DailyYield:               v.GetDailyYield().ToFloat(),
-			}
-			// Получаем AssetUid с помощью МАПЫ assetUidInstrumentUidMap
-			BondPosition.Identifiers.AssetUid = assetUid
-
-			// Получаем Тикер, Режим торгов и Короткое имя инструмента
-			// BondPosition.GetBondsActionsFromPortfolio(client)
-			resFromTinkoff, err := c.Tinkoffapi.GetBondsActionsFromTinkoff(BondPosition.Identifiers.InstrumentUid)
-			if err != nil {
-				return Portfolio, err
-			}
-			BondPosition.Identifiers.Ticker = resFromTinkoff.Ticker
-			BondPosition.Identifiers.ClassCode = resFromTinkoff.ClassCode
-			BondPosition.Name = resFromTinkoff.Name
-
-			// Добавляем позицию в срез позиций
-			Portfolio.BondPositions = append(Portfolio.BondPositions, BondPosition)
-		} else {
-			transPosionRet := service_models.PortfolioPosition{
-				Figi:                     v.GetFigi(),
-				InstrumentType:           v.GetInstrumentType(),
-				Currency:                 v.GetAveragePositionPrice().Currency,
-				Quantity:                 v.GetQuantity().ToFloat(),
-				AveragePositionPrice:     v.GetAveragePositionPrice().ToFloat(),
-				ExpectedYield:            v.GetExpectedYield().ToFloat(),
-				CurrentNkd:               v.GetCurrentNkd().ToFloat(),
-				CurrentPrice:             v.GetCurrentPrice().ToFloat(),
-				AveragePositionPriceFifo: v.GetAveragePositionPriceFifo().ToFloat(),
-				Blocked:                  v.GetBlocked(),
-				BlockedLots:              v.GetBlockedLots().ToFloat(),
-				PositionUid:              v.GetPositionUid(),
-				InstrumentUid:            v.GetInstrumentUid(),
-				VarMargin:                v.GetVarMargin().ToFloat(),
-				ExpectedYieldFifo:        v.GetExpectedYieldFifo().ToFloat(),
-				DailyYield:               v.GetDailyYield().ToFloat(),
-			}
-			transPosionRet.AssetUid = assetUid
-			Portfolio.PortfolioPositions = append(Portfolio.PortfolioPositions, transPosionRet)
+		transPosionRet := service_models.PortfolioPosition{
+			InstrumentType: v.GetInstrumentType(),
 		}
+		transPosionRet.AssetUid = assetUid
+		portfolio = append(portfolio, transPosionRet)
 	}
-	fmt.Printf("✓ Добавлено %v позиций в Account.PortfolioPositions по счету %s\n", len(Portfolio.PortfolioPositions), account.Id)
-	fmt.Printf("✓ Добавлено %v позиций в Account.PortfolioBondPositions по счету %s\n", len(Portfolio.BondPositions), account.Id)
-	return Portfolio, nil
+
+	c.Tinkoffapi.Client.Logger.Infof("✓ Добавлено %v позиций в portfolio по счету %s\n", len(portfolio), accountID)
+	// fmt.Printf("✓ Добавлено %v позиций в portfolio по счету %s\n", len(portfolio), accountID)
+	return portfolio, nil
 }
 
 func (c *Client) GetUidByInstrUid(instrumentUid string) (asset_uid string, err error) {

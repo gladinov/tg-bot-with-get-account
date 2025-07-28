@@ -4,21 +4,24 @@ import (
 	"errors"
 
 	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
+	"main.go/lib/e"
 )
 
-func (c *Client) GetPortf(account *Account) error {
-	// По закрытым счетам не забираем данные
-	if account.Status == 3 {
-		return nil
+var ErrCloseAccount = errors.New("close account havn't portffolio positions")
+
+func (c *Client) GetPortf(accountID string, accountStatus int64) (_ []*pb.PortfolioPosition, err error) {
+	portffolioPosition := make([]*pb.PortfolioPosition, 0)
+	if accountStatus == 3 {
+		return portffolioPosition, ErrCloseAccount
 	}
 	operationsService := c.Client.NewOperationsServiceClient()
-	id := account.Id
+	id := accountID
 	portfolioResp, err := operationsService.GetPortfolio(id,
 		pb.PortfolioRequest_RUB)
 	if err != nil {
-		return errors.New("GetPortf: operationsService.GetPortfolio" + err.Error())
+		return portffolioPosition, e.WrapIfErr("can't get portifolio positions from tinkoff Api", err)
 	}
-	account.Portfolio = portfolioResp.GetPositions()
+	portffolioPosition = portfolioResp.GetPositions()
 
-	return nil
+	return portffolioPosition, nil
 }

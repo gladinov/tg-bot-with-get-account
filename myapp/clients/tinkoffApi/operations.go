@@ -1,42 +1,45 @@
 package tinkoffApi
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/russianinvestments/invest-api-go-sdk/investgo"
+	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
+	"main.go/lib/e"
 )
 
-func (c *Client) GetOpp(account *Account, date time.Time) error {
+func (c *Client) GetOperations(accountID string, date time.Time) (_ []*pb.OperationItem, err error) {
+	defer func() { err = e.WrapIfErr("can't get opperations from tinkoffApi", err) }()
+	resOpereaions := make([]*pb.OperationItem, 0)
 	opereationsService := c.Client.NewOperationsServiceClient()
 	operationsResp, err := opereationsService.GetOperationsByCursor(&investgo.GetOperationsByCursorRequest{
-		AccountId: account.Id,
+		AccountId: accountID,
 		From:      date,
 		To:        time.Now(),
 		Limit:     1000,
 	})
 	if err != nil {
-		return errors.New("GetOpp: operationsService.GetOperationsByCursor" + err.Error())
+		return resOpereaions, err
 	}
 	operations := operationsResp.GetOperationsByCursorResponse.GetItems()
-	account.Operations = append(account.Operations, operations...)
+	resOpereaions = append(resOpereaions, operations...)
 	nextCursor := operationsResp.NextCursor
 	for nextCursor != "" {
 		operationsResp, err := opereationsService.GetOperationsByCursor(&investgo.GetOperationsByCursorRequest{
-			AccountId: account.Id,
+			AccountId: accountID,
 			Limit:     1000,
 			Cursor:    nextCursor,
 		})
 		if err != nil {
-			return errors.New("GetOpp: operationsService.GetOperationsByCursor" + err.Error())
+			return resOpereaions, err
 		} else {
 			nextCursor = operationsResp.NextCursor
 			operations := operationsResp.GetOperationsByCursorResponse.Items
-			account.Operations = append(account.Operations, operations...)
+			resOpereaions = append(resOpereaions, operations...)
 		}
 	}
 
-	fmt.Printf("✓ Добавлено %v операции в Account.Operation по счету %s\n", len(account.Operations), account.Id)
-	return nil
+	fmt.Printf("✓ Добавлено %v операции в Account.Operation по счету %s\n", len(resOpereaions), accountID)
+	return resOpereaions, nil
 }

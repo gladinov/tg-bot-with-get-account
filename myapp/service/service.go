@@ -16,6 +16,7 @@ import (
 
 const (
 	layoutCurr = "02.01.2006"
+	reportPath = "service/vizualize/tables/report.png"
 )
 
 type Client struct {
@@ -49,34 +50,17 @@ func (c *Client) GetBondReports(chatID int, token string) (err error) {
 	}
 
 	for _, account := range accounts {
-		fromDate, err := c.Storage.LastOperationTime(context.Background(), chatID, account.Id)
-		fromDate = fromDate.Add(time.Microsecond * 1)
-
-		if err != nil {
-			if errors.Is(err, service_models.ErrNoOpperations) {
-				fromDate = account.OpenedDate
-			} else {
-				return err
-			}
-		}
-
-		err = c.Tinkoffapi.GetOpp(&account, fromDate)
-		if err != nil {
-			return err
-		}
-		operations := c.TransOperations(account.Operations)
-
-		err = c.Storage.SaveOperations(context.Background(), chatID, account.Id, operations)
+		err = c.updateOperations(chatID, account.Id, account.OpenedDate)
 		if err != nil {
 			return err
 		}
 
-		err = c.Tinkoffapi.GetPortf(&account)
-		if err != nil {
+		portffolioPositions, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
+		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
 			return err
 		}
 
-		portfolio, err := c.TransPositions(&account)
+		portfolio, err := c.TransformPositions(account.Id, portffolioPositions)
 		if err != nil {
 			return err
 		}
@@ -84,27 +68,30 @@ func (c *Client) GetBondReports(chatID int, token string) (err error) {
 		if err != nil {
 			return err
 		}
-		for _, v := range portfolio.BondPositions {
 
-			operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.Identifiers.AssetUid, account.Id)
-			if err != nil {
-				return err
-			}
-			resultBondPosition, err := c.ProcessOperations(operationsDb)
-			if err != nil {
-				return err
-			}
-			bondReport, err := c.CreateBondReport(*resultBondPosition)
-			if err != nil {
-				return err
-			}
+		for _, v := range portfolio {
+			if v.InstrumentType == "bond" {
+				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
+				if err != nil {
+					return err
+				}
+				resultBondPosition, err := c.ProcessOperations(operationsDb)
+				if err != nil {
+					return err
+				}
+				bondReport, err := c.CreateBondReport(*resultBondPosition)
+				if err != nil {
+					return err
+				}
 
-			err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondReport.BondsInRUB)
-			if err != nil {
-				return err
+				err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondReport.BondsInRUB)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -135,4 +122,30 @@ func (c *Client) GetUsd() (float64, error) {
 		return 0, e.WrapIfErr("usd get error", err)
 	}
 	return usd, nil
+}
+
+func (c *Client) updateOperations(chatID int, accountId string, openDate time.Time) (err error) {
+	defer func() { err = e.WrapIfErr("can't updateOperations", err) }()
+	fromDate, err := c.Storage.LastOperationTime(context.Background(), chatID, accountId)
+	fromDate = fromDate.Add(time.Microsecond * 1)
+
+	if err != nil {
+		if errors.Is(err, service_models.ErrNoOpperations) {
+			fromDate = openDate
+		} else {
+			return err
+		}
+	}
+
+	tinkoffOperations, err := c.Tinkoffapi.GetOperations(accountId, fromDate)
+	if err != nil {
+		return err
+	}
+	operations := c.TransOperations(tinkoffOperations)
+
+	err = c.Storage.SaveOperations(context.Background(), chatID, accountId, operations)
+	if err != nil {
+		return err
+	}
+	return nil
 }
