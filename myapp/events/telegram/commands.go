@@ -10,12 +10,13 @@ import (
 )
 
 const (
-	RndCmd        = "/rnd"
-	HelpCmd       = "/help"
-	StartCmd      = "/start"
-	AccountsCmd   = "/accounts"
-	GetBondReport = "/bondReport"
-	GetUSD        = "/usd"
+	RndCmd               = "/rnd"
+	HelpCmd              = "/help"
+	StartCmd             = "/start"
+	AccountsCmd          = "/accounts"
+	GetBondReport        = "/bondReportByFifo"
+	GetGeneralBondReport = "/generalBondReport"
+	GetUSD               = "/usd"
 )
 
 func (p *Processor) doCmd(text string, chatID int, username string) error {
@@ -57,6 +58,8 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		return p.sendAccounts(chatID, token)
 	case GetBondReport:
 		return p.getBondReports(chatID, token)
+	case GetGeneralBondReport:
+		return p.getGeneralBondReport(chatID, token)
 	case GetUSD:
 		return p.getUSD(chatID)
 	default:
@@ -102,11 +105,19 @@ func (p *Processor) sendAccounts(chatID int, token string) error {
 }
 
 func (p *Processor) getBondReports(chatID int, token string) (err error) {
-	if err = p.service.GetBondReports(chatID, token); err != nil {
+	if err = p.service.GetBondReportsByFifo(chatID, token); err != nil {
 		return e.WrapIfErr("getBondReport: can't get Bond reports", err)
 	}
 
-	p.tg.SendMessage(chatID, "Отчеты по облигациям успешно сохранены в базу данных")
+	p.tg.SendMessage(chatID, "Отчет по облигациям по методу FIFO успешно сохранен в базу данных")
+	return nil
+}
+
+func (p *Processor) getGeneralBondReport(chatID int, token string) (err error) {
+	if err = p.service.GetBondReportsWithEachGeneralPosition(chatID, token); err != nil {
+		return e.WrapIfErr("getBondReport: can't get general bond reports", err)
+	}
+	p.tg.SendMessage(chatID, "Общий отчет по облигациям успешно сохранен в базу данных")
 	return nil
 }
 

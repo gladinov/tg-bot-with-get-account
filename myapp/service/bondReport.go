@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"main.go/lib/e"
 	"main.go/service/service_models"
 )
 
@@ -38,14 +39,120 @@ func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions)
 	return resultReports, nil
 }
 
-func (c *Client) createBondReport(position service_models.SharePosition) (service_models.BondReport, error) {
+func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.ReportPositions, totalAmount float64) (_ service_models.GeneralBondReporPosition, err error) {
+	defer func() { err = e.WrapIfErr("can't create general bond report", err) }()
+	currentPostions := resultBondPosition.CurrentPositions
+	var generalBondReporPosition service_models.GeneralBondReporPosition
+
+	if len(currentPostions) == 0 {
+		return generalBondReporPosition, errors.New("no input positions")
+	}
+	generalBondReporPosition.Name = currentPostions[0].Name
+	generalBondReporPosition.Ticker = currentPostions[0].Ticker
+	generalBondReporPosition.Currencies = currentPostions[0].Currency
+	generalBondReporPosition.Nominal = currentPostions[0].Nominal
+	generalBondReporPosition.CurrentPrice = currentPostions[0].SellPrice
+
+	var sumOfPosition float64
+	buyDate := currentPostions[0].BuyDate
+	var sumOfQuantity float64
+	var profit float64
+
+	for _, position := range currentPostions {
+		sumOfPosition += position.BuyPrice * position.Quantity
+		compareDate := position.BuyDate
+		if compareDate.Compare(buyDate) == -1 {
+			buyDate = compareDate
+		}
+		sumOfQuantity += position.Quantity
+		profit += position.PositionProfit
+	}
+	generalBondReporPosition.PositionPrice = RoundFloat(sumOfPosition/sumOfQuantity, 2)
+	generalBondReporPosition.BuyDate = buyDate.Format(layout)
+	generalBondReporPosition.Quantity = int64(sumOfQuantity)
+	generalBondReporPosition.Profit = profit
+	generalBondReporPosition.ProfitInPercentage = profit / sumOfPosition
+	generalBondReporPosition.PercentOfPortfolio = RoundFloat((sumOfPosition/totalAmount)*100, 2)
+
+	moexBuyDateData, err := c.MoexApi.GetSpecifications(generalBondReporPosition.Ticker, buyDate)
+	if err != nil {
+		return generalBondReporPosition, err
+	}
+	date := time.Now()
+	moexNowData, err := c.MoexApi.GetSpecifications(generalBondReporPosition.Ticker, date)
+	if err != nil {
+		return generalBondReporPosition, err
+	}
+
+	lastPriceDataPath := moexNowData.History.Data[0]
+
+	duration := lastPriceDataPath.Duration
+	if duration != nil {
+		generalBondReporPosition.Duration = int64(*duration)
+	}
+
+	yieldToOffer := lastPriceDataPath.YieldToOffer
+	yieldToMaturity := lastPriceDataPath.YieldToMaturity
+	if yieldToOffer != nil {
+		generalBondReporPosition.YieldToMaturity = *yieldToOffer
+	} else {
+		if yieldToMaturity != nil {
+			generalBondReporPosition.YieldToMaturity = *yieldToMaturity
+		}
+	}
+
+	maturityDate := lastPriceDataPath.MaturityDate
+	offerDate := lastPriceDataPath.OfferDate
+	buyBackDate := lastPriceDataPath.BuybackDate
+
+	switch {
+	case offerDate != nil && buyBackDate != nil:
+		offerDateConv, err := time.Parse(layout, *offerDate)
+		if err != nil {
+			return generalBondReporPosition, err
+		}
+		buyBackDateConv, err := time.Parse(layout, *buyBackDate)
+		if err != nil {
+			return generalBondReporPosition, err
+		}
+		if offerDateConv.Compare(buyBackDateConv) == -1 {
+			generalBondReporPosition.MaturityDate = *offerDate
+		} else {
+			generalBondReporPosition.MaturityDate = *buyBackDate
+		}
+	case offerDate != nil:
+		generalBondReporPosition.MaturityDate = *offerDate
+	case buyBackDate != nil:
+		generalBondReporPosition.MaturityDate = *buyBackDate
+	case maturityDate != nil:
+		generalBondReporPosition.MaturityDate = *maturityDate
+	default:
+		generalBondReporPosition.MaturityDate = ""
+	}
+
+	buyPriceDataPath := moexBuyDateData.History.Data[0]
+
+	yieldToOfferOnPurchase := buyPriceDataPath.YieldToOffer
+	yieldToMaturityOnPurchase := buyPriceDataPath.YieldToMaturity
+	if yieldToOfferOnPurchase != nil {
+		generalBondReporPosition.YieldToMaturityOnPurchase = *yieldToOfferOnPurchase
+	} else {
+		if yieldToMaturityOnPurchase != nil {
+			generalBondReporPosition.YieldToMaturityOnPurchase = *yieldToMaturityOnPurchase
+		}
+	}
+
+	return generalBondReporPosition, nil
+}
+
+func (c *Client) createBondReport(position service_models.PositionByFIFO) (service_models.BondReport, error) {
 	var bondReport service_models.BondReport
-	moexBuyData, err := c.MoexApi.GetSpecifications(position.Ticker, position.BuyDate)
+	moexBuyDateData, err := c.MoexApi.GetSpecifications(position.Ticker, position.BuyDate)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
 	date := time.Now()
-	moexLastPriceData, err := c.MoexApi.GetSpecifications(position.Ticker, date)
+	moexNowData, err := c.MoexApi.GetSpecifications(position.Ticker, date)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
@@ -58,8 +165,8 @@ func (c *Client) createBondReport(position service_models.SharePosition) (servic
 		CurrentPrice: RoundFloat(position.SellPrice, 2),
 		Nominal:      position.Nominal,
 	}
-	lastPriceDataPath := moexLastPriceData.History.Data[0]
-	buyPriceDataPath := moexBuyData.History.Data[0]
+	lastPriceDataPath := moexNowData.History.Data[0]
+	buyPriceDataPath := moexBuyDateData.History.Data[0]
 
 	maturityDate := lastPriceDataPath.MaturityDate
 	if maturityDate != nil {
@@ -111,7 +218,7 @@ func (c *Client) createBondReport(position service_models.SharePosition) (servic
 	return bondReport, nil
 }
 
-func getProfit(sharePosition service_models.SharePosition) (float64, error) {
+func getProfit(sharePosition service_models.PositionByFIFO) (float64, error) {
 	profitWithoutTax := getSecurityIncomeWithoutTax(sharePosition)
 	totalTax := getTotalTaxFromPosition(sharePosition, profitWithoutTax)
 	profit := getSecurityIncome(profitWithoutTax, totalTax)
@@ -122,7 +229,7 @@ func getProfit(sharePosition service_models.SharePosition) (float64, error) {
 	return profitInPercentage, nil
 }
 
-func getAnnualizedReturnInPercentage(p service_models.SharePosition) (float64, error) {
+func getAnnualizedReturnInPercentage(p service_models.PositionByFIFO) (float64, error) {
 	var totalReturn float64
 	profitWithoutTax := getSecurityIncomeWithoutTax(p)
 	totalTax := getTotalTaxFromPosition(p, profitWithoutTax)

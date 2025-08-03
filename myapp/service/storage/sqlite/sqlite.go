@@ -58,6 +58,32 @@ func (s *Storage) Init(ctx context.Context) error {
 		return fmt.Errorf("can't create bond reports table: %w", err)
 	}
 
+	q_general_bond_report := `CREATE TABLE IF NOT EXISTS general_bond_report (
+        id INTEGER PRIMARY KEY,
+        chatId REAL,
+        broker_account_id TEXT,
+        name TEXT,
+        ticker TEXT,
+        currencies TEXT,
+        quantity INTEGER,
+        percent_of_portfolio TEXT,
+        maturity_date DATETIME,
+        duration INTEGER,
+        buy_date DATETIME,
+        position_price REAL,
+        yield_to_maturity_on_purchase REAL,
+        yield_to_maturity REAL,
+        current_price REAL,
+        nominal REAL,
+        profit REAL,
+        profit_in_percentage REAL
+    )`
+
+	_, err = s.db.ExecContext(ctx, q_general_bond_report)
+	if err != nil {
+		return fmt.Errorf("can't create general bond report positions table: %w", err)
+	}
+
 	q_uids := `CREATE TABLE IF NOT EXISTS uids (
 		update_time DATETIME,
 		instrument_uid TEXT,
@@ -288,6 +314,68 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
 			report.Profit,
 			report.AnnualizedReturn); err != nil {
 			return e.WrapIfErr("can't save bond report", err)
+		}
+	}
+	return nil
+}
+
+func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accountId string) (err error) {
+	defer func() { err = e.WrapIfErr("can't delete general bond report by chatId and accountId", err) }()
+	q := "DELETE FROM general_bond_report WHERE chatId = ? AND broker_account_id = ?"
+
+	if _, err := s.db.ExecContext(ctx,
+		q,
+		chatID, accountId); err != nil {
+		return err
+	}
+	return nil
+}
+func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []service_models.GeneralBondReporPosition) error {
+	q := `
+    INSERT INTO general_bond_report (
+        chatId,
+        broker_account_id,
+        name,
+        ticker,
+        currencies,
+        quantity,
+        percent_of_portfolio,
+        maturity_date,
+        duration,
+        buy_date,
+        position_price,
+        yield_to_maturity_on_purchase,
+        yield_to_maturity,
+        current_price,
+        nominal,
+        profit,
+        profit_in_percentage
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+	for _, pos := range positions {
+		if _, err := s.db.ExecContext(
+			ctx,
+			q,
+			chatID,
+			accountId,
+			pos.Name,
+			pos.Ticker,
+			pos.Currencies,
+			pos.Quantity,
+			pos.PercentOfPortfolio,
+			pos.MaturityDate,
+			pos.Duration,
+			pos.BuyDate,
+			pos.PositionPrice,
+			pos.YieldToMaturityOnPurchase,
+			pos.YieldToMaturity,
+			pos.CurrentPrice,
+			pos.Nominal,
+			pos.Profit,
+			pos.ProfitInPercentage,
+		); err != nil {
+			return e.WrapIfErr("can't save general bond position", err)
 		}
 	}
 	return nil

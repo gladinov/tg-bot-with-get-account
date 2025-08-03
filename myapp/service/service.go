@@ -35,7 +35,7 @@ func New(tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient
 	}
 }
 
-func (c *Client) GetBondReports(chatID int, token string) (err error) {
+func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 	defer func() { err = e.WrapIfErr("can't get bond reports", err) }()
 	client := c.Tinkoffapi
 
@@ -55,12 +55,12 @@ func (c *Client) GetBondReports(chatID int, token string) (err error) {
 			return err
 		}
 
-		portffolioPositions, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
+		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
 		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
 			return err
 		}
 
-		portfolio, err := c.TransformPositions(account.Id, portffolioPositions)
+		portfolioPositions, err := c.TransformPositions(account.Id, portfolio.Positions)
 		if err != nil {
 			return err
 		}
@@ -68,8 +68,8 @@ func (c *Client) GetBondReports(chatID int, token string) (err error) {
 		if err != nil {
 			return err
 		}
-
-		for _, v := range portfolio {
+		bondsInRub := make([]service_models.BondReport, 0)
+		for _, v := range portfolioPositions {
 			if v.InstrumentType == "bond" {
 				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
 				if err != nil {
@@ -83,12 +83,73 @@ func (c *Client) GetBondReports(chatID int, token string) (err error) {
 				if err != nil {
 					return err
 				}
+				bondsInRub = append(bondsInRub, bondReport.BondsInRUB...)
+			}
+		}
+		err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondsInRub)
+		if err != nil {
+			return err
+		}
+	}
 
-				err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondReport.BondsInRUB)
+	return nil
+}
+
+func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string) (err error) {
+	defer func() { err = e.WrapIfErr("can't get general bond report", err) }()
+	client := c.Tinkoffapi
+
+	err = client.FillClient(token)
+	if err != nil {
+		return err
+	}
+
+	accounts, err := c.Tinkoffapi.GetAcc()
+	if err != nil {
+		return err
+	}
+
+	for _, account := range accounts {
+		err = c.updateOperations(chatID, account.Id, account.OpenedDate)
+		if err != nil {
+			return err
+		}
+
+		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
+		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
+			return err
+		}
+
+		portfolioPositions, err := c.TransformPositions(account.Id, portfolio.Positions)
+		if err != nil {
+			return err
+		}
+		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.Id)
+		if err != nil {
+			return err
+		}
+		bondsInRub := make([]service_models.GeneralBondReporPosition, 0)
+		for _, v := range portfolioPositions {
+			if v.InstrumentType == "bond" {
+				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
 				if err != nil {
 					return err
 				}
+				resultBondPosition, err := c.ProcessOperations(operationsDb)
+				if err != nil {
+					return err
+				}
+				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, portfolio.TotalAmount)
+				if err != nil {
+					return err
+				}
+
+				bondsInRub = append(bondsInRub, bondReport)
 			}
+		}
+		err = c.Storage.SaveGeneralBondReport(context.Background(), chatID, account.Id, bondsInRub)
+		if err != nil {
+			return err
 		}
 	}
 

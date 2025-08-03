@@ -9,19 +9,25 @@ import (
 
 var ErrCloseAccount = errors.New("close account havn't portffolio positions")
 
-func (c *Client) GetPortf(accountID string, accountStatus int64) (_ []*pb.PortfolioPosition, err error) {
-	portffolioPosition := make([]*pb.PortfolioPosition, 0)
+type Portfolio struct {
+	Positions   []*pb.PortfolioPosition
+	TotalAmount float64
+}
+
+func (c *Client) GetPortf(accountID string, accountStatus int64) (_ Portfolio, err error) {
+	portfolio := Portfolio{}
 	if accountStatus == 3 {
-		return portffolioPosition, ErrCloseAccount
+		return portfolio, ErrCloseAccount
 	}
 	operationsService := c.Client.NewOperationsServiceClient()
 	id := accountID
 	portfolioResp, err := operationsService.GetPortfolio(id,
 		pb.PortfolioRequest_RUB)
 	if err != nil {
-		return portffolioPosition, e.WrapIfErr("can't get portifolio positions from tinkoff Api", err)
+		return portfolio, e.WrapIfErr("can't get portifolio positions from tinkoff Api", err)
 	}
-	portffolioPosition = portfolioResp.GetPositions()
+	portfolio.Positions = portfolioResp.GetPositions()
+	portfolio.TotalAmount = portfolioResp.GetTotalAmountPortfolio().ToFloat()
 
-	return portffolioPosition, nil
+	return portfolio, nil
 }

@@ -5,17 +5,30 @@ import (
 	"time"
 )
 
-func (c *Client) TestGetSpecifications(t *testing.T) {
+const (
+	moexHost = "iss.moex.com"
+)
+
+func TestGetSpecifications(t *testing.T) {
+	client := New(moexHost)
 	// Arrange
-	ticker := "RU000A104Y15"
-	date := time.Date(2023, time.October, 17, 0, 0, 0, 0, time.Local)
-	expected := 13.63
+	ticker := "RU000A1053P7"
+	date := time.Now()
+	expected := 195.0
+	// expected := ""
 
 	// Act
-	result, _ := c.GetSpecifications(ticker, date)
+	result, _ := client.GetSpecifications(ticker, date)
 
 	// Assert
-	if *result.History.Data[0].YieldToMaturity != expected {
-		t.Errorf("incorect result")
+	var get float64
+	if result.History.Data[0].YieldToOffer != nil {
+		get = *result.History.Data[0].YieldToMaturity
+		if get != expected {
+			t.Errorf("incorect result: expected: %v , get %v", expected, get)
+		}
+	} else {
+		t.Errorf("get nil")
 	}
+
 }

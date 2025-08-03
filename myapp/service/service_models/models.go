@@ -35,16 +35,14 @@ type Operation struct {
 
 type ReportPositions struct {
 	Quantity         float64
-	CurrentPositions []SharePosition
-	ClosePositions   []SharePosition
+	CurrentPositions []PositionByFIFO
+	ClosePositions   []PositionByFIFO
 }
 
-type SharePosition struct {
+type PositionByFIFO struct {
 	Name                  string
 	BuyDate               time.Time
 	SellDate              time.Time
-	BuyOperationID        string
-	SellOperationID       string
 	Quantity              float64
 	Figi                  string
 	InstrumentType        string
@@ -90,6 +88,24 @@ type BondReport struct {
 	Nominal                   float64
 	Profit                    float64 // Результат инвестиции
 	AnnualizedReturn          float64 // Годовая доходность
+}
+
+type GeneralBondReporPosition struct {
+	Name                      string
+	Ticker                    string
+	Currencies                string
+	Quantity                  int64
+	PercentOfPortfolio        float64
+	MaturityDate              string // дата погашения или выкупа или опциона
+	Duration                  int64
+	BuyDate                   string
+	PositionPrice             float64 // Средняя цена позиции
+	YieldToMaturityOnPurchase float64 // Доходность при покупке до даты погашения или выкупа или опциона
+	YieldToMaturity           float64 // Текущая доходность к погашению или выкупу или опциону
+	CurrentPrice              float64
+	Nominal                   float64
+	Profit                    float64 // Результат инвестиции
+	ProfitInPercentage        float64
 }
 
 type PortfolioPosition struct {

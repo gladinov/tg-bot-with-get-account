@@ -10,6 +10,7 @@ import (
 type Storage interface {
 	OperationStorage
 	BondReportStorage
+	GeneralBondReportStorage
 	CurrencyStorage
 	UidsStorage
 }
@@ -23,6 +24,11 @@ type OperationStorage interface {
 type BondReportStorage interface {
 	DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error)
 	SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) error
+}
+
+type GeneralBondReportStorage interface {
+	DeleteGeneralBondReport(ctx context.Context, chatID int, accountId string) (err error)
+	SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.GeneralBondReporPosition) error
 }
 
 type CurrencyStorage interface {
