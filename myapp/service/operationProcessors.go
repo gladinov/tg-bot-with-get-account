@@ -36,7 +36,9 @@ func (c *Client) GetSpecificationsFromTinkoff(position *service_models.PositionB
 	position.ClassCode = resSpecFromTinkoff.ClassCode
 	if resSpecFromTinkoff.Replaced {
 		date := time.Now()
+		position.Replaced = true
 		isoCurrName := resSpecFromTinkoff.NominalCurrency
+		position.CurrencyIfReplaced = isoCurrName
 		vunit_rate, err := c.GetCurrencyFromCB(isoCurrName, date)
 		if err != nil {
 			return e.WrapIfErr("getSpecificationsFromMoex err", err)
@@ -141,7 +143,6 @@ func (c *Client) ProcessOperations(operations []service_models.Operation) (*serv
 
 		}
 	}
-
 	return processPosition, nil
 }
 
@@ -294,14 +295,14 @@ end:
 		sellQuantity := operation.QuantityDone
 		switch {
 		case currentQuantity > sellQuantity:
-			err := isCurrentQuantityGreaterThanSellQuantity(operation, currPosition, processPosition)
+			err := isCurrentQuantityGreaterThanSellQuantity(operation, currPosition)
 			if err != nil {
 				return err
 			}
 			// Прерываем цикл
 			break end
 		case currPosition.Quantity == operation.QuantityDone:
-			err := isEqualCurrentQuantityAndSellQuantity(operation, currPosition, processPosition)
+			err := isEqualCurrentQuantityAndSellQuantity(processPosition)
 			if err != nil {
 				return err
 			}
@@ -310,7 +311,7 @@ end:
 		case currentQuantity < sellQuantity:
 			// Переменная deleteCount отслеживает кол-во закрытых позиций для дальнейшего удаления
 			deleteCount += 1
-			err := isCurrentQuantityLessThanSellQuantity(operation, currPosition, processPosition)
+			err := isCurrentQuantityLessThanSellQuantity(operation, currPosition)
 			if err != nil {
 				return err
 			}
@@ -322,7 +323,7 @@ end:
 	return nil
 }
 
-func isCurrentQuantityGreaterThanSellQuantity(operation *service_models.Operation, currPosition *service_models.PositionByFIFO, processPosition *service_models.ReportPositions) error {
+func isCurrentQuantityGreaterThanSellQuantity(operation *service_models.Operation, currPosition *service_models.PositionByFIFO) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64
@@ -331,39 +332,6 @@ func isCurrentQuantityGreaterThanSellQuantity(operation *service_models.Operatio
 	} else {
 		return errors.New("divide by zero")
 	}
-	// Создаем закрытую позицию
-	closePosition := createClosePosition(*currPosition, *operation)
-	// Устанавливаем закрытой позиции кол-во бумаг, которые проданы
-	closePosition.Quantity = sellQuantity
-	// НКД продажи (На пропорцию не умножаем, т.к. это отдельное поле)
-	closePosition.SellAccruedInt = operation.AccruedInt
-	// НКД покупки, пересчитанное по пропорции
-	closePosition.BuyAccruedInt *= proportion
-	// Плюсуем комиссию за продажу бумаг
-	closePosition.TotalComission = closePosition.TotalComission*proportion + operation.Commission
-
-	// Считаем Доход без налога
-	positionProfit := getSecurityIncomeWithoutTax(closePosition)
-
-	// Считаем налог
-	totalTax := getTotalTaxFromPosition(closePosition, positionProfit)
-
-	// Считаем доход после налогообложения
-	profitAfterTax := getSecurityIncome(positionProfit, totalTax)
-
-	// Заполняем поля структуры
-	closePosition.TotalTax = totalTax
-	closePosition.PositionProfit = profitAfterTax
-
-	// Считаем процентный доход
-	profitInPercentage, err := getProfitInPercentage(profitAfterTax, closePosition.BuyPrice, closePosition.Quantity)
-	if err != nil {
-		return errors.New("service.getProfitInPercentage" + err.Error())
-	}
-	closePosition.ProfitInPercentage = profitInPercentage
-
-	// Добавляем закрытую позицию в срез закрытых позиций
-	processPosition.ClosePositions = append(processPosition.ClosePositions, closePosition)
 	// Отнимаем кол-во проданных бумаг от количества бумаг в текущей позиции
 	currPosition.Quantity -= sellQuantity
 	// Изменяем значения текущей позиции, умножая на остаток от пропорции
@@ -373,40 +341,12 @@ func isCurrentQuantityGreaterThanSellQuantity(operation *service_models.Operatio
 	return nil
 }
 
-func isEqualCurrentQuantityAndSellQuantity(operation *service_models.Operation, currPosition *service_models.PositionByFIFO, processPosition *service_models.ReportPositions) error {
-	// Создаем закрытую позицию
-	closePosition := createClosePosition(*currPosition, *operation)
-	// НКД
-	closePosition.SellAccruedInt = operation.AccruedInt
-	// Плюсуем комиссию за продажу бумаг
-	closePosition.TotalComission = closePosition.TotalComission + operation.Commission
-	// Считаем Доход без налога
-	positionProfit := getSecurityIncomeWithoutTax(closePosition)
-
-	// Считаем налог
-	totalTax := getTotalTaxFromPosition(closePosition, positionProfit)
-
-	// Считаем доход после налогообложения
-	profitAfterTax := getSecurityIncome(positionProfit, totalTax)
-
-	// Заполняем поля структуры
-	closePosition.TotalTax = totalTax
-	closePosition.PositionProfit = profitAfterTax
-
-	// Считаем процентный доход
-	profitInPercentage, err := getProfitInPercentage(profitAfterTax, closePosition.BuyPrice, closePosition.Quantity)
-	if err != nil {
-		return errors.New("service.getProfitInPercentage" + err.Error())
-	}
-	closePosition.ProfitInPercentage = profitInPercentage
-
-	// Добавляем закрытую позицию в срез закрытых позиций
-	processPosition.ClosePositions = append(processPosition.ClosePositions, closePosition)
+func isEqualCurrentQuantityAndSellQuantity(processPosition *service_models.ReportPositions) error {
 	processPosition.CurrentPositions = processPosition.CurrentPositions[1:]
 	return nil
 }
 
-func isCurrentQuantityLessThanSellQuantity(operation *service_models.Operation, currPosition *service_models.PositionByFIFO, processPosition *service_models.ReportPositions) error {
+func isCurrentQuantityLessThanSellQuantity(operation *service_models.Operation, currPosition *service_models.PositionByFIFO) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64
@@ -415,38 +355,12 @@ func isCurrentQuantityLessThanSellQuantity(operation *service_models.Operation, 
 	} else {
 		return errors.New("divide by zero")
 	}
-	// Создаем операцию продажи бумаги
-	// Создаем закрытую позицию
-	closePosition := createClosePosition(*currPosition, *operation)
+
 	// НКД
-	closePosition.SellAccruedInt = operation.AccruedInt * proportion
 	operation.AccruedInt -= operation.AccruedInt * proportion
 	// Плюсуем комиссию за продажу бумаг
-	closePosition.TotalComission = closePosition.TotalComission + (operation.Commission * proportion)
 	operation.Commission -= operation.Commission * proportion
 
-	// Считаем Доход без налога
-	positionProfit := getSecurityIncomeWithoutTax(closePosition)
-
-	// Считаем налог
-	totalTax := getTotalTaxFromPosition(closePosition, positionProfit)
-
-	// Считаем доход после налогообложения
-	profitAfterTax := getSecurityIncome(positionProfit, totalTax)
-
-	// Заполняем поля структуры
-	closePosition.TotalTax = totalTax
-	closePosition.PositionProfit = profitAfterTax
-
-	// Считаем процентный доход
-	profitInPercentage, err := getProfitInPercentage(profitAfterTax, closePosition.BuyPrice, closePosition.Quantity)
-	if err != nil {
-		return errors.New("service.getProfitInPercentage" + err.Error())
-	}
-	closePosition.ProfitInPercentage = profitInPercentage
-
-	// Добавляем закрытую позицию в срез закрытых позиций
-	processPosition.ClosePositions = append(processPosition.ClosePositions, closePosition)
 	// Изменяем значение Quantity.Operation
 	operation.QuantityDone -= currPosition.Quantity
 
@@ -492,15 +406,6 @@ func getProfitInPercentage(profit, buyPrice, quantity float64) (float64, error) 
 	} else {
 		return 0, errors.New("divide by zero")
 	}
-}
-
-// Создаем закрытую позицию
-func createClosePosition(currentPosition service_models.PositionByFIFO, operation service_models.Operation) service_models.PositionByFIFO {
-	closePosition := currentPosition
-	closePosition.SellPrice = operation.Price
-	closePosition.SellPayment = operation.Payment
-	closePosition.SellDate = operation.Date
-	return closePosition
 }
 
 func RoundFloat(val float64, precision uint) float64 {

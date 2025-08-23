@@ -28,7 +28,7 @@ type BondReportStorage interface {
 
 type GeneralBondReportStorage interface {
 	DeleteGeneralBondReport(ctx context.Context, chatID int, accountId string) (err error)
-	SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.GeneralBondReporPosition) error
+	SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.GeneralBondReportPosition) error
 }
 
 type CurrencyStorage interface {

@@ -20,6 +20,7 @@ type Client struct {
 const (
 	getUpdatesMethod = "getUpdates"
 	sendUpdateMethod = "sendMessage"
+	sendPhotoMethod  = "sendPhoto"
 )
 
 func New(host string, token string) *Client {
@@ -67,6 +68,22 @@ func (c *Client) SendMessage(chatID int, text string) error {
 	return nil
 
 }
+
+// func (c *Client) SendPhoto(chatID int, filePath string) error {
+// 	body := &bytes.Buffer{}
+// 	writer := multipart.NewWriter(body)
+
+// 	file, err := os.Open(filePath)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer file.Close()
+
+// 	part, err := writer.CreateFormFile("file", file.Name())
+// 	if err != nil {
+// 		return err
+// 	}
+// }
 
 func (c *Client) doRequest(method string, query url.Values) (data []byte, err error) {
 	defer func() { err = e.WrapIfErr("can`t do request", err) }()

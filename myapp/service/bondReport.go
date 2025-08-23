@@ -21,13 +21,13 @@ func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions)
 		position := reportPostions.CurrentPositions[i]
 		switch position.Currency {
 		case "rub":
-			bondReport, err := c.createBondReport(position)
+			bondReport, err := c.createBondReportByCurrency(position)
 			if err != nil {
 				return resultReports, errors.New("service: GetBondReport" + err.Error())
 			}
 			resultReports.BondsInRUB = append(resultReports.BondsInRUB, bondReport)
 		case "cny":
-			bondReport, err := c.createBondReport(position)
+			bondReport, err := c.createBondReportByCurrency(position)
 			if err != nil {
 				return resultReports, errors.New("service: GetBondReport" + err.Error())
 			}
@@ -39,19 +39,19 @@ func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions)
 	return resultReports, nil
 }
 
-func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.ReportPositions, totalAmount float64) (_ service_models.GeneralBondReporPosition, err error) {
+func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.ReportPositions, totalAmount float64) (_ service_models.GeneralBondReportPosition, err error) {
 	defer func() { err = e.WrapIfErr("can't create general bond report", err) }()
 	currentPostions := resultBondPosition.CurrentPositions
-	var generalBondReporPosition service_models.GeneralBondReporPosition
+	var BondReporPosition service_models.GeneralBondReportPosition
 
 	if len(currentPostions) == 0 {
-		return generalBondReporPosition, errors.New("no input positions")
+		return BondReporPosition, errors.New("no input positions")
 	}
-	generalBondReporPosition.Name = currentPostions[0].Name
-	generalBondReporPosition.Ticker = currentPostions[0].Ticker
-	generalBondReporPosition.Currencies = currentPostions[0].Currency
-	generalBondReporPosition.Nominal = currentPostions[0].Nominal
-	generalBondReporPosition.CurrentPrice = currentPostions[0].SellPrice
+	BondReporPosition.Ticker = currentPostions[0].Ticker
+	BondReporPosition.Currencies = currentPostions[0].Currency
+	BondReporPosition.Nominal = currentPostions[0].Nominal
+	BondReporPosition.CurrentPrice = currentPostions[0].SellPrice
+	BondReporPosition.Replaced = currentPostions[0].Replaced
 
 	var sumOfPosition float64
 	buyDate := currentPostions[0].BuyDate
@@ -65,39 +65,49 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 			buyDate = compareDate
 		}
 		sumOfQuantity += position.Quantity
-		profit += position.PositionProfit
-	}
-	generalBondReporPosition.PositionPrice = RoundFloat(sumOfPosition/sumOfQuantity, 2)
-	generalBondReporPosition.BuyDate = buyDate.Format(layout)
-	generalBondReporPosition.Quantity = int64(sumOfQuantity)
-	generalBondReporPosition.Profit = profit
-	generalBondReporPosition.ProfitInPercentage = profit / sumOfPosition
-	generalBondReporPosition.PercentOfPortfolio = RoundFloat((sumOfPosition/totalAmount)*100, 2)
 
-	moexBuyDateData, err := c.MoexApi.GetSpecifications(generalBondReporPosition.Ticker, buyDate)
+		profitWithoutTax := getSecurityIncomeWithoutTax(position)
+		totalTax := getTotalTaxFromPosition(position, profitWithoutTax)
+		profit += getSecurityIncome(profitWithoutTax, totalTax)
+	}
+	BondReporPosition.PositionPrice = RoundFloat(sumOfPosition/sumOfQuantity, 2)
+	BondReporPosition.BuyDate = buyDate
+	BondReporPosition.Quantity = int64(sumOfQuantity)
+	BondReporPosition.Profit = RoundFloat(profit, 2)
+	BondReporPosition.ProfitInPercentage = RoundFloat((profit/sumOfPosition)*100, 2)
+	BondReporPosition.PercentOfPortfolio = RoundFloat((sumOfPosition/totalAmount)*100, 2)
+
+	moexBuyDateData, err := c.MoexApi.GetSpecifications(BondReporPosition.Ticker, buyDate)
 	if err != nil {
-		return generalBondReporPosition, err
+		return BondReporPosition, err
 	}
 	date := time.Now()
-	moexNowData, err := c.MoexApi.GetSpecifications(generalBondReporPosition.Ticker, date)
+	moexNowData, err := c.MoexApi.GetSpecifications(BondReporPosition.Ticker, date)
 	if err != nil {
-		return generalBondReporPosition, err
+		return BondReporPosition, err
 	}
 
 	lastPriceDataPath := moexNowData.History.Data[0]
 
+	if lastPriceDataPath.ShortName != nil {
+		BondReporPosition.Name = *lastPriceDataPath.ShortName
+
+	} else {
+		BondReporPosition.Name = currentPostions[0].Name
+	}
+
 	duration := lastPriceDataPath.Duration
 	if duration != nil {
-		generalBondReporPosition.Duration = int64(*duration)
+		BondReporPosition.Duration = int64(*duration)
 	}
 
 	yieldToOffer := lastPriceDataPath.YieldToOffer
 	yieldToMaturity := lastPriceDataPath.YieldToMaturity
 	if yieldToOffer != nil {
-		generalBondReporPosition.YieldToMaturity = *yieldToOffer
+		BondReporPosition.YieldToMaturity = *yieldToOffer
 	} else {
 		if yieldToMaturity != nil {
-			generalBondReporPosition.YieldToMaturity = *yieldToMaturity
+			BondReporPosition.YieldToMaturity = *yieldToMaturity
 		}
 	}
 
@@ -109,25 +119,35 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 	case offerDate != nil && buyBackDate != nil:
 		offerDateConv, err := time.Parse(layout, *offerDate)
 		if err != nil {
-			return generalBondReporPosition, err
+			return BondReporPosition, err
 		}
 		buyBackDateConv, err := time.Parse(layout, *buyBackDate)
 		if err != nil {
-			return generalBondReporPosition, err
+			return BondReporPosition, err
 		}
 		if offerDateConv.Compare(buyBackDateConv) == -1 {
-			generalBondReporPosition.MaturityDate = *offerDate
+			BondReporPosition.MaturityDate = offerDateConv
 		} else {
-			generalBondReporPosition.MaturityDate = *buyBackDate
+			BondReporPosition.MaturityDate = buyBackDateConv
 		}
 	case offerDate != nil:
-		generalBondReporPosition.MaturityDate = *offerDate
+		offerDateConv, err := time.Parse(layout, *offerDate)
+		if err != nil {
+			return BondReporPosition, err
+		}
+		BondReporPosition.MaturityDate = offerDateConv
 	case buyBackDate != nil:
-		generalBondReporPosition.MaturityDate = *buyBackDate
+		buyBackDateConv, err := time.Parse(layout, *buyBackDate)
+		if err != nil {
+			return BondReporPosition, err
+		}
+		BondReporPosition.MaturityDate = buyBackDateConv
 	case maturityDate != nil:
-		generalBondReporPosition.MaturityDate = *maturityDate
-	default:
-		generalBondReporPosition.MaturityDate = ""
+		maturityDateConv, err := time.Parse(layout, *maturityDate)
+		if err != nil {
+			return BondReporPosition, err
+		}
+		BondReporPosition.MaturityDate = maturityDateConv
 	}
 
 	buyPriceDataPath := moexBuyDateData.History.Data[0]
@@ -135,17 +155,17 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 	yieldToOfferOnPurchase := buyPriceDataPath.YieldToOffer
 	yieldToMaturityOnPurchase := buyPriceDataPath.YieldToMaturity
 	if yieldToOfferOnPurchase != nil {
-		generalBondReporPosition.YieldToMaturityOnPurchase = *yieldToOfferOnPurchase
+		BondReporPosition.YieldToMaturityOnPurchase = *yieldToOfferOnPurchase
 	} else {
 		if yieldToMaturityOnPurchase != nil {
-			generalBondReporPosition.YieldToMaturityOnPurchase = *yieldToMaturityOnPurchase
+			BondReporPosition.YieldToMaturityOnPurchase = *yieldToMaturityOnPurchase
 		}
 	}
 
-	return generalBondReporPosition, nil
+	return BondReporPosition, nil
 }
 
-func (c *Client) createBondReport(position service_models.PositionByFIFO) (service_models.BondReport, error) {
+func (c *Client) createBondReportByCurrency(position service_models.PositionByFIFO) (service_models.BondReport, error) {
 	var bondReport service_models.BondReport
 	moexBuyDateData, err := c.MoexApi.GetSpecifications(position.Ticker, position.BuyDate)
 	if err != nil {

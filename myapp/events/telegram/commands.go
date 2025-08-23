@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	RndCmd               = "/rnd"
-	HelpCmd              = "/help"
-	StartCmd             = "/start"
-	AccountsCmd          = "/accounts"
-	GetBondReport        = "/bondReportByFifo"
-	GetGeneralBondReport = "/generalBondReport"
-	GetUSD               = "/usd"
+	HelpCmd               = "/help"
+	StartCmd              = "/start"
+	AccountsCmd           = "/accounts"
+	GetBondReport         = "/bondfifo"
+	GetGeneralBondReport  = "/bondreport"
+	GetUSD                = "/usd"
+	GetPortfolioStructure = "/portfoliostructure"
 )
 
 func (p *Processor) doCmd(text string, chatID int, username string) error {
@@ -62,6 +62,8 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		return p.getGeneralBondReport(chatID, token)
 	case GetUSD:
 		return p.getUSD(chatID)
+	case GetPortfolioStructure:
+		return p.GetPortfolioStructure(chatID, token)
 	default:
 		return p.tg.SendMessage(chatID, msgUnknownCommand)
 	}
@@ -96,7 +98,7 @@ func (p *Processor) isToken(token string) (res bool, err error) {
 }
 
 func (p *Processor) sendAccounts(chatID int, token string) error {
-	accounts, err := p.service.GetAccounts(token)
+	accounts, err := p.service.GetAccountsList(token)
 	if err != nil {
 		return e.WrapIfErr("can't get account", err)
 	}
@@ -118,6 +120,21 @@ func (p *Processor) getGeneralBondReport(chatID int, token string) (err error) {
 		return e.WrapIfErr("getBondReport: can't get general bond reports", err)
 	}
 	p.tg.SendMessage(chatID, "Общий отчет по облигациям успешно сохранен в базу данных")
+	return nil
+}
+
+func (p *Processor) GetPortfolioStructure(chatID int, token string) (err error) {
+	accounts, err := p.service.GetAccounts(token)
+	if err != nil {
+		return e.WrapIfErr("can't get portfolio structure", err)
+	}
+	for _, account := range accounts {
+		report, err := p.service.GetPortfolioStructure(token, account)
+		if err != nil {
+			return e.WrapIfErr("can't get portfolio structure", err)
+		}
+		p.tg.SendMessage(chatID, report)
+	}
 	return nil
 }
 

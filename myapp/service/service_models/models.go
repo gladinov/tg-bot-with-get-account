@@ -3,11 +3,19 @@ package service_models
 import (
 	"errors"
 	"time"
+
+	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 )
 
 var ErrEmptyUids = errors.New("no uids")
 var ErrNoCurrency = errors.New("no currency")
 var ErrNoOpperations = errors.New("no operations")
+
+const (
+	RubBonds      = "bondsInRub"
+	ReplacedBonds = "replacedBonds"
+	EuroBonds     = "euroBonds"
+)
 
 type Operation struct {
 	BrokerAccountId   string
@@ -36,11 +44,12 @@ type Operation struct {
 type ReportPositions struct {
 	Quantity         float64
 	CurrentPositions []PositionByFIFO
-	ClosePositions   []PositionByFIFO
 }
 
 type PositionByFIFO struct {
 	Name                  string
+	Replaced              bool
+	CurrencyIfReplaced    string
 	BuyDate               time.Time
 	SellDate              time.Time
 	Quantity              float64
@@ -90,15 +99,22 @@ type BondReport struct {
 	AnnualizedReturn          float64 // Годовая доходность
 }
 
-type GeneralBondReporPosition struct {
+type GeneralBondReports struct {
+	RubBondsReport      map[TickerTimeKey]GeneralBondReportPosition
+	EuroBondsReport     map[TickerTimeKey]GeneralBondReportPosition
+	ReplacedBondsReport map[TickerTimeKey]GeneralBondReportPosition
+}
+
+type GeneralBondReportPosition struct {
 	Name                      string
 	Ticker                    string
+	Replaced                  bool
 	Currencies                string
 	Quantity                  int64
 	PercentOfPortfolio        float64
-	MaturityDate              string // дата погашения или выкупа или опциона
+	MaturityDate              time.Time // дата погашения или выкупа или опциона
 	Duration                  int64
-	BuyDate                   string
+	BuyDate                   time.Time
 	PositionPrice             float64 // Средняя цена позиции
 	YieldToMaturityOnPurchase float64 // Доходность при покупке до даты погашения или выкупа или опциона
 	YieldToMaturity           float64 // Текущая доходность к погашению или выкупу или опциону
@@ -125,4 +141,115 @@ type Currency struct {
 
 type Currencies struct {
 	CurrenciesMap map[string]Currency
+}
+
+type TickerTimeKey struct {
+	Ticker string
+	Time   time.Time
+}
+
+type PortfolioByTypeAndCurrency struct {
+	AllAssets        float64
+	BondsAssets      BondsAssets
+	SharesAssets     SharesAssets
+	EtfsAssets       EtfsAssets
+	FuturesAssets    FuturesAssets
+	CurrenciesAssets CurrenciesAssets
+}
+
+type BondsAssets struct {
+	SumOfAssets      float64
+	AssetsByCurrency map[string]*AssetByParam
+}
+
+type AssetByParam struct {
+	SumOfAssets float64
+}
+
+func NewAssetsByParam() *AssetByParam {
+	return &AssetByParam{}
+}
+
+type SharesAssets struct {
+	SumOfAssets      float64
+	AssetsByCurrency map[string]*AssetByParam
+}
+
+type EtfsAssets struct {
+	SumOfAssets      float64
+	AssetsByCurrency map[string]*AssetByParam
+}
+
+type FuturesAssets struct {
+	SumOfAssets  float64
+	AssetsByType AssetsByType
+}
+
+type AssetsByType struct {
+	Commodity FuturesType
+	Currency  FuturesType
+	Security  FuturesType
+	Index     FuturesType
+}
+
+type FuturesType struct {
+	SumOfAssets      float64
+	AssetsByCurrency map[string]*AssetByParam
+}
+
+type CurrenciesAssets struct {
+	SumOfAssets      float64
+	AssetsByCurrency map[string]*AssetByParam
+}
+
+func NewPortfolioByTypeAndCurrency() *PortfolioByTypeAndCurrency {
+	return &PortfolioByTypeAndCurrency{
+		AllAssets: 0,
+		BondsAssets: BondsAssets{
+			AssetsByCurrency: make(map[string]*AssetByParam),
+		},
+		SharesAssets: SharesAssets{
+			AssetsByCurrency: make(map[string]*AssetByParam),
+		},
+		EtfsAssets: EtfsAssets{
+			AssetsByCurrency: make(map[string]*AssetByParam),
+		},
+		FuturesAssets: FuturesAssets{
+			AssetsByType: AssetsByType{
+				Commodity: FuturesType{
+					AssetsByCurrency: make(map[string]*AssetByParam),
+				},
+				Currency: FuturesType{
+					AssetsByCurrency: make(map[string]*AssetByParam),
+				},
+				Security: FuturesType{
+					AssetsByCurrency: make(map[string]*AssetByParam),
+				},
+				Index: FuturesType{
+					AssetsByCurrency: make(map[string]*AssetByParam),
+				},
+			},
+		},
+		CurrenciesAssets: CurrenciesAssets{
+			AssetsByCurrency: make(map[string]*AssetByParam),
+		},
+	}
+}
+
+type PortfolioShortReport struct {
+	Bonds      map[string][]*pb.PortfolioPosition
+	Shares     map[string][]*pb.PortfolioPosition
+	Futures    map[string][]*pb.PortfolioPosition
+	Etfs       map[string][]*pb.PortfolioPosition
+	Currencies map[string][]*pb.PortfolioPosition
+}
+
+func NewPortfolioShortReport() *PortfolioShortReport {
+	return &PortfolioShortReport{
+		Bonds:      make(map[string][]*pb.PortfolioPosition),
+		Shares:     make(map[string][]*pb.PortfolioPosition),
+		Futures:    make(map[string][]*pb.PortfolioPosition),
+		Etfs:       make(map[string][]*pb.PortfolioPosition),
+		Currencies: make(map[string][]*pb.PortfolioPosition),
+	}
 }

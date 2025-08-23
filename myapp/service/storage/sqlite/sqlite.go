@@ -330,7 +330,7 @@ func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accou
 	}
 	return nil
 }
-func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []service_models.GeneralBondReporPosition) error {
+func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []service_models.GeneralBondReportPosition) error {
 	q := `
     INSERT INTO general_bond_report (
         chatId,

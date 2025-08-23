@@ -3,6 +3,8 @@ package visualization
 import (
 	"fmt"
 	"image/color"
+	"strings"
+	"time"
 
 	"github.com/fogleman/gg"
 	"golang.org/x/image/font/gofont/goregular"
@@ -10,14 +12,18 @@ import (
 	"main.go/service/service_models"
 )
 
-func Vizualize(reports []service_models.BondReport, filename string) error {
+const (
+	layout = "2006-01-02"
+)
+
+func Vizualize(reports []service_models.GeneralBondReportPosition, filename string, typeOfBonds string) error {
 	const (
-		width        = 1200
+		width        = 1200 // Увеличим ширину для лучшего отображения
 		heightPerRow = 40
-		margin       = 20
+		margin       = 20.0
 		headerHeight = 60
 		rowHeight    = 30
-		colCount     = 8 // Количество отображаемых колонок
+		colCount     = 15 // Количество отображаемых колонок
 	)
 
 	// Рассчитываем высоту изображения
@@ -50,66 +56,147 @@ func Vizualize(reports []service_models.BondReport, filename string) error {
 
 	// Рисуем заголовок
 	dc.SetColor(color.Black)
-	dc.DrawStringAnchored("Отчет по облигациям", width/2, margin, 0.5, 0.5)
+	var name string
+	switch typeOfBonds {
+	case service_models.ReplacedBonds:
+		name = "Отчет по замещающим облигациям"
+	case service_models.RubBonds:
+		name = "Отчет по рублевым облигациям"
+	case service_models.EuroBonds:
+		name = "Отчет по валютным облигациям"
+	}
+	dc.DrawStringAnchored(name, width/2, margin, 0.5, 0.5)
 	dc.SetFontFace(face)
 
-	// Определяем колонки для отображения
+	// Определяем колонки для отображения с более подходящими ширинами
 	columns := []struct {
 		Title string
 		Width float64
+		Flex  float64
 	}{
-		{"Тикер", 80},
-		{"Название", 200},
-		{"Дата погаш.", 100},
-		{"Доходн. к погаш.", 120},
-		{"Тек. цена", 100},
-		{"Номинал", 100},
-		{"Прибыль", 100},
-		{"Доходн. год.", 120},
+		{"Тикер", 120, 0},              // 1
+		{"Название", 180, 2},           // 2
+		{"Валюта", 60, 0},              // 3
+		{"Кол-во", 70, 0},              // 4
+		{"% от портфеля", 90, 0},       // 5
+		{"Дата погашения", 110, 0},     // 6
+		{"Дюрация", 80, 0},             // 7
+		{"Дата покупки", 90, 0},        // 8
+		{"Ср.цена", 80, 0},             // 9
+		{"Дох-ть при покупке", 120, 0}, // 10
+		{"Дох-ть тек.", 90, 0},         // 11 (сокращенный заголовок)
+		{"Тек.цена", 80, 0},            // 12 (сокращенный заголовок)
+		{"Номинал", 80, 0},             // 13
+		{"Доход", 80, 0},               // 14
+		{"Дох-ть в %", 80, 0},          // 15
 	}
 
-	// Рисуем заголовки таблицы
+	// Проверяем, что сумма минимальных ширин не превышает доступную ширину
+	totalMinWidth := 0.0
+	for _, col := range columns {
+		totalMinWidth += col.Width
+	}
+
+	availableWidth := float64(width) - 2*margin
+	if totalMinWidth > availableWidth {
+		// Если минимальные ширины не помещаются, масштабируем их
+		scaleFactor := availableWidth / totalMinWidth
+		for i := range columns {
+			columns[i].Width *= scaleFactor
+		}
+	} else {
+		// Распределяем оставшееся пространство пропорционально Flex
+		remainingWidth := availableWidth - totalMinWidth
+		totalFlex := 0.0
+		for _, col := range columns {
+			totalFlex += col.Flex
+		}
+
+		if totalFlex > 0 {
+			flexUnit := remainingWidth / totalFlex
+			for i := range columns {
+				if columns[i].Flex > 0 {
+					columns[i].Width += flexUnit * columns[i].Flex
+				}
+			}
+		}
+	}
+
+	// Рисование таблицы
 	y := float64(headerHeight)
-	for i, col := range columns {
-		x := margin + float64(i)*col.Width
+	currentX := margin
+
+	// Заголовки
+	for _, col := range columns {
 		dc.SetColor(color.RGBA{200, 200, 200, 255})
-		dc.DrawRectangle(x, y, col.Width, rowHeight)
+		dc.DrawRectangle(currentX, y, col.Width, rowHeight)
 		dc.Fill()
+
 		dc.SetColor(color.Black)
-		dc.DrawStringAnchored(col.Title, x+col.Width/2, y+rowHeight/2, 0.5, 0.5)
+		// Разбиваем длинные заголовки на несколько строк
+		if len(col.Title) > 10 && strings.Contains(col.Title, " ") {
+			parts := strings.Split(col.Title, " ")
+			if len(parts) == 2 {
+				dc.DrawStringAnchored(parts[0], currentX+col.Width/2, y+rowHeight/2-7, 0.5, 0.5)
+				dc.DrawStringAnchored(parts[1], currentX+col.Width/2, y+rowHeight/2+7, 0.5, 0.5)
+				currentX += col.Width
+				continue
+			}
+		}
+		dc.DrawStringAnchored(col.Title, currentX+col.Width/2, y+rowHeight/2, 0.5, 0.5)
+		currentX += col.Width
 	}
 
-	// Рисуем данные
+	// Данные
 	for _, report := range reports {
 		y += rowHeight
+		currentX = margin
 		dc.SetColor(color.Black)
 
 		// Форматируем данные
 		values := []string{
 			report.Ticker,
 			report.Name,
-			report.MaturityDate,
+			report.Currencies,
+			formatInt(report.Quantity),
+			formatPercent(report.PercentOfPortfolio),
+			formatTime(report.MaturityDate),
+			formatInt(report.Duration),
+			formatTime(report.BuyDate),
+			formatFloat(report.PositionPrice),
+			formatPercent(report.YieldToMaturityOnPurchase),
 			formatPercent(report.YieldToMaturity),
-			formatCurrency(report.CurrentPrice),
-			formatCurrency(report.Nominal),
-			formatCurrency(report.Profit),
-			formatPercent(report.AnnualizedReturn),
+			formatFloat(report.CurrentPrice),
+			formatFloat(report.Nominal),
+			formatFloat(report.Profit),
+			formatPercent(report.ProfitInPercentage),
 		}
 
-		for i, value := range values {
-			x := margin + float64(i)*columns[i].Width
-			dc.DrawStringAnchored(value, x+columns[i].Width/2, y+rowHeight/2, 0.5, 0.5)
+		for i, col := range columns {
+			dc.DrawStringAnchored(
+				values[i],
+				currentX+col.Width/2,
+				y+rowHeight/2,
+				0.5, 0.5,
+			)
+			currentX += col.Width
 		}
 	}
 
-	// Сохраняем изображение
 	return dc.SavePNG(filename)
 }
 
-func formatCurrency(value float64) string {
-	return fmt.Sprintf("%.2f ₽", value)
+func formatFloat(value float64) string {
+	return fmt.Sprintf("%.2f", value)
+}
+
+func formatInt(value int64) string {
+	return fmt.Sprintf("%v", value)
 }
 
 func formatPercent(value float64) string {
-	return fmt.Sprintf("%.2f%%", value*100)
+	return fmt.Sprintf("%.2f%%", value)
+}
+func formatTime(value time.Time) string {
+	return value.Format(layout)
 }
