@@ -13,6 +13,7 @@ import (
 	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"main.go/clients/cbr"
 	"main.go/clients/moex"
+	"main.go/clients/sber"
 	"main.go/clients/tinkoffApi"
 	"main.go/lib/e"
 	"main.go/service/service_models"
@@ -272,6 +273,146 @@ func Vizualization(generalBondReports *service_models.GeneralBondReports, chatID
 	return nil
 }
 
+func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models.MediaGroup, err error) {
+	defer func() { err = e.WrapIfErr("can't get general bond report", err) }()
+	reportsInByteByAccounts := make([][]*service_models.MediaGroup, 0)
+	client := c.Tinkoffapi
+
+	err = client.FillClient(token)
+	if err != nil {
+		return nil, err
+	}
+
+	accounts, err := c.Tinkoffapi.GetAcc()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, account := range accounts {
+		err = c.updateOperations(chatID, account.Id, account.OpenedDate)
+		if err != nil {
+			return nil, err
+		}
+
+		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
+		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
+			return nil, err
+		}
+
+		portfolioPositions, err := c.TransformPositions(account.Id, portfolio.Positions)
+		if err != nil {
+			return nil, err
+		}
+		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.Id)
+		if err != nil {
+			return nil, err
+		}
+		generalBondReports := service_models.GeneralBondReports{
+			RubBondsReport:      make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
+			EuroBondsReport:     make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
+			ReplacedBondsReport: make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
+		}
+
+		for _, v := range portfolioPositions {
+			if v.InstrumentType == "bond" {
+				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
+				if err != nil {
+					return nil, err
+				}
+				resultBondPosition, err := c.ProcessOperations(operationsDb)
+				if err != nil {
+					return nil, err
+				}
+				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, portfolio.TotalAmount)
+				if err != nil {
+					return nil, err
+				}
+				switch {
+				case bondReport.Replaced:
+					tickerTimeKey := service_models.TickerTimeKey{
+						Ticker: bondReport.Ticker,
+						Time:   bondReport.BuyDate,
+					}
+					generalBondReports.ReplacedBondsReport[tickerTimeKey] = bondReport
+				case bondReport.Currencies != "rub":
+					tickerTimeKey := service_models.TickerTimeKey{
+						Ticker: bondReport.Ticker,
+						Time:   bondReport.BuyDate,
+					}
+					generalBondReports.EuroBondsReport[tickerTimeKey] = bondReport
+				default:
+					tickerTimeKey := service_models.TickerTimeKey{
+						Ticker: bondReport.Ticker,
+						Time:   bondReport.BuyDate,
+					}
+					generalBondReports.RubBondsReport[tickerTimeKey] = bondReport
+				}
+
+			}
+		}
+
+		reportsInByte, err := c.PrepareToGenerateTablePNG(&generalBondReports, chatID, account.Id)
+		if err != nil {
+			return nil, err
+		}
+		reportsInByteByAccounts = append(reportsInByteByAccounts, reportsInByte)
+		// err = c.Storage.SaveGeneralBondReport(context.Background(), chatID, account.Id, generalBondReportPositionsSorted)
+		// if err != nil {
+		// 	return err
+		// }
+	}
+
+	return reportsInByteByAccounts, nil
+}
+
+func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.GeneralBondReports, chatID int, accountId string) (_ []*service_models.MediaGroup, err error) {
+	reports := make([][]service_models.GeneralBondReportPosition, 0)
+
+	rubbleBondReportSorted := sortGeneralBondReports(generalBondReports.RubBondsReport)
+	replacedBondReportSorted := sortGeneralBondReports(generalBondReports.ReplacedBondsReport)
+	euroBondReportSorted := sortGeneralBondReports(generalBondReports.EuroBondsReport)
+	reports = append(reports, rubbleBondReportSorted)
+	reports = append(reports, replacedBondReportSorted)
+	reports = append(reports, euroBondReportSorted)
+	reportsInByte := make([]*service_models.MediaGroup, 3)
+	for i, report := range reports {
+		reportsInByte[i] = service_models.NewMediaGroup()
+		mediaGroup := reportsInByte[i]
+		if len(report) == 0 {
+			continue
+		}
+
+		var typeOfBonds string
+		switch {
+		case report[0].Replaced:
+			typeOfBonds = service_models.ReplacedBonds
+		case report[0].Currencies != "rub":
+			typeOfBonds = service_models.EuroBonds
+		default:
+			typeOfBonds = service_models.RubBonds
+		}
+		count := 1
+		for start := 0; start < len(report); start += 10 {
+			end := start + 10
+			if end > len(report) {
+				end = len(report)
+			}
+			pngData, err := visualization.GenerateTablePNG(report[start:end], typeOfBonds)
+			if err != nil {
+				return nil, e.WrapIfErr("vizualize error", err)
+			}
+			imageData := service_models.NewImageData()
+			imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
+			imageData.Data = pngData
+			imageData.Caption = typeOfBonds
+
+			mediaGroup.Reports = append(mediaGroup.Reports, imageData)
+			count += 1
+		}
+	}
+	return reportsInByte, nil
+}
+
 func sortGeneralBondReports(report map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition) []service_models.GeneralBondReportPosition {
 	keys := make([]service_models.TickerTimeKey, 0, len(report))
 	for k := range report {
@@ -376,16 +517,110 @@ func (c *Client) GetPortfolioStructure(token string, account tinkoffApi.Account)
 	if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
 		return "", err
 	}
+	if errors.Is(err, tinkoffApi.ErrCloseAccount) {
+		return "", tinkoffApi.ErrCloseAccount
+	}
 	positions := portfolio.Positions
+
 	accountTitle := fmt.Sprintf("Струтура брокерского счета: %s\n", account.Name)
 	potfolioStructure, err := c.DivideByType(positions)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	respPotfolioStructure := c.ResponsePortfolioStructure(potfolioStructure)
 
 	response := accountTitle + respPotfolioStructure
 	return response, nil
+}
+
+func (c *Client) GetUnionPortfolioStructure(token string, accounts map[string]tinkoffApi.Account) (_ string, err error) {
+	defer func() { err = e.WrapIfErr("service: can't get union portfolio structure", err) }()
+	client := c.Tinkoffapi
+
+	err = client.FillClient(token)
+	if err != nil {
+		return "", err
+	}
+
+	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
+	for _, account := range accounts {
+		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
+		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
+			return "", err
+		}
+		if errors.Is(err, tinkoffApi.ErrCloseAccount) {
+			continue
+		}
+		positions := portfolio.Positions
+
+		potfolioStructure, err := c.DivideByType(positions)
+		if err != nil {
+			return "", err
+		}
+		positionsList = append(positionsList, potfolioStructure)
+	}
+	accountTitle := "Струтура всех открытых счетов в Тинькофф Инвестициях\n"
+	unionPositions, err := c.UnionPortf(positionsList)
+	if err != nil {
+		return "", err
+	}
+	vizualizeUnionPositions := c.ResponsePortfolioStructure(unionPositions)
+	out := accountTitle + vizualizeUnionPositions
+	return out, nil
+}
+
+func (c *Client) GetUnionPortfolioStructureWithSber(token string, accounts map[string]tinkoffApi.Account) (_ string, err error) {
+	defer func() { err = e.WrapIfErr("service: can't get union portfolio structure with Sber", err) }()
+	client := c.Tinkoffapi
+
+	err = client.FillClient(token)
+	if err != nil {
+		return "", err
+	}
+
+	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
+	for _, account := range accounts {
+		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
+		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
+			return "", err
+		}
+		if errors.Is(err, tinkoffApi.ErrCloseAccount) {
+			continue
+		}
+		positions := portfolio.Positions
+
+		potfolioStructure, err := c.DivideByType(positions)
+		if err != nil {
+			return "", err
+		}
+		positionsList = append(positionsList, potfolioStructure)
+	}
+
+	sberConfig, err := sber.LoadConfigSber("./configs/sber.yaml")
+	if err != nil {
+		return "", err
+	}
+
+	processConfig, err := sber.ProcessConfigSber(sberConfig)
+	if err != nil {
+		return "", err
+	}
+
+	sberPortfolio, err := c.DivideByTypeFromSber(processConfig)
+	if err != nil {
+		return "", err
+	}
+
+	positionsList = append(positionsList, sberPortfolio)
+
+	accountTitle := "Струтура всех инвестиций\n"
+	unionPositions, err := c.UnionPortf(positionsList)
+	if err != nil {
+		return "", err
+	}
+	vizualizeUnionPositions := c.ResponsePortfolioStructure(unionPositions)
+	out := accountTitle + vizualizeUnionPositions
+	return out, nil
 }
 
 func (c *Client) DivideByType(positions []*pb.PortfolioPosition) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
@@ -494,6 +729,60 @@ func (c *Client) DivideByType(positions []*pb.PortfolioPosition) (_ *service_mod
 		portfolio.AllAssets += positionPrice
 	}
 
+	return portfolio, nil
+}
+
+func (c *Client) DivideByTypeFromSber(positions map[string]float64) (*service_models.PortfolioByTypeAndCurrency, error) {
+	portfolio := service_models.NewPortfolioByTypeAndCurrency()
+
+	if len(positions) == 0 {
+		return portfolio, errors.New("positions are empty")
+	}
+	for ticker, quantity := range positions {
+		positionsClassCodeVariants, err := c.Tinkoffapi.FindBy(ticker)
+		if err != nil {
+			return nil, e.WrapIfErr("can't divide by type from sber", err)
+		}
+		if len(positionsClassCodeVariants) == 0 {
+			return nil, errors.New("positions variants are empty")
+		}
+
+		switch positionsClassCodeVariants[0].InstrumentType {
+		case bond:
+			bondUid := positionsClassCodeVariants[0].Uid
+			bondActions, err := c.Tinkoffapi.GetBondByUid(bondUid)
+			if err != nil {
+				return nil, e.WrapIfErr("can't divide by type from sber", err)
+			}
+			currentNkd := bondActions.AciValue.ToFloat()
+			currency := bondActions.Currency
+			currentPriceInPers, err := c.Tinkoffapi.GetLastPriceFromTinkoffInPersentageToNominal(bondUid)
+			if err != nil {
+				return nil, e.WrapIfErr("can't divide by type from sber", err)
+			}
+			currentPrice := currentPriceInPers / 100 * bondActions.Nominal.ToFloat()
+			currentNkdOfPosition := currentNkd * quantity
+			positionPrice := currentPrice*quantity + currentNkdOfPosition
+
+			portfolio.AllAssets += positionPrice
+			portfolio.BondsAssets.SumOfAssets += positionPrice
+
+			if existing, exist := portfolio.BondsAssets.AssetsByCurrency[currency]; !exist {
+				portfolio.BondsAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: positionPrice,
+				}
+			} else {
+				existing.SumOfAssets += positionPrice
+			}
+
+		case share:
+		case futures:
+		case etf:
+		case currency:
+		default:
+		}
+
+	}
 	return portfolio, nil
 }
 
@@ -616,4 +905,103 @@ func (c *Client) ResponsePortfolioStructure(portfolio *service_models.PortfolioB
 		totalLeverageRatioOut
 
 	return output
+}
+
+func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurrency) (*service_models.PortfolioByTypeAndCurrency, error) {
+	unionPortf := service_models.NewPortfolioByTypeAndCurrency()
+	for _, portf := range portfolios {
+		unionPortf.AllAssets += portf.AllAssets
+
+		unionPortf.BondsAssets.SumOfAssets += portf.BondsAssets.SumOfAssets
+		for k, v := range portf.BondsAssets.AssetsByCurrency {
+			if existing, exist := unionPortf.BondsAssets.AssetsByCurrency[k]; !exist {
+				unionPortf.BondsAssets.AssetsByCurrency[k] = service_models.NewAssetsByParam()
+				unionPortf.BondsAssets.AssetsByCurrency[k] = v
+			} else {
+				existing.SumOfAssets += v.SumOfAssets
+			}
+		}
+
+		unionPortf.SharesAssets.SumOfAssets += portf.SharesAssets.SumOfAssets
+		for currency, asset := range portf.SharesAssets.AssetsByCurrency {
+			if existing, exists := unionPortf.SharesAssets.AssetsByCurrency[currency]; !exists {
+				unionPortf.SharesAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: asset.SumOfAssets,
+				}
+			} else {
+				existing.SumOfAssets += asset.SumOfAssets
+			}
+		}
+
+		unionPortf.EtfsAssets.SumOfAssets += portf.EtfsAssets.SumOfAssets
+		for currency, asset := range portf.EtfsAssets.AssetsByCurrency {
+			if existing, exists := unionPortf.EtfsAssets.AssetsByCurrency[currency]; !exists {
+				unionPortf.EtfsAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: asset.SumOfAssets,
+				}
+			} else {
+				existing.SumOfAssets += asset.SumOfAssets
+			}
+		}
+
+		unionPortf.CurrenciesAssets.SumOfAssets += portf.CurrenciesAssets.SumOfAssets
+		for currency, asset := range portf.CurrenciesAssets.AssetsByCurrency {
+			if existing, exists := unionPortf.CurrenciesAssets.AssetsByCurrency[currency]; !exists {
+				unionPortf.CurrenciesAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: asset.SumOfAssets,
+				}
+			} else {
+				existing.SumOfAssets += asset.SumOfAssets
+			}
+		}
+
+		unionPortf.FuturesAssets.SumOfAssets += portf.FuturesAssets.SumOfAssets
+		unionPortf.FuturesAssets.AssetsByType.Commodity.SumOfAssets += portf.FuturesAssets.AssetsByType.Commodity.SumOfAssets
+		for currency, asset := range portf.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency {
+			if existing, exist := unionPortf.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[currency]; !exist {
+				unionPortf.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: asset.SumOfAssets,
+				}
+			} else {
+				existing.SumOfAssets += asset.SumOfAssets
+			}
+		}
+
+		unionPortf.FuturesAssets.AssetsByType.Currency.SumOfAssets += portf.FuturesAssets.AssetsByType.Currency.SumOfAssets
+
+		for currency, asset := range portf.FuturesAssets.AssetsByType.Currency.AssetsByCurrency {
+			if existing, exists := unionPortf.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[currency]; !exists {
+				unionPortf.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: asset.SumOfAssets,
+				}
+			} else {
+				existing.SumOfAssets += asset.SumOfAssets
+			}
+		}
+
+		unionPortf.FuturesAssets.AssetsByType.Security.SumOfAssets += portf.FuturesAssets.AssetsByType.Security.SumOfAssets
+
+		for currency, asset := range portf.FuturesAssets.AssetsByType.Security.AssetsByCurrency {
+			if existing, exists := unionPortf.FuturesAssets.AssetsByType.Security.AssetsByCurrency[currency]; !exists {
+				unionPortf.FuturesAssets.AssetsByType.Security.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: asset.SumOfAssets,
+				}
+			} else {
+				existing.SumOfAssets += asset.SumOfAssets
+			}
+		}
+
+		unionPortf.FuturesAssets.AssetsByType.Index.SumOfAssets += portf.FuturesAssets.AssetsByType.Index.SumOfAssets
+
+		for currency, asset := range portf.FuturesAssets.AssetsByType.Index.AssetsByCurrency {
+			if existing, exists := unionPortf.FuturesAssets.AssetsByType.Index.AssetsByCurrency[currency]; !exists {
+				unionPortf.FuturesAssets.AssetsByType.Index.AssetsByCurrency[currency] = &service_models.AssetByParam{
+					SumOfAssets: asset.SumOfAssets,
+				}
+			} else {
+				existing.SumOfAssets += asset.SumOfAssets
+			}
+		}
+	}
+	return unionPortf, nil
 }

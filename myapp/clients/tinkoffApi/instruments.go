@@ -25,6 +25,15 @@ func (c *Client) GetShareBy(figi string) (*pb.Share, error) {
 	return shareResponse.ShareResponse.Instrument, nil
 }
 
+func (c *Client) GetBondByUid(uid string) (*pb.Bond, error) {
+	instrumentService := c.Client.NewInstrumentsServiceClient()
+	bondResponse, err := instrumentService.BondByUid(uid)
+	if err != nil {
+		return nil, e.WrapIfErr("can't get share by figi", err)
+	}
+	return bondResponse.BondResponse.Instrument, nil
+}
+
 func (c *Client) GetCurrencyBy(figi string) (*pb.Currency, error) {
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	currencyResponse, err := instrumentService.CurrencyByFigi(figi)
@@ -54,4 +63,14 @@ func (c *Client) GetBaseShareFutureValute(positionUid string) (string, error) {
 	}
 
 	return share.Currency, nil
+}
+
+func (c *Client) FindBy(query string) ([]*pb.InstrumentShort, error) {
+	client := c.Client.NewInstrumentsServiceClient()
+	findInstr, err := client.FindInstrument(query)
+	if err != nil {
+		return nil, e.WrapIfErr("findByTicker error", err)
+	}
+	ret := findInstr.FindInstrumentResponse.GetInstruments()
+	return ret, nil
 }

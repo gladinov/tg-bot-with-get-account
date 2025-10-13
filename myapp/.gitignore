@@ -1,4 +1,5 @@
 /data/sqlite/storage.db
+/data/sqlite/service_storage.db
 /configs
 /archive
 mybot.exe

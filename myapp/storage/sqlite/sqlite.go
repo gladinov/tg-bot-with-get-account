@@ -20,7 +20,7 @@ func New(path string) (*Storage, error) {
 		return nil, fmt.Errorf("can't open database %w", err)
 	}
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("can't connect to database: %w", err)
+		return nil, fmt.Errorf("can't connect to database: %w by path:%s", err, path)
 	}
 	return &Storage{db: db}, nil
 }

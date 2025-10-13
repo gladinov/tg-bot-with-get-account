@@ -2,21 +2,25 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strconv"
 	"strings"
 
+	"main.go/clients/tinkoffApi"
 	"main.go/lib/e"
 )
 
 const (
-	HelpCmd               = "/help"
-	StartCmd              = "/start"
-	AccountsCmd           = "/accounts"
-	GetBondReport         = "/bondfifo"
-	GetGeneralBondReport  = "/bondreport"
-	GetUSD                = "/usd"
-	GetPortfolioStructure = "/portfoliostructure"
+	HelpCmd                    = "/help"
+	StartCmd                   = "/start"
+	AccountsCmd                = "/accounts"
+	GetBondReport              = "/bondfifo"
+	GetGeneralBondReport       = "/bondreport"
+	GetUSD                     = "/usd"
+	GetPortfolioStructure      = "/portfoliostructure"
+	GetUnionPortfolioStructure = "/unionportfoliostructure"
+	GetUnionWithSber           = "/unionpswithsber"
 )
 
 func (p *Processor) doCmd(text string, chatID int, username string) error {
@@ -59,11 +63,15 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 	case GetBondReport:
 		return p.getBondReports(chatID, token)
 	case GetGeneralBondReport:
-		return p.getGeneralBondReport(chatID, token)
+		return p.getBondRepotsWithPng(chatID, token)
 	case GetUSD:
 		return p.getUSD(chatID)
 	case GetPortfolioStructure:
 		return p.GetPortfolioStructure(chatID, token)
+	case GetUnionPortfolioStructure:
+		return p.GetUnionPortfolioStructure(chatID, token)
+	case GetUnionWithSber:
+		return p.GetUnionPortfolioStructureWithSber(chatID, token)
 	default:
 		return p.tg.SendMessage(chatID, msgUnknownCommand)
 	}
@@ -123,6 +131,33 @@ func (p *Processor) getGeneralBondReport(chatID int, token string) (err error) {
 	return nil
 }
 
+func (p *Processor) getBondRepotsWithPng(chatID int, token string) (err error) {
+	reportsInByteByAccount, err := p.service.GetBondReports(chatID, token)
+	if err != nil {
+		return e.WrapIfErr("can't get bond report with png", err)
+	}
+	for _, reportsInByte := range reportsInByteByAccount {
+		for _, v := range reportsInByte {
+
+			switch len(v.Reports) {
+			case 0:
+				continue
+			case 1:
+				err = p.tg.SendImageFromBuffer(chatID, v.Reports[0].Data, v.Reports[0].Caption)
+				if err != nil {
+					return e.WrapIfErr("can't get bond report with png", err)
+				}
+			default:
+				err = p.tg.SendMediaGroupFromBuffer(chatID, v.Reports)
+				if err != nil {
+					return e.WrapIfErr("can't get bond report with png", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (p *Processor) GetPortfolioStructure(chatID int, token string) (err error) {
 	accounts, err := p.service.GetAccounts(token)
 	if err != nil {
@@ -130,12 +165,41 @@ func (p *Processor) GetPortfolioStructure(chatID int, token string) (err error) 
 	}
 	for _, account := range accounts {
 		report, err := p.service.GetPortfolioStructure(token, account)
-		if err != nil {
+		if errors.Is(err, tinkoffApi.ErrCloseAccount) {
+			continue
+		} else if err != nil {
 			return e.WrapIfErr("can't get portfolio structure", err)
 		}
 		p.tg.SendMessage(chatID, report)
 	}
 	return nil
+}
+
+func (p *Processor) GetUnionPortfolioStructure(chatID int, token string) (err error) {
+	accounts, err := p.service.GetAccounts(token)
+	if err != nil {
+		return e.WrapIfErr("processor: can't get union portfolio structure", err)
+	}
+	unionPortfolioStructure, err := p.service.GetUnionPortfolioStructure(token, accounts)
+	if err != nil {
+		return e.WrapIfErr("processor: can't get union portfolio structure", err)
+	}
+	p.tg.SendMessage(chatID, unionPortfolioStructure)
+	return nil
+}
+
+func (p *Processor) GetUnionPortfolioStructureWithSber(chatID int, token string) (err error) {
+	accounts, err := p.service.GetAccounts(token)
+	if err != nil {
+		return e.WrapIfErr("processor: can't get union portfolio structure", err)
+	}
+	unionPortfolioStructure, err := p.service.GetUnionPortfolioStructureWithSber(token, accounts)
+	if err != nil {
+		return e.WrapIfErr("processor: can't get union portfolio structure", err)
+	}
+	p.tg.SendMessage(chatID, unionPortfolioStructure)
+	return nil
+
 }
 
 func (p *Processor) sendHelp(chatID int) error {

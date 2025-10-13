@@ -18,18 +18,19 @@ import (
 )
 
 const (
-	moexHost               = "iss.moex.com"
-	cbrHost                = "www.cbr.ru"
-	tgBotHost              = "api.telegram.org"
-	storagePath            = "storage"
+	moexHost  = "iss.moex.com"
+	cbrHost   = "www.cbr.ru"
+	tgBotHost = "api.telegram.org"
+	// storagePath            = "storage"
 	storageSqlPath         = "data/sqlite/storage.db"
 	service_storageSqlPath = "data/sqlite/service_storage.db"
 	batchSize              = 100
+	token                  = "7758843053:AAGSURIkq8xJYio8-m9WCHP9eIDWEqPMu9c"
 )
 
 func main() {
 
-	telegrammClient := tgClient.New(tgBotHost, mustToken())
+	telegrammClient := tgClient.New(tgBotHost, token)
 
 	logger := loggAdapter.SetupLogger()
 
@@ -41,7 +42,7 @@ func main() {
 
 	storage, err := sqlite.New(storageSqlPath)
 	if err != nil {
-		logger.Fatalf("can't connect to storage:")
+		logger.Fatalf("can't connect to storage err:%s:", err.Error())
 	}
 
 	if err := storage.Init(context.TODO()); err != nil {
@@ -50,14 +51,18 @@ func main() {
 
 	service_storage, err := servicet_sqlite.New(service_storageSqlPath)
 	if err != nil {
-		logger.Fatalf("can't connect to storage:")
+		logger.Fatalf("can't connect to storage err:%s:", err.Error())
 	}
 
 	if err := service_storage.Init(context.TODO()); err != nil {
 		logger.Fatalf("can't init storage ")
 	}
 
-	serviceClient := service.New(tinkoffApiClient, moexApi, cbrApi, service_storage)
+	serviceClient := service.New(
+		tinkoffApiClient,
+		moexApi,
+		cbrApi,
+		service_storage)
 
 	processor := telegram.NewProccesor(
 		telegrammClient,
