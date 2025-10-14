@@ -16,6 +16,7 @@ import (
 	"main.go/clients/sber"
 	"main.go/clients/tinkoffApi"
 	"main.go/lib/e"
+	pathwd "main.go/lib/pathWD"
 	"main.go/service/service_models"
 	service_storage "main.go/service/storage"
 	"main.go/service/visualization"
@@ -49,6 +50,10 @@ const (
 	currencyType  = "TYPE_CURRENCY"
 	securityType  = "TYPE_SECURITY"
 	indexType     = "TYPE_INDEX"
+)
+
+const (
+	sberConfigPath = "/configs/sber.yaml"
 )
 
 type Client struct {
@@ -596,7 +601,11 @@ func (c *Client) GetUnionPortfolioStructureWithSber(token string, accounts map[s
 		positionsList = append(positionsList, potfolioStructure)
 	}
 
-	sberConfig, err := sber.LoadConfigSber("./configs/sber.yaml")
+	sberConfigAbsolutPath, err := pathwd.PathFromWD(sberConfigPath)
+	if err != nil {
+		return "", err
+	}
+	sberConfig, err := sber.LoadConfigSber(sberConfigAbsolutPath)
 	if err != nil {
 		return "", err
 	}

@@ -6,6 +6,11 @@ import (
 	"github.com/russianinvestments/invest-api-go-sdk/investgo"
 	"main.go/clients/moex"
 	"main.go/lib/e"
+	pathwd "main.go/lib/pathWD"
+)
+
+const (
+	tinkoffApiConfigPath = "/configs/tinkoffApiConfig.yaml"
 )
 
 type Client struct {
@@ -36,8 +41,13 @@ func (c *Client) FillClient(token string) (err error) {
 }
 
 func (c *Client) getConfig(token string) error {
-	config, err := investgo.LoadConfig("./configs/tinkoffApiConfig.yaml")
+	tinkoffConfigAbsolutPath, err := pathwd.PathFromWD(tinkoffApiConfigPath)
 	if err != nil {
+		panic("can't create absolute path to tinkoffApi Config")
+	}
+	config, err := investgo.LoadConfig(tinkoffConfigAbsolutPath)
+	if err != nil {
+		c.Logg.Errorf("incorrect path by config: %s", tinkoffConfigAbsolutPath)
 		panic("can't load config")
 	}
 	c.config = &config
