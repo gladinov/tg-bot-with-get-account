@@ -1,0 +1,12 @@
+networks:
+  dev
+
+services: 
+  app:
+    build:
+      context: .
+  networks:
+    -dev
+  port:
+    - "80:8080"
+  restart: unless-stopped
