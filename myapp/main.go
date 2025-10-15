@@ -34,6 +34,7 @@ func main() {
 	if token == "" {
 		log.Fatal("BOT_TOKEN environment variable is required")
 	}
+	log.Printf("token is: %s", token)
 
 	telegrammClient := tgClient.New(tgBotHost, token)
 
