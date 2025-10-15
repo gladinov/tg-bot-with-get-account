@@ -1,7 +1,7 @@
 
 services: 
   app:
-    image: gladinovs/tg-bot:1.0
+    image: gladinovs/tg_tinkoff_bot:1.0
     # secrets:
     #   tg-bot-token
     # environment:
