@@ -2,6 +2,12 @@
 services: 
   app:
     image: gladinovs/tg-bot:1.0
+    # secrets:
+    #   tg-bot-token
+    # environment:
+    #   - TG_BOT_TOKEN= /run/
+    env_file:
+      - .env
     ports:
       - "80:8080"
     restart: unless-stopped

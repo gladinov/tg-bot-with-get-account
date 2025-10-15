@@ -27,10 +27,14 @@ const (
 	storageSqlPath         = "/data/sqlite/storage.db"
 	service_storageSqlPath = "/data/sqlite/service_storage.db"
 	batchSize              = 100
-	token                  = "7758843053:AAGSURIkq8xJYio8-m9WCHP9eIDWEqPMu9c"
 )
 
 func main() {
+	token := os.Getenv("BOT_TOKEN")
+	if token == "" {
+		log.Fatal("BOT_TOKEN environment variable is required")
+	}
+
 	telegrammClient := tgClient.New(tgBotHost, token)
 
 	logger := loggAdapter.SetupLogger()

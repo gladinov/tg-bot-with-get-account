@@ -1,0 +1,6 @@
+.env
+/myapp/data/sqlite/storage.db
+/myapp/data/sqlite/service_storage.db
+/myapp/archive
+/myapp/mybot.exe
+/myapp/service/visualization
