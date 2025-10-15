@@ -30,6 +30,12 @@ const (
 )
 
 func main() {
+	//  for local
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Printf("Error loading .env file. Erorr: %v", err.Error())
+	// }
+
 	token := os.Getenv("BOT_TOKEN")
 	if token == "" {
 		log.Fatal("BOT_TOKEN environment variable is required")
@@ -39,12 +45,6 @@ func main() {
 	telegrammClient := tgClient.New(tgBotHost, token)
 
 	logger := loggAdapter.SetupLogger()
-
-	// TODO: delete block. begin
-	cwd, _ := os.Getwd()
-
-	logger.Infof("work dir path is :%s", cwd)
-	// end
 
 	moexApi := moex.New(moexHost)
 
@@ -66,8 +66,6 @@ func main() {
 		logger.Fatalf("can't init storage ")
 	}
 
-	logger.Infof("storage sucsess init in path: %s", storageAbsolutPath)
-
 	service_storageAbsolutPath, err := pathwd.PathFromWD(service_storageSqlPath)
 	if err != nil {
 		logger.Fatalf("can't create absolute service_storare path by: %s", service_storageSqlPath)
@@ -81,8 +79,6 @@ func main() {
 	if err := service_storage.Init(context.TODO()); err != nil {
 		logger.Fatalf("can't init storage ")
 	}
-
-	logger.Infof("storage sucsess init in path: %s", service_storageAbsolutPath)
 
 	serviceClient := service.New(
 		tinkoffApiClient,
