@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"log"
 	"os"
@@ -32,10 +31,10 @@ const (
 
 func main() {
 	//  for local
-	err := errors.New("new")
-	if err != nil {
-		log.Printf("Error loading .env file. Erorr: %v", err.Error())
-	}
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Printf("Error loading .env file. Erorr: %v", err.Error())
+	// }
 
 	token := os.Getenv("BOT_TOKEN")
 	if token == "" {
