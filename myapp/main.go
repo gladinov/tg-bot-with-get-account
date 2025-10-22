@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"main.go/clients/cbr"
 	"main.go/clients/moex"
 	tgClient "main.go/clients/telegram"
@@ -20,7 +21,8 @@ import (
 )
 
 const (
-	moexHost  = "iss.moex.com"
+	// moexHost  = "iss.moex.com"
+	moexHost  = "localhost:8081"
 	cbrHost   = "www.cbr.ru"
 	tgBotHost = "api.telegram.org"
 	// storagePath            = "storage"
@@ -30,13 +32,13 @@ const (
 )
 
 func main() {
-	//  for local
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Printf("Error loading .env file. Erorr: %v", err.Error())
-	// }
+	// //  for local
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Printf("Error loading .env file. Erorr: %v", err.Error())
+	}
 
-	token := os.Getenv("BOT_TOKEN")
+	token := os.Getenv("LOCAL_BOT_TOKEN")
 	if token == "" {
 		log.Fatal("BOT_TOKEN environment variable is required")
 	}
@@ -45,7 +47,7 @@ func main() {
 
 	logger := loggAdapter.SetupLogger()
 
-	moexApi := moex.New(moexHost)
+	moexApi := moex.NewClient(moexHost)
 
 	cbrApi := cbr.New(cbrHost)
 

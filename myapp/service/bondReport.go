@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -86,7 +87,7 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 	if err != nil {
 		return BondReporPosition, err
 	}
-
+	fmt.Println(moexBuyDateData, moexNowData)
 	lastPriceDataPath := moexNowData.History.Data[0]
 
 	if lastPriceDataPath.ShortName != nil {
