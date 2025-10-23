@@ -1,19 +1,26 @@
 package main
 
 import (
+	"main/internal/configs"
 	"main/internal/handlers"
 	"main/internal/service"
+	"main/pkg/app"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
-const (
-	moexHost = "iss.moex.com"
-)
+// const (
+// 	moexHost = "iss.moex.com"
+// )
 
 func main() {
-	service := service.NewSpecificationService(moexHost)
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+
+	config := configs.MustLoad(rootPath)
+
+	service := service.NewSpecificationService(config.MoexHost)
 	handlers := handlers.NewHandlers(service)
 	e := echo.New()
 
@@ -22,5 +29,5 @@ func main() {
 
 	e.POST("/specifications", handlers.GetSpecifications)
 
-	e.Start("localhost:8081")
+	e.Start(config.HttpServer)
 }
