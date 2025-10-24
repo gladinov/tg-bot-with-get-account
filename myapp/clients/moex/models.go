@@ -1,8 +1,6 @@
 package moex
 
 import (
-	"encoding/json"
-	"errors"
 	"time"
 )
 
@@ -11,60 +9,71 @@ type SpecificationsRequest struct {
 	Date   time.Time `json:"date"`
 }
 
-type SpecificationsResponce struct {
-	History *History `json:"history"`
-}
-
-type History struct {
-	Data []Values `json:"data"`
-}
-
 type Values struct {
-	ShortName       *string  `json:"SHORTNAME"`
-	TradeDate       *string  `json:"TRADEDATE"`    // Торговая дата(на момент которой рассчитаны остальные данные)
-	MaturityDate    *string  `json:"MATDATE"`      // Дата погашения
-	OfferDate       *string  `json:"OFFERDATE"`    // Дата Оферты
-	BuybackDate     *string  `json:"BUYBACKDATE"`  // дата обратного выкупа
-	YieldToMaturity *float64 `json:"YIELDCLOSE"`   // Доходность к погашению при покупке
-	YieldToOffer    *float64 `json:"YIELDTOOFFER"` // Доходность к оферте при покупке
-	FaceValue       *float64 `json:"FACEVALUE"`
-	FaceUnit        *float64 `json:"FACEUNIT"` // номинальная стоимость облигации
-	Duration        *float64 `json:"DURATION"` // дюрация (средневзвешенный срок платежей)
+	ShortName       NullString  `json:"SHORTNAME"`
+	TradeDate       NullString  `json:"TRADEDATE"`    // Торговая дата(на момент которой рассчитаны остальные данные)
+	MaturityDate    NullString  `json:"MATDATE"`      // Дата погашения
+	OfferDate       NullString  `json:"OFFERDATE"`    // Дата Оферты
+	BuybackDate     NullString  `json:"BUYBACKDATE"`  // дата обратного выкупа
+	YieldToMaturity NullFloat64 `json:"YIELDCLOSE"`   // Доходность к погашению при покупке
+	YieldToOffer    NullFloat64 `json:"YIELDTOOFFER"` // Доходность к оферте при покупке
+	FaceValue       NullFloat64 `json:"FACEVALUE"`
+	FaceUnit        NullString  `json:"FACEUNIT"` // номинальная стоимость облигации
+	Duration        NullFloat64 `json:"DURATION"` // дюрация (средневзвешенный срок платежей)
 
 }
 
-func (d *Values) UnmarshalJSON(data []byte) error {
-	dataSlice := make([]any, 10)
-	err := json.Unmarshal(data, &dataSlice)
-	if err != nil {
-		return errors.New("CustomFloat64: UnmarshalJSON: " + err.Error())
-	}
-	d.TradeDate = checkStringNull(dataSlice[0])
-	d.MaturityDate = checkStringNull(dataSlice[1])
-	d.OfferDate = checkStringNull(dataSlice[2])
-	d.BuybackDate = checkStringNull(dataSlice[3])
-	d.YieldToMaturity = checkFloat64Null(dataSlice[4])
-	d.YieldToOffer = checkFloat64Null(dataSlice[5])
-	d.FaceValue = checkFloat64Null(dataSlice[6])
-	d.FaceUnit = checkFloat64Null(dataSlice[7])
-	d.Duration = checkFloat64Null(dataSlice[8])
-	d.ShortName = checkStringNull(dataSlice[9])
-
-	return nil
+type Nullable interface {
+	IsSet() bool
+	IsNull() bool
 }
 
-func checkFloat64Null(a any) *float64 {
-	if FloatVal, ok := a.(float64); ok {
-		return &FloatVal
-	} else {
-		return nil
-	}
+type NullString struct {
+	Value  string `json:"value"`
+	IsSet  bool   `json:"isSet"`
+	IsNull bool   `json:"isNull"`
 }
 
-func checkStringNull(a any) *string {
-	if StringVal, ok := a.(string); ok {
-		return &StringVal
-	} else {
-		return nil
+func (ns NullString) GetValue() string {
+	return ns.Value
+}
+
+func (ns NullString) GetIsSet() bool {
+	return ns.IsSet
+}
+
+func (ns NullString) GetIsNull() bool {
+	return ns.IsNull
+}
+
+type NullFloat64 struct {
+	Value  float64 `json:"value"`
+	IsSet  bool    `json:"isSet"`
+	IsNull bool    `json:"isNull"`
+}
+
+func (nf NullFloat64) GetValue() float64 {
+	return nf.Value
+}
+
+func (nf NullFloat64) GetIsSet() bool {
+	return nf.IsSet
+}
+
+func (nf NullFloat64) GetIsNull() bool {
+	return nf.IsNull
+}
+
+func (nf NullFloat64) IsHasValue() bool {
+	if !nf.IsSet || nf.IsNull {
+		return false
 	}
+	return true
+}
+
+func (ns NullString) IsHasValue() bool {
+	if !ns.IsSet || ns.IsNull {
+		return false
+	}
+	return true
 }

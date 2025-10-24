@@ -24,8 +24,8 @@ func NewClient(host string) *Client {
 	}
 }
 
-func (c *Client) GetSpecifications(ticker string, date time.Time) (*SpecificationsResponce, error) {
-	var data *SpecificationsResponce
+func (c *Client) GetSpecifications(ticker string, date time.Time) (Values, error) {
+	var data Values
 	Path := path.Join("specifications")
 
 	u := url.URL{
@@ -41,30 +41,30 @@ func (c *Client) GetSpecifications(ticker string, date time.Time) (*Specificatio
 
 	jsonData, err := json.Marshal(requestData)
 	if err != nil {
-		return nil, err
+		return Values{}, err
 	}
 
 	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, err
+		return Values{}, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, err
+		return Values{}, err
 	}
 
 	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return Values{}, err
 	}
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, err
+		return Values{}, err
 	}
 	return data, nil
 }

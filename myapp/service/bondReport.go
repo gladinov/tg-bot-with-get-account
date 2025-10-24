@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -87,42 +86,47 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 	if err != nil {
 		return BondReporPosition, err
 	}
-	fmt.Println(moexBuyDateData, moexNowData)
-	lastPriceDataPath := moexNowData.History.Data[0]
 
-	if lastPriceDataPath.ShortName != nil {
-		BondReporPosition.Name = *lastPriceDataPath.ShortName
+	if moexNowData.ShortName.IsHasValue() {
+		BondReporPosition.Name = moexNowData.ShortName.Value
 
 	} else {
 		BondReporPosition.Name = currentPostions[0].Name
 	}
 
-	duration := lastPriceDataPath.Duration
-	if duration != nil {
-		BondReporPosition.Duration = int64(*duration)
+	if moexNowData.Duration.IsHasValue() {
+		BondReporPosition.Duration = int64(moexNowData.Duration.Value)
 	}
 
-	yieldToOffer := lastPriceDataPath.YieldToOffer
-	yieldToMaturity := lastPriceDataPath.YieldToMaturity
-	if yieldToOffer != nil {
-		BondReporPosition.YieldToMaturity = *yieldToOffer
+	if moexNowData.YieldToOffer.IsHasValue() {
+		BondReporPosition.YieldToMaturity = moexNowData.YieldToOffer.Value
 	} else {
-		if yieldToMaturity != nil {
-			BondReporPosition.YieldToMaturity = *yieldToMaturity
+		if moexNowData.YieldToMaturity.IsHasValue() {
+			BondReporPosition.YieldToMaturity = moexNowData.YieldToMaturity.Value
 		}
 	}
+	var maturityDate string
+	if moexNowData.MaturityDate.IsHasValue() {
+		maturityDate = moexNowData.MaturityDate.Value
+	}
 
-	maturityDate := lastPriceDataPath.MaturityDate
-	offerDate := lastPriceDataPath.OfferDate
-	buyBackDate := lastPriceDataPath.BuybackDate
+	var offerDate string
+	if moexNowData.OfferDate.IsHasValue() {
+		offerDate = moexNowData.OfferDate.Value
+	}
+
+	var buyBackDate string
+	if moexNowData.BuybackDate.IsHasValue() {
+		buyBackDate = moexNowData.BuybackDate.Value
+	}
 
 	switch {
-	case offerDate != nil && buyBackDate != nil:
-		offerDateConv, err := time.Parse(layout, *offerDate)
+	case moexNowData.OfferDate.IsHasValue() && moexNowData.BuybackDate.IsHasValue():
+		offerDateConv, err := time.Parse(layout, offerDate)
 		if err != nil {
 			return BondReporPosition, err
 		}
-		buyBackDateConv, err := time.Parse(layout, *buyBackDate)
+		buyBackDateConv, err := time.Parse(layout, buyBackDate)
 		if err != nil {
 			return BondReporPosition, err
 		}
@@ -131,35 +135,33 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 		} else {
 			BondReporPosition.MaturityDate = buyBackDateConv
 		}
-	case offerDate != nil:
-		offerDateConv, err := time.Parse(layout, *offerDate)
+	case moexNowData.OfferDate.IsHasValue():
+		offerDateConv, err := time.Parse(layout, offerDate)
 		if err != nil {
 			return BondReporPosition, err
 		}
 		BondReporPosition.MaturityDate = offerDateConv
-	case buyBackDate != nil:
-		buyBackDateConv, err := time.Parse(layout, *buyBackDate)
+	case moexNowData.BuybackDate.IsHasValue():
+		buyBackDateConv, err := time.Parse(layout, buyBackDate)
 		if err != nil {
 			return BondReporPosition, err
 		}
 		BondReporPosition.MaturityDate = buyBackDateConv
-	case maturityDate != nil:
-		maturityDateConv, err := time.Parse(layout, *maturityDate)
+	case moexNowData.MaturityDate.IsHasValue():
+		maturityDateConv, err := time.Parse(layout, maturityDate)
 		if err != nil {
 			return BondReporPosition, err
 		}
 		BondReporPosition.MaturityDate = maturityDateConv
 	}
 
-	buyPriceDataPath := moexBuyDateData.History.Data[0]
-
-	yieldToOfferOnPurchase := buyPriceDataPath.YieldToOffer
-	yieldToMaturityOnPurchase := buyPriceDataPath.YieldToMaturity
-	if yieldToOfferOnPurchase != nil {
-		BondReporPosition.YieldToMaturityOnPurchase = *yieldToOfferOnPurchase
+	if moexBuyDateData.YieldToOffer.IsHasValue() {
+		yieldToOfferOnPurchase := moexBuyDateData.YieldToOffer.Value
+		BondReporPosition.YieldToMaturityOnPurchase = yieldToOfferOnPurchase
 	} else {
-		if yieldToMaturityOnPurchase != nil {
-			BondReporPosition.YieldToMaturityOnPurchase = *yieldToMaturityOnPurchase
+		if moexBuyDateData.YieldToMaturity.IsHasValue() {
+			yieldToMaturityOnPurchase := moexBuyDateData.YieldToMaturity.Value
+			BondReporPosition.YieldToMaturityOnPurchase = yieldToMaturityOnPurchase
 		}
 	}
 
@@ -186,42 +188,42 @@ func (c *Client) createBondReportByCurrency(position service_models.PositionByFI
 		CurrentPrice: RoundFloat(position.SellPrice, 2),
 		Nominal:      position.Nominal,
 	}
-	lastPriceDataPath := moexNowData.History.Data[0]
-	buyPriceDataPath := moexBuyDateData.History.Data[0]
 
-	maturityDate := lastPriceDataPath.MaturityDate
-	if maturityDate != nil {
-		bondReport.MaturityDate = *maturityDate
+	if moexNowData.MaturityDate.IsHasValue() {
+		maturityDate := moexNowData.MaturityDate.Value
+		bondReport.MaturityDate = maturityDate
 	}
 
-	offerDate := lastPriceDataPath.OfferDate
-	if offerDate != nil {
-		bondReport.OfferDate = *offerDate
+	if moexNowData.OfferDate.IsHasValue() {
+		offerDate := moexNowData.OfferDate.Value
+		bondReport.OfferDate = offerDate
 	}
 
-	duration := lastPriceDataPath.Duration
-	if duration != nil {
-		bondReport.Duration = int64(*duration)
+	if moexNowData.Duration.IsHasValue() {
+		duration := moexNowData.Duration.Value
+		bondReport.Duration = int64(duration)
 	}
 
-	yieldToMaturity := lastPriceDataPath.YieldToMaturity
-	if yieldToMaturity != nil {
-		bondReport.YieldToMaturity = RoundFloat(*yieldToMaturity, 2)
+	if moexNowData.YieldToMaturity.IsHasValue() {
+		yieldToMaturity := moexNowData.YieldToMaturity.Value
+		bondReport.YieldToMaturity = yieldToMaturity
 	}
 
-	yieldToOffer := lastPriceDataPath.YieldToOffer
-	if yieldToOffer != nil {
-		bondReport.YieldToOffer = RoundFloat(*yieldToOffer, 2)
+	if moexNowData.YieldToOffer.IsHasValue() {
+		yieldToOffer := moexNowData.YieldToOffer.Value
+		bondReport.YieldToOffer = yieldToOffer
 	}
 
-	yieldToMaturityOnPurchase := buyPriceDataPath.YieldToMaturity
-	if yieldToMaturityOnPurchase != nil {
-		bondReport.YieldToMaturityOnPurchase = RoundFloat(*yieldToMaturityOnPurchase, 2)
+	// -------------------
+
+	if moexBuyDateData.YieldToMaturity.IsHasValue() {
+		yieldToMaturityOnPurchase := moexBuyDateData.YieldToMaturity.Value
+		bondReport.YieldToMaturityOnPurchase = RoundFloat(yieldToMaturityOnPurchase, 2)
 	}
 
-	yieldToOfferOnPurchase := buyPriceDataPath.YieldToOffer
-	if yieldToOfferOnPurchase != nil {
-		bondReport.YieldToOfferOnPurchase = RoundFloat(*yieldToOfferOnPurchase, 2)
+	if moexBuyDateData.YieldToOffer.IsHasValue() {
+		yieldToOfferOnPurchase := moexBuyDateData.YieldToOffer.Value
+		bondReport.YieldToOfferOnPurchase = RoundFloat(yieldToOfferOnPurchase, 2)
 	}
 
 	profitInPercentage, err := getProfit(position)
