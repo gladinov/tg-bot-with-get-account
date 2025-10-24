@@ -14,7 +14,7 @@ const (
 )
 
 type Service interface {
-	GetSpecifications(req SpecificationsRequest) (yields SpecificationsResponce, err error)
+	GetSpecifications(req SpecificationsRequest) (values Values, err error)
 }
 
 type SpecificationService struct {
@@ -29,7 +29,7 @@ func NewSpecificationService(host string) Service {
 	}
 }
 
-func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (yields SpecificationsResponce, err error) {
+func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (values Values, err error) {
 	defer func() { err = e.WrapIfErr("getspecification error", err) }()
 	ticker := req.Ticker
 	date := req.Date
@@ -51,12 +51,12 @@ func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (yie
 
 		body, err := s.doRequest(Path, params)
 		if err != nil {
-			return data, err
+			return Values{}, err
 		}
 
 		err = json.Unmarshal(body, &data)
 		if err != nil {
-			return data, err
+			return Values{}, err
 		}
 		if data.History != nil {
 
@@ -66,8 +66,8 @@ func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (yie
 		}
 		date = date.AddDate(0, 0, -1)
 	}
-
-	return data, nil
+	resp := data.History.Data[0]
+	return resp, nil
 }
 
 func (s *SpecificationService) doRequest(Path string, query url.Values) (data []byte, err error) {

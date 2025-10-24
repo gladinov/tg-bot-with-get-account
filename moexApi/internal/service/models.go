@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -23,97 +24,39 @@ type Nullable interface {
 }
 
 type NullString struct {
-	value  string
-	isSet  bool
-	isNull bool
+	Value  string `json:"value"`
+	IsSet  bool   `json:"isSet"`
+	IsNull bool   `json:"isNull"`
 }
 
-func (ns NullString) Value() string {
-	return ns.value
+func (ns NullString) GetValue() string {
+	return ns.Value
 }
 
-func (ns NullString) IsSet() bool {
-	return ns.isSet
+func (ns NullString) GetIsSet() bool {
+	return ns.IsSet
 }
 
-func (ns NullString) IsNull() bool {
-	return ns.isNull
-}
-
-func (ns *NullString) UnmarshalJSON(data []byte) error {
-	ns.isSet = true
-
-	if string(data) == "null" {
-		ns.isNull = true
-		ns.value = ""
-		return nil
-	}
-
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-
-	ns.value = s
-	ns.isNull = false
-	return nil
-}
-
-func (ns NullString) MarshalJSON() ([]byte, error) {
-	if !ns.isSet {
-		return []byte("null"), nil // или возвращать ошибку
-	}
-	if ns.isNull {
-		return []byte("null"), nil
-	}
-	return json.Marshal(ns.value)
+func (ns NullString) GetIsNull() bool {
+	return ns.IsNull
 }
 
 type NullFloat64 struct {
-	value  float64
-	isSet  bool
-	isNull bool
+	Value  float64 `json:"value"`
+	IsSet  bool    `json:"isSet"`
+	IsNull bool    `json:"isNull"`
 }
 
-func (nf NullFloat64) Value() float64 {
-	return nf.value
+func (nf NullFloat64) GetValue() float64 {
+	return nf.Value
 }
 
-func (nf NullFloat64) IsSet() bool {
-	return nf.isSet
+func (nf NullFloat64) GetIsSet() bool {
+	return nf.IsSet
 }
 
-func (nf NullFloat64) IsNull() bool {
-	return nf.isNull
-}
-
-func (nf *NullFloat64) UnmarshalJSON(data []byte) error {
-	nf.isSet = true
-
-	if string(data) == "null" {
-		nf.isNull = true
-		nf.value = 0
-		return nil
-	}
-
-	var f float64
-	if err := json.Unmarshal(data, &f); err != nil {
-		return err
-	}
-
-	nf.value = f
-	nf.isNull = false
-	return nil
-}
-
-func (nf NullFloat64) MarshalJSON() ([]byte, error) {
-	if !nf.isSet {
-		return []byte("null"), nil
-	}
-	if nf.isNull {
-		return []byte("null"), nil
-	}
-	return json.Marshal(nf.value)
+func (nf NullFloat64) GetIsNull() bool {
+	return nf.IsNull
 }
 
 type Values struct {
@@ -125,7 +68,116 @@ type Values struct {
 	YieldToMaturity NullFloat64 `json:"YIELDCLOSE"`   // Доходность к погашению при покупке
 	YieldToOffer    NullFloat64 `json:"YIELDTOOFFER"` // Доходность к оферте при покупке
 	FaceValue       NullFloat64 `json:"FACEVALUE"`
-	FaceUnit        NullFloat64 `json:"FACEUNIT"` // номинальная стоимость облигации
+	FaceUnit        NullString  `json:"FACEUNIT"` // номинальная стоимость облигации
 	Duration        NullFloat64 `json:"DURATION"` // дюрация (средневзвешенный срок платежей)
 
+}
+
+func (v *Values) UnmarshalJSON(data []byte) error {
+	// const op = "service.Values.UnmarshalJSON"
+
+	// Парсим как массив
+	var dataSlice []any
+	if err := json.Unmarshal(data, &dataSlice); err != nil {
+		return fmt.Errorf("cannot unmarshal array: %w", err)
+	}
+
+	if len(dataSlice) < 10 {
+		return fmt.Errorf("expected at least 10 elements in array, got %d", len(dataSlice))
+	}
+
+	tradeDate, err := parseNullString(dataSlice[0])
+	if err != nil {
+		return fmt.Errorf("element 0 (TRADEDATE): %w", err)
+	}
+	v.TradeDate = tradeDate
+
+	maturityDate, err := parseNullString(dataSlice[1])
+	if err != nil {
+		return fmt.Errorf("element 1 (MATDATE): %w", err)
+	}
+	v.MaturityDate = maturityDate
+
+	offerDate, err := parseNullString(dataSlice[2])
+	if err != nil {
+		return fmt.Errorf("element 2 (OFFERDATE): %w", err)
+	}
+	v.OfferDate = offerDate
+
+	buybackDate, err := parseNullString(dataSlice[3])
+	if err != nil {
+		return fmt.Errorf("element 3 (BUYBACKDATE): %w", err)
+	}
+	v.BuybackDate = buybackDate
+
+	yieldToMaturity, err := parseNullFloat64(dataSlice[4])
+	if err != nil {
+		return fmt.Errorf("element 4 (YIELDCLOSE): %w", err)
+	}
+	v.YieldToMaturity = yieldToMaturity
+
+	yieldToOffer, err := parseNullFloat64(dataSlice[5])
+	if err != nil {
+		return fmt.Errorf("element 5 (YIELDTOOFFER): %w", err)
+	}
+	v.YieldToOffer = yieldToOffer
+
+	faceValue, err := parseNullFloat64(dataSlice[6])
+	if err != nil {
+		return fmt.Errorf("element 6 (FACEVALUE): %w", err)
+	}
+	v.FaceValue = faceValue
+
+	faceUnit, err := parseNullString(dataSlice[7])
+	if err != nil {
+		return fmt.Errorf("element 7 (FACEUNIT): %w", err)
+	}
+	v.FaceUnit = faceUnit
+
+	duration, err := parseNullFloat64(dataSlice[8])
+	if err != nil {
+		return fmt.Errorf("element 8 (DURATION): %w", err)
+	}
+	v.Duration = duration
+
+	shortName, err := parseNullString(dataSlice[9])
+	if err != nil {
+		return fmt.Errorf("element 9 (SHORTNAME): %w", err)
+	}
+	v.ShortName = shortName
+
+	return nil
+}
+
+func parseNullString(input any) (NullString, error) {
+	const op = "service.parseNullString"
+	var ns NullString
+	ns.IsSet = true
+	if input == nil {
+		ns.IsNull = true
+		return ns, nil
+	}
+	res, ok := input.(string)
+	if !ok {
+		return NullString{}, fmt.Errorf("op:%s, err: could not convert any to string", op)
+	}
+	ns.Value = res
+	return ns, nil
+}
+
+func parseNullFloat64(input any) (NullFloat64, error) {
+	const op = "service.parseNullFloat64"
+	var nf NullFloat64
+	nf.IsSet = true
+
+	if input == nil {
+		nf.IsNull = true
+		return nf, nil
+	}
+	res, ok := input.(float64)
+	if !ok {
+		return NullFloat64{}, fmt.Errorf("op:%s, err: could not convert any to float64", op)
+	}
+	nf.Value = res
+	return nf, nil
 }
