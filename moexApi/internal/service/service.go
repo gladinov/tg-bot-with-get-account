@@ -2,19 +2,23 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"main/lib/e"
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 )
 
 const (
 	layout = "2006-01-02"
 )
 
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=Service
 type Service interface {
 	GetSpecifications(req SpecificationsRequest) (values Values, err error)
+	DoRequest(Path string, query url.Values) (data []byte, err error)
 }
 
 type SpecificationService struct {
@@ -33,9 +37,14 @@ func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (val
 	defer func() { err = e.WrapIfErr("getspecification error", err) }()
 	ticker := req.Ticker
 	date := req.Date
+
+	if date.Compare(time.Now().AddDate(0, 0, 1)) == 1 {
+		date = time.Now()
+	}
 	var data SpecificationsResponce
 	daysMax := 14
-	for dayToSubstract := 1; dayToSubstract <= daysMax; dayToSubstract++ {
+	var dayToSubstract int
+	for dayToSubstract = 1; dayToSubstract <= daysMax; dayToSubstract++ {
 
 		// Проверяем условия выхода из цикла
 		formatDate := date.Format(layout)
@@ -49,7 +58,7 @@ func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (val
 		params.Add("from", formatDate)
 		params.Add("to", formatDate)
 
-		body, err := s.doRequest(Path, params)
+		body, err := s.DoRequest(Path, params)
 		if err != nil {
 			return Values{}, err
 		}
@@ -66,11 +75,14 @@ func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (val
 		}
 		date = date.AddDate(0, 0, -1)
 	}
+	if dayToSubstract > daysMax {
+		return Values{}, errors.New("could not find data in MOEX")
+	}
 	resp := data.History.Data[0]
 	return resp, nil
 }
 
-func (s *SpecificationService) doRequest(Path string, query url.Values) (data []byte, err error) {
+func (s *SpecificationService) DoRequest(Path string, query url.Values) (data []byte, err error) {
 	defer func() { err = e.WrapIfErr("can`t do request", err) }()
 
 	u := url.URL{

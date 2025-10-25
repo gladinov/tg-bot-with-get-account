@@ -10,10 +10,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-// const (
-// 	moexHost = "iss.moex.com"
-// )
-
 func main() {
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
