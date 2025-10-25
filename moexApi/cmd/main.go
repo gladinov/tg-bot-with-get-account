@@ -23,7 +23,7 @@ func main() {
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 
-	e.POST("/specifications", handlers.GetSpecifications)
+	e.POST("/moex/specifications", handlers.GetSpecifications)
 
 	e.Start(config.HttpServer)
 }

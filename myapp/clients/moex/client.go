@@ -26,7 +26,7 @@ func NewClient(host string) *Client {
 
 func (c *Client) GetSpecifications(ticker string, date time.Time) (Values, error) {
 	var data Values
-	Path := path.Join("specifications")
+	Path := path.Join("moex", "specifications")
 
 	u := url.URL{
 		Scheme: "http",
