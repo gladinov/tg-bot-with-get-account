@@ -83,14 +83,7 @@ func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 		if err != nil {
 			return err
 		}
-		portfolioRequest := tinkoffApi.PortfolioRequest{
-			AccountID:     account.Id,
-			AccountStatus: account.Status,
-		}
-		if account.Status == 3 {
-			continue
-		}
-		portfolio, err := c.Tinkoffapi.GetPortfolio(portfolioRequest)
+		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return err
 		}
@@ -144,14 +137,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string)
 			return err
 		}
 
-		portfolioRequest := tinkoffApi.PortfolioRequest{
-			AccountID:     account.Id,
-			AccountStatus: account.Status,
-		}
-		if account.Status == 3 {
-			continue
-		}
-		portfolio, err := c.Tinkoffapi.GetPortfolio(portfolioRequest)
+		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return err
 		}
@@ -288,15 +274,8 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 		if err != nil {
 			return nil, err
 		}
-		// TODO: Переписать на прием не протобафа, а обычной структуры Portfolio, содержащей PortfolioPositions
-		portfolioRequest := tinkoffApi.PortfolioRequest{
-			AccountID:     account.Id,
-			AccountStatus: account.Status,
-		}
-		if account.Status == 3 {
-			continue
-		}
-		portfolio, err := c.Tinkoffapi.GetPortfolio(portfolioRequest)
+
+		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return nil, err
 		}
@@ -470,17 +449,12 @@ func (c *Client) updateOperations(token string, chatID int, accountId string, op
 			return err
 		}
 	}
-	operationRequest := tinkoffApi.OperationsRequest{
-		AccountID: accountId,
-		Date:      fromDate,
-	}
 
-	// TODO: Клиент возвращает не протобаф, а свою структуру с нужными полями
-	tinkoffOperations, err := c.Tinkoffapi.GetOperations(operationRequest)
+	tinkoffOperations, err := c.TinkoffGetOperations(accountId, fromDate)
 	if err != nil {
 		return err
 	}
-	// TODO: Удалить строку. Трансофрмируем на стороне тинькофф апи
+
 	operations := c.TransOperations(tinkoffOperations)
 
 	err = c.Storage.SaveOperations(context.Background(), chatID, accountId, operations)
@@ -503,12 +477,7 @@ func (c *Client) GetAccounts() (_ map[string]tinkoffApi.Account, err error) {
 
 func (c *Client) GetPortfolioStructure(account tinkoffApi.Account) (_ string, err error) {
 	defer func() { err = e.WrapIfErr("cant' get portfolio structure", err) }()
-	// TODO: Переписать на прием не протобафа, а обычной структуры Portfolio, содержащей PortfolioPositions
-	portfolioRequest := tinkoffApi.PortfolioRequest{
-		AccountID:     account.Id,
-		AccountStatus: account.Status,
-	}
-	portfolio, err := c.Tinkoffapi.GetPortfolio(portfolioRequest)
+	portfolio, err := c.TinkoffGetPortfolio(account)
 	if err != nil {
 		return "", err
 	}
@@ -530,15 +499,7 @@ func (c *Client) GetUnionPortfolioStructure(token string, accounts map[string]ti
 
 	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
-		// TODO: Переписать на прием не протобафа, а обычной структуры Portfolio, содержащей PortfolioPositions
-		portfolioRequest := tinkoffApi.PortfolioRequest{
-			AccountID:     account.Id,
-			AccountStatus: account.Status,
-		}
-		if account.Status == 3 {
-			continue
-		}
-		portfolio, err := c.Tinkoffapi.GetPortfolio(portfolioRequest)
+		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return "", err
 		}
@@ -565,14 +526,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(accounts map[string]tinkoffA
 
 	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
-		portfolioRequest := tinkoffApi.PortfolioRequest{
-			AccountID:     account.Id,
-			AccountStatus: account.Status,
-		}
-		if account.Status == 3 {
-			continue
-		}
-		portfolio, err := c.Tinkoffapi.GetPortfolio(portfolioRequest)
+		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return "", err
 		}

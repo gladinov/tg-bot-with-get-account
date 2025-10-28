@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	"main.go/lib/e"
 )
 
 type Client struct {
@@ -24,6 +26,21 @@ func NewClient(host string) *Client {
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+func (c *Client) IsToken(token string) (err error) {
+	defer func() { err = e.WrapIfErr("isTokent error", err) }()
+	if len(token) == 88 { // TODO:модифицировать проверку
+		c.Token = token
+		_, err = c.GetAccounts()
+		if err != nil {
+			c.Token = ""
+			return err
+		}
+		return nil
+	}
+	c.Token = ""
+	return err
 }
 
 func (c *Client) GetAccounts() (map[string]Account, error) {

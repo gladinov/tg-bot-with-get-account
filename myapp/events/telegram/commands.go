@@ -43,7 +43,7 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		}
 		p.service.Tinkoffapi.Token = token
 	case false:
-		err := p.isToken(text)
+		err := p.service.Tinkoffapi.IsToken(text)
 		switch err {
 		case nil:
 			token = text
@@ -85,21 +85,6 @@ func (p *Processor) getUSD(chatId int) error {
 	p.tg.SendMessage(chatId, usdRes)
 	return nil
 
-}
-
-func (p *Processor) isToken(token string) (err error) {
-	defer func() { err = e.WrapIfErr("isTokent error", err) }()
-	if len(token) == 88 { // TODO:модифицировать проверку
-		p.service.Tinkoffapi.Token = token
-		_, err = p.service.Tinkoffapi.GetAccounts()
-		if err != nil {
-			p.service.Tinkoffapi.Token = ""
-			return err
-		}
-		return nil
-	}
-	p.service.Tinkoffapi.Token = ""
-	return err
 }
 
 func (p *Processor) sendAccounts(chatID int, token string) error {
