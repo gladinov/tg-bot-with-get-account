@@ -11,33 +11,45 @@ import (
 	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 )
 
-func (c *Client) GetAcc() (map[string]Account, error) {
-	usersService := c.Client.NewUsersServiceClient()
-	accounts := make(map[string]Account)
-	status := pb.AccountStatus_ACCOUNT_STATUS_ALL // ПОтом надо обработать закрытые счета(например ИИС)
-	accsResp, err := usersService.GetAccounts(&status)
-	if err != nil {
-		return nil, errors.New("GetAcc: operationsService.GetOperationsByCursor" + err.Error())
-	} else {
-		accs := accsResp.GetAccounts()
-		for _, acc := range accs {
-			account := Account{
-				Id:          acc.GetId(),
-				Type:        acc.GetType().String(),
-				Name:        acc.GetName(),
-				OpenedDate:  acc.GetOpenedDate().AsTime(),
-				ClosedDate:  acc.GetClosedDate().AsTime(),
-				Status:      int64(acc.GetStatus()),
-				AccessLevel: acc.GetAccessLevel().String(),
-			}
-			accounts[acc.GetId()] = account
-		}
-	}
+var ErrCloseAccount = errors.New("close account haven't portffolio positions")
+var ErrNoAcces = errors.New("this token no access to account")
 
-	return accounts, nil
+type Service interface {
+	InstrumentService
+	PortfolioService
+	AnalyticsService
+	ClientService
 }
 
-var ErrCloseAccount = errors.New("close account haven't portffolio positions")
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=InstrumentService
+type InstrumentService interface {
+	FindBy(query string) ([]InstrumentShort, error)
+	GetBondByUid(uid string) (Bond, error)
+	GetCurrencyBy(figi string) (Currency, error)
+	GetFutureBy(figi string) (Future, error)
+	getShareCurrencyBy(figi string) (ShareCurrencyByResponse, error)
+}
+
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=PortfolioService
+type PortfolioService interface {
+	GetAccounts() (map[string]Account, error)
+	GetPortfolio(request PortfolioRequest) (Portfolio, error)
+	GetOperations(request OperationsRequest) ([]Operation, error)
+}
+
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=AnalyticsService
+type AnalyticsService interface {
+	GetBaseShareFutureValute(positionUid string) (BaseShareFutureValuteResponse, error)
+	GetLastPriceInPersentageToNominal(instrumentUid string) (LastPriceResponse, error)
+	GetAllAssetUids() (map[string]string, error)
+	GetBondsActions(instrumentUid string) (BondIdentIdentifiers, error)
+}
+
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=ClientService
+type ClientService interface {
+	FillClient(token string) error
+	getClient() error
+}
 
 type Client struct {
 	ctx    context.Context
@@ -46,7 +58,7 @@ type Client struct {
 	Client *investgo.Client
 }
 
-func New(ctx context.Context, logg investgo.Logger, config *investgo.Config) *Client {
+func New(ctx context.Context, logg investgo.Logger, config *investgo.Config) Service {
 	return &Client{
 		ctx:    ctx,
 		Logg:   logg,
@@ -78,19 +90,45 @@ func (c *Client) getClient() error {
 	return nil
 }
 
-func (c *Client) GetPortf(request PortfolioRequest) (_ Portfolio, err error) {
+func (c *Client) GetAccounts() (map[string]Account, error) {
+	usersService := c.Client.NewUsersServiceClient()
+	accounts := make(map[string]Account)
+	status := pb.AccountStatus_ACCOUNT_STATUS_ALL
+	accsResp, err := usersService.GetAccounts(&status)
+	if err != nil {
+		return nil, err
+	} else {
+		accs := accsResp.GetAccounts()
+		for _, acc := range accs {
+			account := Account{
+				Id:          acc.GetId(),
+				Type:        acc.GetType().String(),
+				Name:        acc.GetName(),
+				OpenedDate:  acc.GetOpenedDate().AsTime(),
+				ClosedDate:  acc.GetClosedDate().AsTime(),
+				Status:      int64(acc.GetStatus()),
+				AccessLevel: int64(acc.GetAccessLevel()),
+			}
+			accounts[acc.GetId()] = account
+		}
+	}
+
+	return accounts, nil
+}
+
+func (c *Client) GetPortfolio(request PortfolioRequest) (_ Portfolio, err error) {
 	accountID := request.AccountID
 	accountStatus := request.AccountStatus
 	portfolio := Portfolio{}
 	if accountStatus == 3 {
-		return portfolio, ErrCloseAccount
+		return Portfolio{}, ErrCloseAccount
 	}
 	operationsService := c.Client.NewOperationsServiceClient()
-	id := accountID
-	portfolioResp, err := operationsService.GetPortfolio(id,
+
+	portfolioResp, err := operationsService.GetPortfolio(accountID,
 		pb.PortfolioRequest_RUB)
 	if err != nil {
-		return portfolio, e.WrapIfErr("can't get portifolio positions from tinkoff Api", err)
+		return Portfolio{}, e.WrapIfErr("can't get portifolio positions from tinkoff Api", err)
 	}
 	portfolio.Positions = ConvertPbToPortfolioPositions(portfolioResp.GetPositions())
 	portfolio.TotalAmount = ConvertPbToMoneyValue(portfolioResp.GetTotalAmountPortfolio())
@@ -147,8 +185,12 @@ func ConvertPbToQuatation(pbQuatation *pb.Quotation) Quotation {
 
 func (c *Client) GetOperations(request OperationsRequest) (_ []Operation, err error) {
 	defer func() { err = e.WrapIfErr("can't get opperations from tinkoffApi", err) }()
+	const op = "service.GetOperations"
 	accountID := request.AccountID
 	date := request.Date
+	if date.Compare(time.Now()) == 1 {
+		return nil, fmt.Errorf("op:%s, from can't be more than the current date", op)
+	}
 	resOpereaions := make([]*pb.OperationItem, 0)
 	opereationsService := c.Client.NewOperationsServiceClient()
 	operationsResp, err := opereationsService.GetOperationsByCursor(&investgo.GetOperationsByCursorRequest{
@@ -177,12 +219,12 @@ func (c *Client) GetOperations(request OperationsRequest) (_ []Operation, err er
 			resOpereaions = append(resOpereaions, operations...)
 		}
 	}
-	resp := c.convertOperationsPbToOperaions(resOpereaions)
+	resp := convertOperationsPbToOperaions(resOpereaions)
 	fmt.Printf("✓ Добавлено %v операции в Account.Operation по счету %s\n", len(resOpereaions), accountID)
 	return resp, nil
 }
 
-func (c *Client) convertOperationsPbToOperaions(operations []*pb.OperationItem) []Operation {
+func convertOperationsPbToOperaions(operations []*pb.OperationItem) []Operation {
 	transformOperations := make([]Operation, 0, len(operations))
 	for _, v := range operations {
 		transformOperation := Operation{

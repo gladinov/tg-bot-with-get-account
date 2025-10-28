@@ -92,7 +92,7 @@ type Account struct {
 	Status      int64     `json:"status,omitempty"`
 	OpenedDate  time.Time `json:"openedDate,omitempty"`
 	ClosedDate  time.Time `json:"closedDate,omitempty"`
-	AccessLevel string    `json:"accessLevel,omitempty"`
+	AccessLevel int64     `json:"accessLevel,omitempty"`
 }
 
 type BondIdentIdentifiers struct {

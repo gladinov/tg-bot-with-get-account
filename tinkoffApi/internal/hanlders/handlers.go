@@ -11,10 +11,10 @@ import (
 )
 
 type Handlers struct {
-	service *service.Client
+	service service.Service
 }
 
-func NewHandlers(service *service.Client) *Handlers {
+func NewHandlers(service service.Service) *Handlers {
 	return &Handlers{
 		service: service,
 	}
@@ -52,7 +52,7 @@ func (h *Handlers) GetAccounts(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
-	accs, err := h.service.GetAcc()
+	accs, err := h.service.GetAccounts()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get accounts"})
 	}
@@ -77,7 +77,7 @@ func (h *Handlers) GetPortfolio(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 
-	portf, err := h.service.GetPortf(portffolioReq)
+	portf, err := h.service.GetPortfolio(portffolioReq)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get portfolio"})
 	}
