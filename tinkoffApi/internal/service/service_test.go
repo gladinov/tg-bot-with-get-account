@@ -628,3 +628,229 @@ func TestGetOperations_TimeFromPast(t *testing.T) {
 		})
 	}
 }
+
+func TestAllAssetUids(t *testing.T) {
+	logg := loggerdicard.NewLoggerDiscard()
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+	tokens := MustTokensForTest(rootPath)
+	cases := []struct {
+		name    string
+		token   string
+		wantErr bool
+	}{
+		{
+			name:    "sucsees",
+			token:   tokens.OnlyReadToken,
+			wantErr: false,
+		},
+		{
+			name:    "All access token",
+			token:   tokens.AllAcsessToken,
+			wantErr: false,
+		},
+		{
+			name:    "Only trading token",
+			token:   tokens.OnlyTradingToken,
+			wantErr: false,
+		},
+		{
+			name:    "Close account",
+			token:   tokens.OnlyTradingToken,
+			wantErr: false,
+		},
+		{
+			name:    "Sandbox token without request error",
+			token:   tokens.SandboxToken,
+			wantErr: false, //Как оказалось на практике
+		},
+		{
+			name:    "Sandbox token error",
+			token:   tokens.SandboxToken,
+			wantErr: false, //Как оказалось на практике
+		},
+		{
+			name:    "Err: Token have not acsess to acount",
+			token:   tokens.OneAccountReadToken,
+			wantErr: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cnfgs := configs.MustInitConfigs(rootPath)
+			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+			defer cancel()
+			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
+			client.FillClient(tc.token)
+			_, err := client.GetAllAssetUids()
+			fmt.Println(err)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+		})
+	}
+}
+
+func TestGetFutureBy(t *testing.T) {
+	logg := loggerdicard.NewLoggerDiscard()
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+	tokens := MustTokensForTest(rootPath)
+	cases := []struct {
+		name    string
+		token   string
+		figi    string
+		wantErr bool
+	}{
+		{
+			name:    "sucsees",
+			token:   tokens.OnlyReadToken,
+			figi:    "FUTCNY032300",
+			wantErr: false,
+		},
+		{
+			name:    "All access token",
+			token:   tokens.AllAcsessToken,
+			figi:    "FUTCNY032300",
+			wantErr: false,
+		},
+		{
+			name:    "Only trading token",
+			token:   tokens.OnlyTradingToken,
+			figi:    "FUTCNY032300",
+			wantErr: false,
+		},
+		{
+			name:    "Close account",
+			token:   tokens.OnlyTradingToken,
+			figi:    "FUTCNY032300",
+			wantErr: false,
+		},
+		{
+			name:  "Sandbox token without request error",
+			token: tokens.SandboxToken,
+
+			wantErr: true,
+		},
+		{
+			name:    "Sandbox token ",
+			token:   tokens.SandboxToken,
+			figi:    "FUTCNY032300",
+			wantErr: false,
+		},
+		{
+			name:    "Token have not acsess to acount",
+			token:   tokens.OneAccountReadToken,
+			figi:    "FUTCNY032300",
+			wantErr: false,
+		},
+		{
+			name:    "Err: Incorrect figi",
+			token:   tokens.OneAccountReadToken,
+			figi:    "FUTCNY03ghgerhgrehrt2300",
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cnfgs := configs.MustInitConfigs(rootPath)
+			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+			defer cancel()
+			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
+			client.FillClient(tc.token)
+			_, err := client.GetFutureBy(tc.figi)
+			fmt.Println(err)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+		})
+	}
+}
+
+func TestGetBondByUid(t *testing.T) {
+	logg := loggerdicard.NewLoggerDiscard()
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+	tokens := MustTokensForTest(rootPath)
+	cases := []struct {
+		name    string
+		token   string
+		uid     string
+		wantErr bool
+	}{
+		{
+			name:    "sucsees",
+			token:   tokens.OnlyReadToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "All access token",
+			token:   tokens.AllAcsessToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Only trading token",
+			token:   tokens.OnlyTradingToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Close account",
+			token:   tokens.OnlyTradingToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:  "Sandbox token without request error",
+			token: tokens.SandboxToken,
+
+			wantErr: true,
+		},
+		{
+			name:    "Sandbox token ",
+			token:   tokens.SandboxToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Token have not acsess to acount",
+			token:   tokens.OneAccountReadToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Err: Incorrect figi",
+			token:   tokens.OneAccountReadToken,
+			uid:     "FUTCNY03ghgerhgrehrt2300",
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cnfgs := configs.MustInitConfigs(rootPath)
+			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+			defer cancel()
+			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
+			client.FillClient(tc.token)
+			_, err := client.GetBondByUid(tc.uid)
+			fmt.Println(err)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+		})
+	}
+}
