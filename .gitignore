@@ -4,3 +4,6 @@
 /myapp/archive
 /myapp/mybot.exe
 tinkoff_commands.yaml
+tinkoffApi/configs/config.yaml
+tinkoffApi/configs/tinkoffApiConfig.yaml
+tinkoffApi/configs/local.yaml

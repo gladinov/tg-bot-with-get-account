@@ -2,12 +2,10 @@ package telegram
 
 import (
 	"context"
-	"errors"
 	"log"
 	"strconv"
 	"strings"
 
-	"main.go/clients/tinkoffApi"
 	"main.go/lib/e"
 )
 
@@ -43,14 +41,15 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		if err != nil {
 			return e.WrapIfErr("doCmd: can't pick token from storage", err)
 		}
+		p.service.Tinkoffapi.Token = token
 	case false:
-		istoken, _ := p.isToken(text)
-		switch istoken {
-		case true:
+		err := p.isToken(text)
+		switch err {
+		case nil:
 			token = text
 			p.storage.Save(context.Background(), username, chatID, text)
 			return p.tg.SendMessage(chatID, msgTrueToken)
-		case false:
+		default:
 			return p.tg.SendMessage(chatID, msgNoToken)
 		}
 	}
@@ -88,21 +87,19 @@ func (p *Processor) getUSD(chatId int) error {
 
 }
 
-func (p *Processor) isToken(token string) (res bool, err error) {
+func (p *Processor) isToken(token string) (err error) {
 	defer func() { err = e.WrapIfErr("isTokent error", err) }()
 	if len(token) == 88 { // TODO:модифицировать проверку
-		client := p.service.Tinkoffapi
-		err := client.FillClient(token)
+		p.service.Tinkoffapi.Token = token
+		_, err = p.service.Tinkoffapi.GetAccounts()
 		if err != nil {
-			return false, err
+			p.service.Tinkoffapi.Token = ""
+			return err
 		}
-		_, err = p.service.Tinkoffapi.GetAcc()
-		if err != nil {
-			return false, err
-		}
-		return true, nil
+		return nil
 	}
-	return false, err
+	p.service.Tinkoffapi.Token = ""
+	return err
 }
 
 func (p *Processor) sendAccounts(chatID int, token string) error {
@@ -159,15 +156,16 @@ func (p *Processor) getBondRepotsWithPng(chatID int, token string) (err error) {
 }
 
 func (p *Processor) GetPortfolioStructure(chatID int, token string) (err error) {
-	accounts, err := p.service.GetAccounts(token)
+	accounts, err := p.service.GetAccounts()
 	if err != nil {
 		return e.WrapIfErr("can't get portfolio structure", err)
 	}
 	for _, account := range accounts {
-		report, err := p.service.GetPortfolioStructure(token, account)
-		if errors.Is(err, tinkoffApi.ErrCloseAccount) {
+		if account.Status == 3 {
 			continue
-		} else if err != nil {
+		}
+		report, err := p.service.GetPortfolioStructure(account)
+		if err != nil {
 			return e.WrapIfErr("can't get portfolio structure", err)
 		}
 		p.tg.SendMessage(chatID, report)
@@ -176,7 +174,7 @@ func (p *Processor) GetPortfolioStructure(chatID int, token string) (err error) 
 }
 
 func (p *Processor) GetUnionPortfolioStructure(chatID int, token string) (err error) {
-	accounts, err := p.service.GetAccounts(token)
+	accounts, err := p.service.GetAccounts()
 	if err != nil {
 		return e.WrapIfErr("processor: can't get union portfolio structure", err)
 	}
@@ -189,11 +187,11 @@ func (p *Processor) GetUnionPortfolioStructure(chatID int, token string) (err er
 }
 
 func (p *Processor) GetUnionPortfolioStructureWithSber(chatID int, token string) (err error) {
-	accounts, err := p.service.GetAccounts(token)
+	accounts, err := p.service.GetAccounts()
 	if err != nil {
 		return e.WrapIfErr("processor: can't get union portfolio structure", err)
 	}
-	unionPortfolioStructure, err := p.service.GetUnionPortfolioStructureWithSber(token, accounts)
+	unionPortfolioStructure, err := p.service.GetUnionPortfolioStructureWithSber(accounts)
 	if err != nil {
 		return e.WrapIfErr("processor: can't get union portfolio structure", err)
 	}

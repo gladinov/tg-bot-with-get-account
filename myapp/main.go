@@ -22,9 +22,10 @@ import (
 
 const (
 	// moexHost  = "iss.moex.com"
-	moexHost  = "localhost:8081"
-	cbrHost   = "www.cbr.ru"
-	tgBotHost = "api.telegram.org"
+	moexHost       = "localhost:8081"
+	tinkoffApiHost = "localhost:8082"
+	cbrHost        = "www.cbr.ru"
+	tgBotHost      = "api.telegram.org"
 	// storagePath            = "storage"
 	storageSqlPath         = "/data/sqlite/storage.db"
 	service_storageSqlPath = "/data/sqlite/service_storage.db"
@@ -51,7 +52,7 @@ func main() {
 
 	cbrApi := cbr.New(cbrHost)
 
-	tinkoffApiClient := tinkoffapi.New(context.TODO(), logger)
+	tinkoffApiClient := tinkoffapi.NewClient(tinkoffApiHost)
 
 	storageAbsolutPath, err := pathwd.PathFromWD(storageSqlPath)
 	if err != nil {
