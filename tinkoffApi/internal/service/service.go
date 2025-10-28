@@ -251,17 +251,6 @@ func convertFuturePbToFuture(futurePb *pb.Future) Future {
 	}
 }
 
-func (c *Client) GetShareCurrencyBy(figi string) (ShareCurrencyByResponse, error) {
-	instrumentService := c.Client.NewInstrumentsServiceClient()
-	shareResponse, err := instrumentService.ShareByFigi(figi)
-	if err != nil {
-		return ShareCurrencyByResponse{}, e.WrapIfErr("can't get share by figi", err)
-	}
-	var resp ShareCurrencyByResponse
-	resp.Currency = shareResponse.ShareResponse.Instrument.GetCurrency()
-	return resp, nil
-}
-
 func (c *Client) GetBondByUid(uid string) (Bond, error) {
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	bondResponse, err := instrumentService.BondByUid(uid)
@@ -311,7 +300,7 @@ func (c *Client) GetBaseShareFutureValute(positionUid string) (BaseShareFutureVa
 	if instrument.InstrumentType != "share" {
 		return BaseShareFutureValuteResponse{}, errors.New("instrument is not share")
 	}
-	currency, err := c.GetShareCurrencyBy(instrument.Figi)
+	currency, err := c.getShareCurrencyBy(instrument.Figi)
 	if err != nil {
 		return BaseShareFutureValuteResponse{}, e.WrapIfErr("can't get base share future valute", err)
 	}
@@ -342,7 +331,7 @@ func convertInstrumentShortPbToInstrumentShort(instrumentShortPb []*pb.Instrumen
 	return instrumentShorts
 }
 
-func (c *Client) GetBondsActionsFromTinkoff(instrumentUid string) (BondIdentIdentifiers, error) {
+func (c *Client) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, error) {
 	var res BondIdentIdentifiers
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	bondUid, err := instrumentService.BondByUid(instrumentUid)
@@ -361,7 +350,7 @@ func (c *Client) GetBondsActionsFromTinkoff(instrumentUid string) (BondIdentIden
 	return res, nil
 }
 
-func (c *Client) GetLastPriceFromTinkoffInPersentageToNominal(instrumentUid string) (LastPriceResponse, error) {
+func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPriceResponse, error) {
 	marketDataClient := c.Client.NewMarketDataServiceClient()
 	lastPriceAnswer, err := marketDataClient.GetLastPrices([]string{instrumentUid})
 	if err != nil {
@@ -375,5 +364,16 @@ func (c *Client) GetLastPriceFromTinkoffInPersentageToNominal(instrumentUid stri
 	resp := LastPriceResponse{
 		LastPrice: lastPrice,
 	}
+	return resp, nil
+}
+
+func (c *Client) getShareCurrencyBy(figi string) (ShareCurrencyByResponse, error) {
+	instrumentService := c.Client.NewInstrumentsServiceClient()
+	shareResponse, err := instrumentService.ShareByFigi(figi)
+	if err != nil {
+		return ShareCurrencyByResponse{}, e.WrapIfErr("can't get share by figi", err)
+	}
+	var resp ShareCurrencyByResponse
+	resp.Currency = shareResponse.ShareResponse.Instrument.GetCurrency()
 	return resp, nil
 }

@@ -2,6 +2,7 @@ package hanlders
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"tinkoffApi/internal/service"
@@ -49,11 +50,11 @@ func (h *Handlers) GetAccounts(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 	accs, err := h.service.GetAcc()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, "Could not get accounts")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get accounts"})
 	}
 	return c.JSON(http.StatusOK, accs)
 }
@@ -73,7 +74,7 @@ func (h *Handlers) GetPortfolio(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 
 	portf, err := h.service.GetPortf(portffolioReq)
@@ -99,7 +100,7 @@ func (h *Handlers) GetOperations(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 
 	operations, err := h.service.GetOperations(operationReq)
@@ -117,7 +118,7 @@ func (h *Handlers) GetAllAssetUids(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 	allAssetUids, err := h.service.GetAllAssetUids()
 	if err != nil {
@@ -139,11 +140,11 @@ func (h *Handlers) GetFutureBy(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 	future, err := h.service.GetFutureBy(body.Figi)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get futures"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("Could not get futures, delete this block. err :%s", err.Error())})
 	}
 	return c.JSON(http.StatusOK, future)
 }
@@ -161,7 +162,7 @@ func (h *Handlers) GetBondBy(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 	bond, err := h.service.GetBondByUid(body.Uid)
 	if err != nil {
@@ -183,7 +184,7 @@ func (h *Handlers) GetCurrencyBy(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 	currency, err := h.service.GetCurrencyBy(body.Figi)
 	if err != nil {
@@ -205,7 +206,7 @@ func (h *Handlers) GetBaseShareFutureValute(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 	currency, err := h.service.GetBaseShareFutureValute(body.SharePositionUid)
 	if err != nil {
@@ -227,7 +228,7 @@ func (h *Handlers) FindBy(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 	instruments, err := h.service.FindBy(body.Query)
 	if err != nil {
@@ -249,9 +250,9 @@ func (h *Handlers) GetBondsActions(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
-	bondIdentificators, err := h.service.GetBondsActionsFromTinkoff(body.InstrumentUid)
+	bondIdentificators, err := h.service.GetBondsActions(body.InstrumentUid)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get bond identificators"})
 	}
@@ -271,9 +272,9 @@ func (h *Handlers) GetLastPriceInPersentageToNominal(c echo.Context) error {
 	err = h.service.FillClient(authHeader)
 	// TODO: Проверить тестами корректность токена! Если тут проходит проверка, то перенести FillClient в Auth
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "incorrect token")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
-	lastPrice, err := h.service.GetLastPriceFromTinkoffInPersentageToNominal(body.InstrumentUid)
+	lastPrice, err := h.service.GetLastPriceInPersentageToNominal(body.InstrumentUid)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get last price"})
 	}
