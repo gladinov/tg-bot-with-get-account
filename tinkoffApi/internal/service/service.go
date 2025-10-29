@@ -462,16 +462,25 @@ func (c *Client) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, er
 }
 
 func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPriceResponse, error) {
+	const op = "tinkoffApi.GetLastPriceInPercentageToNominal"
 	if instrumentUid == "" {
-		return LastPriceResponse{}, ErrEmptyInstrumentUid
+		return LastPriceResponse{}, fmt.Errorf("%s: %w", op, ErrEmptyInstrumentUid)
 	}
 	marketDataClient := c.Client.NewMarketDataServiceClient()
 	lastPriceAnswer, err := marketDataClient.GetLastPrices([]string{instrumentUid})
 	if err != nil {
-		return LastPriceResponse{}, errors.New("tinkoffApi:GetLastPriceFromTinkoff" + err.Error())
+		return LastPriceResponse{}, fmt.Errorf("%s: %w", op, err)
 	}
+
+	// Проверка через LastPriceType нужна для ошибке при некоректном instrumentUid.
+	// Т.к. тинькофф выдает нулевую ошибку при любом ошибочном instrumentUid
+	if lastPriceAnswer.GetLastPricesResponse.LastPrices[0].Price.ToFloat() == 0 &&
+		lastPriceAnswer.LastPrices[0].LastPriceType.Number() == 0 {
+		return LastPriceResponse{}, fmt.Errorf("%s: haven't response for instrument %s", op, instrumentUid)
+	}
+
 	if len(lastPriceAnswer.LastPrices) == 0 {
-		return LastPriceResponse{}, errors.New("tinkoffApi:GetLastPriceFromTinkoff: no price data")
+		return LastPriceResponse{}, fmt.Errorf("%s: no price data for instrument %s", op, instrumentUid)
 	}
 
 	lastPrice := ConvertPbToQuatation(lastPriceAnswer.LastPrices[0].Price)
