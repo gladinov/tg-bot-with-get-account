@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -264,7 +263,6 @@ func TestGetAccounts(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetAccounts()
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -483,7 +481,6 @@ func TestGetOperations_TimeNow(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetOperations(tc.request)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -583,7 +580,6 @@ func TestGetOperations_TimeFromFuture(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetOperations(tc.request)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -683,7 +679,6 @@ func TestGetOperations_TimeFromPast(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetOperations(tc.request)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -783,7 +778,6 @@ func TestMakeSafeGetOperationsRequest_TimeNow(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.MakeSafeGetOperationsRequest(tc.request)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -882,7 +876,6 @@ func TestMakeSafeGetOperationsRequest_TimeFromFuture(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.MakeSafeGetOperationsRequest(tc.request)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -982,7 +975,6 @@ func TestMakeSafeGetOperationsRequest_TimeFromPast(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.MakeSafeGetOperationsRequest(tc.request)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -1047,7 +1039,6 @@ func TestAllAssetUids(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetAllAssetUids()
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -1133,7 +1124,6 @@ func TestGetFutureBy(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetFutureBy(tc.figi)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -1219,7 +1209,6 @@ func TestGetBondByUid(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetBondByUid(tc.uid)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -1311,7 +1300,6 @@ func TestGetCurrencyBy(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetCurrencyBy(tc.figi)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -1403,7 +1391,6 @@ func TestGetBaseShareFutureValute(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.GetBaseShareFutureValute(tc.positionUid)
-			fmt.Println(err)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -1495,7 +1482,267 @@ func TestFindBy(t *testing.T) {
 			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
 			client.FillClient(tc.token)
 			_, err := client.FindBy(tc.query)
-			fmt.Println(err)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+		})
+	}
+}
+
+func TestGetBondsActions(t *testing.T) {
+	logg := loggerdicard.NewLoggerDiscard()
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+	tokens := MustTokensForTest(rootPath)
+	cases := []struct {
+		name    string
+		token   string
+		uid     string
+		wantErr bool
+	}{
+		{
+			name:    "sucsees",
+			token:   tokens.OnlyReadToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "All access token",
+			token:   tokens.AllAcsessToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Only trading token",
+			token:   tokens.OnlyTradingToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Close account",
+			token:   tokens.OnlyTradingToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:  "Sandbox token without request error",
+			token: tokens.SandboxToken,
+
+			wantErr: true,
+		},
+		{
+			name:    "Sandbox token ",
+			token:   tokens.SandboxToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Token have not acsess to acount",
+			token:   tokens.OneAccountReadToken,
+			uid:     "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr: false,
+		},
+		{
+			name:    "Err: Incorrect uid",
+			token:   tokens.OneAccountReadToken,
+			uid:     "FUTCNY03ghgerhgrehrt2300",
+			wantErr: true,
+		},
+		{
+			name:    "Empty uid",
+			token:   tokens.OnlyReadToken,
+			uid:     "",
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cnfgs := configs.MustInitConfigs(rootPath)
+			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+			defer cancel()
+			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
+			client.FillClient(tc.token)
+			_, err := client.GetBondsActions(tc.uid)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+		})
+	}
+}
+
+func TestGetLastPriceInPersentageToNominal(t *testing.T) {
+	logg := loggerdicard.NewLoggerDiscard()
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+	tokens := MustTokensForTest(rootPath)
+	cases := []struct {
+		name          string
+		token         string
+		instrumentUid string
+		wantErr       bool
+	}{
+		{
+			name:          "sucsees",
+			token:         tokens.OnlyReadToken,
+			instrumentUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr:       false,
+		},
+		{
+			name:          "All access token",
+			token:         tokens.AllAcsessToken,
+			instrumentUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr:       false,
+		},
+		{
+			name:          "Only trading token",
+			token:         tokens.OnlyTradingToken,
+			instrumentUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr:       false,
+		},
+		{
+			name:          "Close account",
+			token:         tokens.OnlyTradingToken,
+			instrumentUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr:       false,
+		},
+		{
+			name:  "Sandbox token without request error",
+			token: tokens.SandboxToken,
+
+			wantErr: true,
+		},
+		{
+			name:          "Sandbox token ",
+			token:         tokens.SandboxToken,
+			instrumentUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr:       false,
+		},
+		{
+			name:          "Token have not acsess to acount",
+			token:         tokens.OneAccountReadToken,
+			instrumentUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
+			wantErr:       false,
+		},
+		{
+			name:          "Err: Incorrect uid",
+			token:         tokens.OneAccountReadToken,
+			instrumentUid: "invalid_uid",
+			wantErr:       true,
+		},
+		{
+			name:          "Empty uid",
+			token:         tokens.OnlyReadToken,
+			instrumentUid: "",
+			wantErr:       true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cnfgs := configs.MustInitConfigs(rootPath)
+			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+			defer cancel()
+			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
+			client.FillClient(tc.token)
+			_, err := client.GetLastPriceInPersentageToNominal(tc.instrumentUid)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+		})
+	}
+}
+
+func TestGetShareCurrencyBy(t *testing.T) {
+	logg := loggerdicard.NewLoggerDiscard()
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+	tokens := MustTokensForTest(rootPath)
+	cases := []struct {
+		name    string
+		token   string
+		figi    string
+		wantErr bool
+	}{
+		{
+			name:    "sucsees",
+			token:   tokens.OnlyReadToken,
+			figi:    "BBG004S68FR6",
+			wantErr: false,
+		},
+		{
+			name:    "All access token",
+			token:   tokens.AllAcsessToken,
+			figi:    "BBG004S68FR6",
+			wantErr: false,
+		},
+		{
+			name:    "Only trading token",
+			token:   tokens.OnlyTradingToken,
+			figi:    "BBG004S68FR6",
+			wantErr: false,
+		},
+		{
+			name:    "Close account",
+			token:   tokens.OnlyTradingToken,
+			figi:    "BBG004S68FR6",
+			wantErr: false,
+		},
+		{
+			name:  "Sandbox token without request error",
+			token: tokens.SandboxToken,
+
+			wantErr: true,
+		},
+		{
+			name:    "Sandbox token",
+			token:   tokens.SandboxToken,
+			figi:    "BBG004S68FR6",
+			wantErr: false,
+		},
+		{
+			name:    "Token have not acsess to acount",
+			token:   tokens.OneAccountReadToken,
+			figi:    "BBG004S68FR6",
+			wantErr: false,
+		},
+		{
+			name:    "Err: Incorrect figi",
+			token:   tokens.OneAccountReadToken,
+			figi:    "FUTCNY03ghgerhgrehrt2300",
+			wantErr: true,
+		},
+		{
+			name:    "Err: Futures figi",
+			token:   tokens.OnlyReadToken,
+			figi:    "FUTCNY032300",
+			wantErr: true,
+		},
+		{
+			name:    "Err: empty string",
+			token:   tokens.OnlyReadToken,
+			figi:    "",
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cnfgs := configs.MustInitConfigs(rootPath)
+			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+			defer cancel()
+			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
+			client.FillClient(tc.token)
+			_, err := client.getShareCurrencyBy(tc.figi)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
