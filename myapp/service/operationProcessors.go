@@ -28,7 +28,7 @@ const (
 )
 
 func (c *Client) GetSpecificationsFromTinkoff(position *service_models.PositionByFIFO) error {
-	resSpecFromTinkoff, err := c.Tinkoffapi.GetBondsActions(position.InstrumentUid)
+	resSpecFromTinkoff, err := c.TinkoffGetBondActions(position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex" + err.Error())
 	}
@@ -47,7 +47,7 @@ func (c *Client) GetSpecificationsFromTinkoff(position *service_models.PositionB
 	} else {
 		position.Nominal = resSpecFromTinkoff.Nominal.ToFloat()
 	}
-	resp, err := c.Tinkoffapi.GetLastPriceInPersentageToNominal(position.InstrumentUid)
+	resp, err := c.TinkoffGetLastPriceInPersentageToNominal(position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex:" + err.Error())
 	}

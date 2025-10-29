@@ -608,10 +608,9 @@ func (c *Client) DivideByType(positions []tinkoffApi.PortfolioPositions) (_ *ser
 			}
 			portfolio.SharesAssets.AssetsByCurrency[currencyOfPos].SumOfAssets += positionPrice
 		case futures:
-			// TODO: Клиент возвращает не протобаф, а свою структуру с нужными полями
-			futures, err := c.Tinkoffapi.GetFutureBy(pos.Figi)
+			futures, err := c.TinkoffGetFutureBy(pos.Figi)
 			if err != nil {
-				return portfolio, e.WrapIfErr("can't divide by type", err)
+				return portfolio, e.WrapIfErr("can't get future data", err)
 			}
 
 			positionPrice = positionPrice / futures.MinPriceIncrement.ToFloat() * futures.MinPriceIncrementAmount.ToFloat()
@@ -632,7 +631,7 @@ func (c *Client) DivideByType(positions []tinkoffApi.PortfolioPositions) (_ *ser
 				portfolio.FuturesAssets.AssetsByType.Currency.SumOfAssets += positionPrice
 				portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[futures.Name].SumOfAssets += positionPrice
 			case securityType:
-				resp, err := c.Tinkoffapi.GetBaseShareFutureValute(futures.BasicAssetPositionUid)
+				resp, err := c.TinkoffGetBaseShareFutureValute(futures.BasicAssetPositionUid)
 				if err != nil {
 					return nil, e.WrapIfErr("can't divide by type", err)
 				}
@@ -662,8 +661,7 @@ func (c *Client) DivideByType(positions []tinkoffApi.PortfolioPositions) (_ *ser
 			}
 			portfolio.EtfsAssets.AssetsByCurrency[currencyOfPos].SumOfAssets += positionPrice
 		case currency:
-			// TODO: Клиент возвращает не протобаф, а свою структуру с нужными полями
-			curr, err := c.Tinkoffapi.GetCurrencyBy(pos.Figi)
+			curr, err := c.TinkoffGetCurrencyBy(pos.Figi)
 			if err != nil {
 				return portfolio, e.WrapIfErr("can't divide by type", err)
 			}
@@ -690,8 +688,7 @@ func (c *Client) DivideByTypeFromSber(positions map[string]float64) (*service_mo
 		return portfolio, errors.New("positions are empty")
 	}
 	for ticker, quantity := range positions {
-		// TODO: Клиент возвращает не протобаф, а свою структуру с нужными полями
-		positionsClassCodeVariants, err := c.Tinkoffapi.FindBy(ticker)
+		positionsClassCodeVariants, err := c.TinkoffFindBy(ticker)
 		if err != nil {
 			return nil, e.WrapIfErr("can't divide by type from sber", err)
 		}
@@ -702,19 +699,18 @@ func (c *Client) DivideByTypeFromSber(positions map[string]float64) (*service_mo
 		switch positionsClassCodeVariants[0].InstrumentType {
 		case bond:
 			bondUid := positionsClassCodeVariants[0].Uid
-			// TODO: Клиент возвращает не протобаф, а свою структуру с нужными полями
-			bondActions, err := c.Tinkoffapi.GetBondByUid(bondUid)
+			bond, err := c.TinkoffGetBondByUid(bondUid)
 			if err != nil {
 				return nil, e.WrapIfErr("can't divide by type from sber", err)
 			}
-			currentNkd := bondActions.AciValue.ToFloat()
-			currency := bondActions.Currency
-			resp, err := c.Tinkoffapi.GetLastPriceInPersentageToNominal(bondUid)
+			currentNkd := bond.AciValue.ToFloat()
+			currency := bond.Currency
+			resp, err := c.TinkoffGetLastPriceInPersentageToNominal(bondUid)
 			if err != nil {
 				return nil, e.WrapIfErr("can't divide by type from sber", err)
 			}
 			currentPriceInPers := resp.LastPrice.ToFloat()
-			currentPrice := currentPriceInPers / 100 * bondActions.Nominal.ToFloat()
+			currentPrice := currentPriceInPers / 100 * bond.Nominal.ToFloat()
 			currentNkdOfPosition := currentNkd * quantity
 			positionPrice := currentPrice*quantity + currentNkdOfPosition
 
