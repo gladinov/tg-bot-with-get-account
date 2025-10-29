@@ -35,3 +35,12 @@ func SplitErr(err error) (ErrResponse, error) {
 	return errResp, nil
 
 }
+
+func IsTimeError(inputErr error) bool {
+	if inputErr == nil {
+		return false
+	}
+
+	errorStr := inputErr.Error()
+	return strings.Contains(errorStr, "30070")
+}

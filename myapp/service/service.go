@@ -79,7 +79,7 @@ func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 	}
 
 	for _, account := range accounts {
-		err = c.updateOperations(token, chatID, account.Id, account.OpenedDate)
+		err = c.updateOperations(chatID, account.Id, account.OpenedDate)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string)
 	}
 
 	for _, account := range accounts {
-		err = c.updateOperations(token, chatID, account.Id, account.OpenedDate)
+		err = c.updateOperations(chatID, account.Id, account.OpenedDate)
 		if err != nil {
 			return err
 		}
@@ -270,7 +270,7 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 	}
 
 	for _, account := range accounts {
-		err = c.updateOperations(token, chatID, account.Id, account.OpenedDate)
+		err = c.updateOperations(chatID, account.Id, account.OpenedDate)
 		if err != nil {
 			return nil, err
 		}
@@ -437,9 +437,11 @@ func (c *Client) GetUsd() (float64, error) {
 	return usd, nil
 }
 
-func (c *Client) updateOperations(token string, chatID int, accountId string, openDate time.Time) (err error) {
+func (c *Client) updateOperations(chatID int, accountId string, openDate time.Time) (err error) {
 	defer func() { err = e.WrapIfErr("can't updateOperations", err) }()
 	fromDate, err := c.Storage.LastOperationTime(context.Background(), chatID, accountId)
+	// TODO: Если fromDate будет больше time.Now, то будет ошибка.
+	// Есть вероятность такой ошибки, поэтому при тестировании функции нужно придумать другой способ вызова функции по последней операции
 	fromDate = fromDate.Add(time.Microsecond * 1)
 
 	if err != nil {

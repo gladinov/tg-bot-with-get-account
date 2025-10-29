@@ -11,6 +11,9 @@ import (
 
 var ErrCloseAccount = errors.New("close account haven't portffolio positions")
 var ErrNoAcces = errors.New("this token no access to account")
+var ErrEmptyAccountIdInRequest = errors.New("accountId could not be empty")
+var ErrUnspecifiedAccount = errors.New("account is unspecified")
+var ErrNewNotOpenYetAccount = errors.New("accountId is not opened yet")
 
 func (c *Client) TinkoffGetPortfolio(account tinkoffApi.Account) (tinkoffApi.Portfolio, error) {
 	const op = "service.TinkoffGetPortfolio"
@@ -18,11 +21,20 @@ func (c *Client) TinkoffGetPortfolio(account tinkoffApi.Account) (tinkoffApi.Por
 		AccountID:     account.Id,
 		AccountStatus: account.Status,
 	}
-	if account.Status == 3 {
+	switch account.Status {
+	case 0:
 		return tinkoffApi.Portfolio{}, ErrCloseAccount
+	case 1:
+		return tinkoffApi.Portfolio{}, ErrUnspecifiedAccount
+	case 3:
+		return tinkoffApi.Portfolio{}, ErrNewNotOpenYetAccount
 	}
+
 	if account.AccessLevel == 3 {
 		return tinkoffApi.Portfolio{}, ErrNoAcces
+	}
+	if account.Id == "" {
+		return tinkoffApi.Portfolio{}, ErrEmptyAccountIdInRequest
 	}
 	portfolio, err := c.Tinkoffapi.GetPortfolio(portfolioRequest)
 	if err != nil {

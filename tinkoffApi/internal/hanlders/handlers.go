@@ -103,7 +103,7 @@ func (h *Handlers) GetOperations(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
 	}
 
-	operations, err := h.service.GetOperations(operationReq)
+	operations, err := h.service.MakeSafeGetOperationsRequest(operationReq)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get operations"})
 	}

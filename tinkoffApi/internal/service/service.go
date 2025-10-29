@@ -13,6 +13,14 @@ import (
 
 var ErrCloseAccount = errors.New("close account haven't portffolio positions")
 var ErrNoAcces = errors.New("this token no access to account")
+var ErrEmptyAccountIdInRequest = errors.New("accountId could not be empty")
+var ErrUnspecifiedAccount = errors.New("account is unspecified")
+var ErrNewNotOpenYetAccount = errors.New("accountId is not opened yet")
+var ErrEmptyQuery = errors.New("query could not be empty")
+var ErrEmptyFigi = errors.New("figi could not be empty string")
+var ErrEmptyUid = errors.New("uid could not be empty string")
+var ErrEmptyPositionUid = errors.New("positionUid could not be empty string")
+var ErrEmptyInstrumentUid = errors.New("instrumentUid could not be empty string")
 
 type Service interface {
 	InstrumentService
@@ -35,6 +43,7 @@ type PortfolioService interface {
 	GetAccounts() (map[string]Account, error)
 	GetPortfolio(request PortfolioRequest) (Portfolio, error)
 	GetOperations(request OperationsRequest) ([]Operation, error)
+	MakeSafeGetOperationsRequest(request OperationsRequest) ([]Operation, error)
 }
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=AnalyticsService
@@ -120,8 +129,16 @@ func (c *Client) GetPortfolio(request PortfolioRequest) (_ Portfolio, err error)
 	accountID := request.AccountID
 	accountStatus := request.AccountStatus
 	portfolio := Portfolio{}
-	if accountStatus == 3 {
+	switch accountStatus {
+	case 0:
 		return Portfolio{}, ErrCloseAccount
+	case 1:
+		return Portfolio{}, ErrUnspecifiedAccount
+	case 3:
+		return Portfolio{}, ErrNewNotOpenYetAccount
+	}
+	if accountID == "" {
+		return Portfolio{}, ErrEmptyAccountIdInRequest
 	}
 	operationsService := c.Client.NewOperationsServiceClient()
 
@@ -187,8 +204,9 @@ func (c *Client) GetOperations(request OperationsRequest) (_ []Operation, err er
 	defer func() { err = e.WrapIfErr("can't get opperations from tinkoffApi", err) }()
 	const op = "service.GetOperations"
 	accountID := request.AccountID
-	date := request.Date
-	if date.Compare(time.Now()) == 1 {
+	date := request.Date.UTC()
+	switch date.Compare(time.Now().UTC()) {
+	case 1:
 		return nil, fmt.Errorf("op:%s, from can't be more than the current date", op)
 	}
 	resOpereaions := make([]*pb.OperationItem, 0)
@@ -196,7 +214,7 @@ func (c *Client) GetOperations(request OperationsRequest) (_ []Operation, err er
 	operationsResp, err := opereationsService.GetOperationsByCursor(&investgo.GetOperationsByCursorRequest{
 		AccountId: accountID,
 		From:      date,
-		To:        time.Now(),
+		To:        time.Now().UTC(),
 		Limit:     1000,
 	})
 	if err != nil {
@@ -222,6 +240,40 @@ func (c *Client) GetOperations(request OperationsRequest) (_ []Operation, err er
 	resp := convertOperationsPbToOperaions(resOpereaions)
 	fmt.Printf("✓ Добавлено %v операции в Account.Operation по счету %s\n", len(resOpereaions), accountID)
 	return resp, nil
+}
+func (c *Client) MakeSafeGetOperationsRequest(request OperationsRequest) ([]Operation, error) {
+	var lastErr error
+
+	// Пробуем с разными сдвигами времени
+	for _, offset := range []time.Duration{
+		0,
+		-1 * time.Minute,
+		-2 * time.Minute,
+		-3 * time.Minute,
+	} {
+		adjustedRequest := adjustRequestTime(request, offset)
+		operations, err := c.GetOperations(adjustedRequest)
+		if err == nil {
+			fmt.Println(offset)
+			return operations, nil
+		}
+
+		if !e.IsTimeError(err) {
+			return nil, err
+		}
+
+		lastErr = err
+	}
+
+	return nil, lastErr
+}
+
+func adjustRequestTime(request OperationsRequest, offset time.Duration) OperationsRequest {
+	adjustedRequest := request
+	if !request.Date.IsZero() {
+		adjustedRequest.Date = request.Date.Add(offset).UTC()
+	}
+	return adjustedRequest
 }
 
 func convertOperationsPbToOperaions(operations []*pb.OperationItem) []Operation {
@@ -274,6 +326,9 @@ func (c *Client) GetAllAssetUids() (map[string]string, error) {
 }
 
 func (c *Client) GetFutureBy(figi string) (Future, error) {
+	if figi == "" {
+		return Future{}, errors.New("incorrect figi: can't be empty string")
+	}
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	futuresResponse, err := instrumentService.FutureByFigi(figi)
 	if err != nil {
@@ -294,6 +349,9 @@ func convertFuturePbToFuture(futurePb *pb.Future) Future {
 }
 
 func (c *Client) GetBondByUid(uid string) (Bond, error) {
+	if uid == "" {
+		return Bond{}, errors.New("incorrect uid: can't be empty string")
+	}
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	bondResponse, err := instrumentService.BondByUid(uid)
 	if err != nil {
@@ -311,8 +369,10 @@ func convertBondPbToBond(bondPb *pb.Bond) Bond {
 	}
 }
 
-// TODO : Проверить почему ничего не возвращает.
 func (c *Client) GetCurrencyBy(figi string) (Currency, error) {
+	if figi == "" {
+		return Currency{}, ErrEmptyFigi
+	}
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	currencyResponse, err := instrumentService.CurrencyByFigi(figi)
 	if err != nil {
@@ -329,6 +389,9 @@ func convertCurrencyPbToCurrency(currencyPb *pb.Currency) Currency {
 }
 
 func (c *Client) GetBaseShareFutureValute(positionUid string) (BaseShareFutureValuteResponse, error) {
+	if positionUid == "" {
+		return BaseShareFutureValuteResponse{}, errors.New("incorrect positionUid: can't be empty string")
+	}
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	instrumentsShortResponce, err := instrumentService.FindInstrument(positionUid)
 	if err != nil {
@@ -353,6 +416,9 @@ func (c *Client) GetBaseShareFutureValute(positionUid string) (BaseShareFutureVa
 }
 
 func (c *Client) FindBy(query string) ([]InstrumentShort, error) {
+	if query == "" {
+		return nil, ErrEmptyQuery
+	}
 	client := c.Client.NewInstrumentsServiceClient()
 	findInstr, err := client.FindInstrument(query)
 	if err != nil {
@@ -374,6 +440,9 @@ func convertInstrumentShortPbToInstrumentShort(instrumentShortPb []*pb.Instrumen
 }
 
 func (c *Client) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, error) {
+	if instrumentUid == "" {
+		return BondIdentIdentifiers{}, ErrEmptyInstrumentUid
+	}
 	var res BondIdentIdentifiers
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	bondUid, err := instrumentService.BondByUid(instrumentUid)
@@ -393,6 +462,9 @@ func (c *Client) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, er
 }
 
 func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPriceResponse, error) {
+	if instrumentUid == "" {
+		return LastPriceResponse{}, ErrEmptyInstrumentUid
+	}
 	marketDataClient := c.Client.NewMarketDataServiceClient()
 	lastPriceAnswer, err := marketDataClient.GetLastPrices([]string{instrumentUid})
 	if err != nil {
@@ -410,6 +482,9 @@ func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPr
 }
 
 func (c *Client) getShareCurrencyBy(figi string) (ShareCurrencyByResponse, error) {
+	if figi == "" {
+		return ShareCurrencyByResponse{}, ErrEmptyFigi
+	}
 	instrumentService := c.Client.NewInstrumentsServiceClient()
 	shareResponse, err := instrumentService.ShareByFigi(figi)
 	if err != nil {
