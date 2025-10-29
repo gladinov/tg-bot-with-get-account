@@ -13,12 +13,12 @@ type PortfolioService struct {
 	mock.Mock
 }
 
-// GetAcc provides a mock function with no fields
-func (_m *PortfolioService) GetAcc() (map[string]service.Account, error) {
+// GetAccounts provides a mock function with no fields
+func (_m *PortfolioService) GetAccounts() (map[string]service.Account, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetAcc")
+		panic("no return value specified for GetAccounts")
 	}
 
 	var r0 map[string]service.Account
@@ -93,6 +93,36 @@ func (_m *PortfolioService) GetPortfolio(request service.PortfolioRequest) (serv
 	}
 
 	if rf, ok := ret.Get(1).(func(service.PortfolioRequest) error); ok {
+		r1 = rf(request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MakeSafeGetOperationsRequest provides a mock function with given fields: request
+func (_m *PortfolioService) MakeSafeGetOperationsRequest(request service.OperationsRequest) ([]service.Operation, error) {
+	ret := _m.Called(request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MakeSafeGetOperationsRequest")
+	}
+
+	var r0 []service.Operation
+	var r1 error
+	if rf, ok := ret.Get(0).(func(service.OperationsRequest) ([]service.Operation, error)); ok {
+		return rf(request)
+	}
+	if rf, ok := ret.Get(0).(func(service.OperationsRequest) []service.Operation); ok {
+		r0 = rf(request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]service.Operation)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(service.OperationsRequest) error); ok {
 		r1 = rf(request)
 	} else {
 		r1 = ret.Error(1)
