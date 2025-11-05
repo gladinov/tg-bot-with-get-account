@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	context "context"
 	service "tinkoffApi/internal/service"
 
 	mock "github.com/stretchr/testify/mock"
@@ -43,34 +44,6 @@ func (_m *AnalyticsService) GetAllAssetUids() (map[string]string, error) {
 	return r0, r1
 }
 
-// GetBaseShareFutureValute provides a mock function with given fields: positionUid
-func (_m *AnalyticsService) GetBaseShareFutureValute(positionUid string) (service.BaseShareFutureValuteResponse, error) {
-	ret := _m.Called(positionUid)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetBaseShareFutureValute")
-	}
-
-	var r0 service.BaseShareFutureValuteResponse
-	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (service.BaseShareFutureValuteResponse, error)); ok {
-		return rf(positionUid)
-	}
-	if rf, ok := ret.Get(0).(func(string) service.BaseShareFutureValuteResponse); ok {
-		r0 = rf(positionUid)
-	} else {
-		r0 = ret.Get(0).(service.BaseShareFutureValuteResponse)
-	}
-
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(positionUid)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetBondsActions provides a mock function with given fields: instrumentUid
 func (_m *AnalyticsService) GetBondsActions(instrumentUid string) (service.BondIdentIdentifiers, error) {
 	ret := _m.Called(instrumentUid)
@@ -97,6 +70,24 @@ func (_m *AnalyticsService) GetBondsActions(instrumentUid string) (service.BondI
 	}
 
 	return r0, r1
+}
+
+// GetClient provides a mock function with given fields: ctx, token
+func (_m *AnalyticsService) GetClient(ctx context.Context, token string) error {
+	ret := _m.Called(ctx, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClient")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, token)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // GetLastPriceInPersentageToNominal provides a mock function with given fields: instrumentUid

@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	moexHost    = "iss.moex.com"
 	http_server = "localhost:8081"
 )
 

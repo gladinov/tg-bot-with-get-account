@@ -30,6 +30,7 @@ func NewClient(host string) *Client {
 
 func (c *Client) IsToken(token string) (err error) {
 	defer func() { err = e.WrapIfErr("isTokent error", err) }()
+
 	if len(token) == 88 { // TODO:модифицировать проверку
 		c.Token = token
 		_, err = c.GetAccounts()
@@ -403,61 +404,6 @@ func (c *Client) GetCurrencyBy(figi string) (Currency, error) {
 	return data, nil
 }
 
-func (c *Client) GetBaseShareFutureValute(positionUid string) (BaseShareFutureValuteResponse, error) {
-	const op = "tinkoffApi.GetBaseShareFutureValute"
-	Path := path.Join("tinkoff", "basesharecurrency")
-	token := c.Token
-	requestBody := BaseShareFutureValuteReq{
-		SharePositionUid: positionUid,
-	}
-
-	u := url.URL{
-		Scheme: "http",
-		Host:   c.host,
-		Path:   Path,
-	}
-
-	jsonData, err := json.Marshal(requestBody)
-	if err != nil {
-		return BaseShareFutureValuteResponse{}, fmt.Errorf("op:%s, could not marshall JSON", op)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(jsonData))
-	if err != nil {
-		return BaseShareFutureValuteResponse{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
-	}
-
-	authorization := "Bearer " + token
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return BaseShareFutureValuteResponse{}, fmt.Errorf("op:%s, err in client.Do", op)
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return BaseShareFutureValuteResponse{}, fmt.Errorf("op:%s, err in io.ReadAll", op)
-	}
-	if resp.StatusCode != http.StatusOK {
-		var statusErr map[string]string
-		err = json.Unmarshal(body, &statusErr)
-		if err != nil {
-			return BaseShareFutureValuteResponse{}, fmt.Errorf("op:%s, could not unmarshall json, delete this block. err : %s", op, err.Error())
-		}
-		return BaseShareFutureValuteResponse{}, fmt.Errorf("op:%s, err:"+statusErr["error"], op)
-	}
-
-	var data BaseShareFutureValuteResponse
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return BaseShareFutureValuteResponse{}, fmt.Errorf("op:%s, could not unmarshall json", op)
-	}
-	return data, nil
-}
-
 func (c *Client) FindBy(query string) ([]InstrumentShort, error) {
 	const op = "tinkoffApi.FindBy"
 	Path := path.Join("tinkoff", "findby")
@@ -619,6 +565,62 @@ func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPr
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return LastPriceResponse{}, fmt.Errorf("op:%s, could not unmarshall json", op)
+	}
+	return data, nil
+}
+
+func (c *Client) GetShareCurrencyBy(figi string) (ShareCurrencyByResponse, error) {
+	const op = "tinkoffApi.GetShareCurrencyBy"
+	Path := path.Join("tinkoff", "share", "currency")
+	token := c.Token
+	requestBody := ShareCurrencyByRequest{
+		Figi: figi,
+	}
+
+	u := url.URL{
+		Scheme: "http",
+		Host:   c.host,
+		Path:   Path,
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, could not marshall JSON", op)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(jsonData))
+	if err != nil {
+		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
+	}
+
+	authorization := "Bearer " + token
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", authorization)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, err in client.Do", op)
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, err in io.ReadAll", op)
+	}
+	if resp.StatusCode != http.StatusOK {
+		var statusErr map[string]string
+		err = json.Unmarshal(body, &statusErr)
+		if err != nil {
+			return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, could not unmarshall json, delete this block. err : %s", op, err.Error())
+		}
+		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, err:"+statusErr["error"], op)
+	}
+
+	var data ShareCurrencyByResponse
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, could not unmarshall json", op)
 	}
 	return data, nil
 }

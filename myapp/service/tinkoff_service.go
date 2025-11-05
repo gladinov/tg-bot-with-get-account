@@ -26,13 +26,14 @@ func (c *Client) TinkoffGetPortfolio(account tinkoffApi.Account) (tinkoffApi.Por
 		AccountID:     account.Id,
 		AccountStatus: account.Status,
 	}
+
 	switch account.Status {
 	case 0:
-		return tinkoffApi.Portfolio{}, ErrCloseAccount
-	case 1:
 		return tinkoffApi.Portfolio{}, ErrUnspecifiedAccount
-	case 3:
+	case 1:
 		return tinkoffApi.Portfolio{}, ErrNewNotOpenYetAccount
+	case 3:
+		return tinkoffApi.Portfolio{}, ErrCloseAccount
 	}
 
 	if account.AccessLevel == 3 {
@@ -121,11 +122,28 @@ func (c *Client) TinkoffGetBaseShareFutureValute(positionUid string) (tinkoffApi
 	if positionUid == "" {
 		return tinkoffApi.BaseShareFutureValuteResponse{}, ErrEmptyPositionUid
 	}
-	currency, err := c.Tinkoffapi.GetBaseShareFutureValute(positionUid)
+
+	instrumentsShortResponce, err := c.Tinkoffapi.FindBy(positionUid)
 	if err != nil {
 		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
-	return currency, nil
+	if len(instrumentsShortResponce) == 0 {
+		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, error:can't get base share future valute", op)
+	}
+	instrument := instrumentsShortResponce[0]
+	if instrument.InstrumentType != "share" {
+		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, instrument is not share", op)
+	}
+	if instrument.Figi == "" {
+		return tinkoffApi.BaseShareFutureValuteResponse{}, ErrEmptyFigi
+	}
+	currency, err := c.Tinkoffapi.GetShareCurrencyBy(instrument.Figi)
+	if err != nil {
+		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+	}
+	var resp tinkoffApi.BaseShareFutureValuteResponse
+	resp.Currency = currency.Currency
+	return resp, nil
 }
 
 func (c *Client) TinkoffFindBy(query string) ([]tinkoffApi.InstrumentShort, error) {

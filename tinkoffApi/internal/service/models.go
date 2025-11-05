@@ -59,6 +59,7 @@ type Currency struct {
 type InstrumentShort struct {
 	InstrumentType string `json:"instrumentType,omitempty"`
 	Uid            string `json:"uid,omitempty"`
+	Figi           string `json:"figi,omitempty"`
 }
 
 type Operation struct {
@@ -152,4 +153,8 @@ type BaseShareFutureValuteResponse struct {
 
 type ShareCurrencyByResponse struct {
 	Currency string `json:"currency,omitempty"`
+}
+
+type ShareCurrencyByRequest struct {
+	Figi string `json:"figi,omitempty"`
 }

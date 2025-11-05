@@ -2,89 +2,21 @@ package service
 
 import (
 	"context"
-	"log"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"syscall"
 	"testing"
 	"time"
 	"tinkoffApi/internal/configs"
 	"tinkoffApi/lib/e/logger/loggerdicard"
+	testhelpfunc "tinkoffApi/lib/testHelpFunc"
 	"tinkoffApi/pkg/app"
 
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 )
 
-type Tokens struct {
-	OnlyReadToken       string
-	SandboxToken        string
-	DeleteToken         string
-	OneAccountReadToken string
-	AllAcsessToken      string
-	OnlyTradingToken    string
-}
-
-func MustTokensForTest(rootPath string) *Tokens {
-	const op = "service.MustTokenForTest"
-	envPath := filepath.Join(rootPath, "tokens.env")
-
-	err := godotenv.Load(envPath)
-	if err != nil {
-		log.Fatalf("%s:Could not find any .env files:%s", op, err)
-	}
-
-	var tokens Tokens
-	token := os.Getenv("TEST_TINKOFF_TOKEN")
-	if token == "" {
-		log.Fatalf("%s: TEST_TINKOFF_TOKEN is not set", op)
-	}
-	tokens.OnlyReadToken = token
-
-	token = os.Getenv("TEST_SANDBOX_TOKEN")
-	if token == "" {
-		log.Fatalf("%s: TEST_SANDBOX_TOKEN is not set", op)
-	}
-	tokens.SandboxToken = token
-
-	token = os.Getenv("TEST_DELETE_TOKEN")
-	if token == "" {
-		log.Fatalf("%s: TEST_DELETE_TOKEN is not set", op)
-	}
-
-	tokens.DeleteToken = token
-
-	token = os.Getenv("TEST_ONE_ACOUNT_TOKEN")
-	if token == "" {
-		log.Fatalf("%s: TEST_ONE_ACOUNT_TOKEN is not set", op)
-	}
-
-	tokens.OneAccountReadToken = token
-
-	token = os.Getenv("TEST_ALL_ACSESS_TOKEN")
-	if token == "" {
-		log.Fatalf("%s: TEST_ALL_ACSESS_TOKEN is not set", op)
-	}
-
-	tokens.AllAcsessToken = token
-
-	token = os.Getenv("TEST_ONLY_TRADING_TOKEB")
-	if token == "" {
-		log.Fatalf("%s: TEST_ONLY_TRADING_TOKEB is not set", op)
-	}
-
-	tokens.OnlyTradingToken = token
-
-	return &tokens
-
-}
-
-func TestGetClient(t *testing.T) {
+func TestGetClient_AnalyticService(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -135,25 +67,25 @@ func TestGetClient(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx := context.Background()
 
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			err := client.getClient()
+			client := NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logg)
+			err := client.GetClient(ctx, tc.token)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
 		})
+
 	}
 }
 
-func TestFillCLient(t *testing.T) {
+func TestGetClient_InstrumentService(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -204,10 +136,79 @@ func TestFillCLient(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			err := client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logg)
+			err := client.GetClient(ctx, tc.token)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+
+	}
+}
+
+func TestGetClient_PortfolioService(t *testing.T) {
+	logg := loggerdicard.NewLoggerDiscard()
+	app.MustInitialize()
+	rootPath := app.MustGetRoot()
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
+	cases := []struct {
+		name    string
+		token   string
+		wantErr bool
+	}{
+		{
+			name:    "sucsees",
+			token:   tokens.OnlyReadToken,
+			wantErr: false,
+		},
+		{
+			name:    "Unauthenticated desc = 40003",
+			token:   "ijfoerigtj[o]",
+			wantErr: true,
+		},
+		{
+			name:    "Sandbox token",
+			token:   tokens.SandboxToken,
+			wantErr: false, //Как оказалось на практике
+		},
+		{
+			name:    "Delete token err",
+			token:   tokens.DeleteToken,
+			wantErr: true,
+		},
+		{
+			name:    "One account read token",
+			token:   tokens.OneAccountReadToken,
+			wantErr: false,
+		},
+		{
+			name:    "All acsess token",
+			token:   tokens.AllAcsessToken,
+			wantErr: false,
+		},
+		{
+			name:    "Only trading token",
+			token:   tokens.OnlyTradingToken,
+			wantErr: false,
+		},
+		{
+			name:    "Err: empty token",
+			token:   "",
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cnfgs := configs.MustInitConfigs(rootPath)
+			cnfgs.TinkoffApiConfig.Token = tc.token
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			err := client.GetClient(ctx, tc.token)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -222,7 +223,7 @@ func TestGetAccounts(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -258,10 +259,10 @@ func TestGetAccounts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetAccounts()
 			if tc.wantErr {
 				require.Error(t, err)
@@ -277,7 +278,7 @@ func TestGetPortfolio(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -375,10 +376,10 @@ func TestGetPortfolio(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetPortfolio(tc.request)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -390,112 +391,112 @@ func TestGetPortfolio(t *testing.T) {
 	}
 }
 
-func TestGetOperations_TimeNow(t *testing.T) {
-	logg := loggerdicard.NewLoggerDiscard()
-	app.MustInitialize()
-	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
-	cases := []struct {
-		name    string
-		token   string
-		request OperationsRequest
-		wantErr bool
-	}{
-		// Из-за рассинхрона времени с Тинькофф Апи. Тесты то работают, то падают.
-		// Для обработки данной проблемы создал функцию MakeSafeGetOperationsRequest
-		{
-			name:  "sucsees",
-			token: tokens.OnlyReadToken,
-			request: OperationsRequest{
-				AccountID: "2007907898",
-				Date:      time.Now(),
-			},
-			wantErr: false,
-		},
-		{
-			name:  "All access token",
-			token: tokens.AllAcsessToken,
-			request: OperationsRequest{
-				AccountID: "2007907898",
-				Date:      time.Now(),
-			},
-			wantErr: false,
-		},
-		{
-			name:  "Only trading token",
-			token: tokens.OnlyTradingToken,
-			request: OperationsRequest{
-				AccountID: "2007907898",
-				Date:      time.Now(),
-			},
-			wantErr: false,
-		},
-		{
-			name:  "Close account",
-			token: tokens.OnlyTradingToken,
-			request: OperationsRequest{
-				AccountID: "2012259491",
-				Date:      time.Now(),
-			},
-			wantErr: false,
-		},
-		{
-			name:    "Sandbox token without request error",
-			token:   tokens.SandboxToken,
-			wantErr: true,
-		},
-		{
-			name:  "Sandbox token error",
-			token: tokens.SandboxToken,
-			request: OperationsRequest{
-				AccountID: "2007907898",
-				Date:      time.Now(),
-			},
-			wantErr: true,
-		},
-		{
-			name:  "Err: Token have not acsess to acount",
-			token: tokens.OneAccountReadToken,
-			request: OperationsRequest{
-				AccountID: "2007907898",
-				Date:      time.Now(),
-			},
-			wantErr: true,
-		},
-		{
-			name:  "Err: empty accountId",
-			token: tokens.OnlyReadToken,
-			request: OperationsRequest{
-				AccountID: "",
-				Date:      time.Now(),
-			},
-			wantErr: true,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			cnfgs := configs.MustInitConfigs(rootPath)
-			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
-			_, err := client.GetOperations(tc.request)
-			if tc.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
+// func TestGetOperations_TimeNow(t *testing.T) {
+// 	logg := loggerdicard.NewLoggerDiscard()
+// 	app.MustInitialize()
+// 	rootPath := app.MustGetRoot()
+// 	tokens := testhelpfunc.MustTokensForTest(rootPath)
+// 	cases := []struct {
+// 		name    string
+// 		token   string
+// 		request OperationsRequest
+// 		wantErr bool
+// 	}{
+// 		// Из-за рассинхрона времени с Тинькофф Апи. Тесты то работают, то падают.
+// 		// Для обработки данной проблемы создал функцию MakeSafeGetOperationsRequest
+// 		{
+// 			name:  "sucsees",
+// 			token: tokens.OnlyReadToken,
+// 			request: OperationsRequest{
+// 				AccountID: "2007907898",
+// 				Date:      time.Now(),
+// 			},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name:  "All access token",
+// 			token: tokens.AllAcsessToken,
+// 			request: OperationsRequest{
+// 				AccountID: "2007907898",
+// 				Date:      time.Now(),
+// 			},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name:  "Only trading token",
+// 			token: tokens.OnlyTradingToken,
+// 			request: OperationsRequest{
+// 				AccountID: "2007907898",
+// 				Date:      time.Now(),
+// 			},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name:  "Close account",
+// 			token: tokens.OnlyTradingToken,
+// 			request: OperationsRequest{
+// 				AccountID: "2012259491",
+// 				Date:      time.Now(),
+// 			},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name:    "Sandbox token without request error",
+// 			token:   tokens.SandboxToken,
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name:  "Sandbox token error",
+// 			token: tokens.SandboxToken,
+// 			request: OperationsRequest{
+// 				AccountID: "2007907898",
+// 				Date:      time.Now(),
+// 			},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name:  "Err: Token have not acsess to acount",
+// 			token: tokens.OneAccountReadToken,
+// 			request: OperationsRequest{
+// 				AccountID: "2007907898",
+// 				Date:      time.Now(),
+// 			},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name:  "Err: empty accountId",
+// 			token: tokens.OnlyReadToken,
+// 			request: OperationsRequest{
+// 				AccountID: "",
+// 				Date:      time.Now(),
+// 			},
+// 			wantErr: true,
+// 		},
+// 	}
+// 	for _, tc := range cases {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			cnfgs := configs.MustInitConfigs(rootPath)
+// 			cnfgs.TinkoffApiConfig.Token = tc.token
+// 			ctx := context.Background()
 
-		})
-	}
-}
+//          client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+//          client.GetClient(ctx, tc.token)
+// 			_, err := client.GetOperations(tc.request)
+// 			if tc.wantErr {
+// 				require.Error(t, err)
+// 				return
+// 			}
+// 			require.NoError(t, err)
+
+// 		})
+// 	}
+// }
 
 func TestGetOperations_TimeFromFuture(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -575,10 +576,10 @@ func TestGetOperations_TimeFromFuture(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetOperations(tc.request)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -594,7 +595,7 @@ func TestGetOperations_TimeFromPast(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -674,10 +675,10 @@ func TestGetOperations_TimeFromPast(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetOperations(tc.request)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -693,7 +694,7 @@ func TestMakeSafeGetOperationsRequest_TimeNow(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -773,10 +774,10 @@ func TestMakeSafeGetOperationsRequest_TimeNow(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.MakeSafeGetOperationsRequest(tc.request)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -791,7 +792,7 @@ func TestMakeSafeGetOperationsRequest_TimeFromFuture(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -871,10 +872,10 @@ func TestMakeSafeGetOperationsRequest_TimeFromFuture(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.MakeSafeGetOperationsRequest(tc.request)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -890,7 +891,7 @@ func TestMakeSafeGetOperationsRequest_TimeFromPast(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -970,10 +971,10 @@ func TestMakeSafeGetOperationsRequest_TimeFromPast(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.MakeSafeGetOperationsRequest(tc.request)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -988,7 +989,7 @@ func TestAllAssetUids(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -1034,10 +1035,10 @@ func TestAllAssetUids(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetAllAssetUids()
 			if tc.wantErr {
 				require.Error(t, err)
@@ -1053,7 +1054,7 @@ func TestGetFutureBy(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -1119,10 +1120,10 @@ func TestGetFutureBy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetFutureBy(tc.figi)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -1138,7 +1139,7 @@ func TestGetBondByUid(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -1204,10 +1205,10 @@ func TestGetBondByUid(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetBondByUid(tc.uid)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -1223,7 +1224,7 @@ func TestGetCurrencyBy(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -1295,102 +1296,11 @@ func TestGetCurrencyBy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetCurrencyBy(tc.figi)
-			if tc.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-		})
-	}
-}
-
-func TestGetBaseShareFutureValute(t *testing.T) {
-	logg := loggerdicard.NewLoggerDiscard()
-	app.MustInitialize()
-	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
-	cases := []struct {
-		name        string
-		token       string
-		positionUid string
-		wantErr     bool
-	}{
-		{
-			name:        "sucsees",
-			token:       tokens.OnlyReadToken,
-			positionUid: "e80d1280-d512-4755-b48b-1187fd6cb2d8",
-			wantErr:     false,
-		},
-		{
-			name:        "All access token",
-			token:       tokens.AllAcsessToken,
-			positionUid: "e80d1280-d512-4755-b48b-1187fd6cb2d8",
-			wantErr:     false,
-		},
-		{
-			name:        "Only trading token",
-			token:       tokens.OnlyTradingToken,
-			positionUid: "e80d1280-d512-4755-b48b-1187fd6cb2d8",
-			wantErr:     false,
-		},
-		{
-			name:        "Close account",
-			token:       tokens.OnlyTradingToken,
-			positionUid: "e80d1280-d512-4755-b48b-1187fd6cb2d8",
-			wantErr:     false,
-		},
-		{
-			name:  "Sandbox token without request error",
-			token: tokens.SandboxToken,
-
-			wantErr: true,
-		},
-		{
-			name:        "Sandbox token ",
-			token:       tokens.SandboxToken,
-			positionUid: "e80d1280-d512-4755-b48b-1187fd6cb2d8",
-			wantErr:     false,
-		},
-		{
-			name:        "Token have not acsess to acount",
-			token:       tokens.OneAccountReadToken,
-			positionUid: "e80d1280-d512-4755-b48b-1187fd6cb2d8",
-			wantErr:     false,
-		},
-		{
-			name:        "Err: Incorrect uid",
-			token:       tokens.OneAccountReadToken,
-			positionUid: "FUTCNY03ghgerhgrehrt2300",
-			wantErr:     true,
-		},
-		{
-			name:        "Err: BondUid",
-			token:       tokens.OnlyReadToken,
-			positionUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2",
-			wantErr:     true,
-		},
-		{
-			name:        "Err: Empty positionUid",
-			token:       tokens.OnlyReadToken,
-			positionUid: "",
-			wantErr:     true,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			cnfgs := configs.MustInitConfigs(rootPath)
-			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
-			_, err := client.GetBaseShareFutureValute(tc.positionUid)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -1405,7 +1315,7 @@ func TestFindBy(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -1477,10 +1387,10 @@ func TestFindBy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.FindBy(tc.query)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -1496,7 +1406,7 @@ func TestGetBondsActions(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -1562,10 +1472,10 @@ func TestGetBondsActions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetBondsActions(tc.uid)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -1581,7 +1491,7 @@ func TestGetLastPriceInPersentageToNominal(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name          string
 		token         string
@@ -1647,10 +1557,10 @@ func TestGetLastPriceInPersentageToNominal(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
+			ctx := context.Background()
+
+			client := NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
 			_, err := client.GetLastPriceInPersentageToNominal(tc.instrumentUid)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -1666,7 +1576,7 @@ func TestGetShareCurrencyBy(t *testing.T) {
 	logg := loggerdicard.NewLoggerDiscard()
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
-	tokens := MustTokensForTest(rootPath)
+	tokens := testhelpfunc.MustTokensForTest(rootPath)
 	cases := []struct {
 		name    string
 		token   string
@@ -1738,11 +1648,11 @@ func TestGetShareCurrencyBy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cnfgs := configs.MustInitConfigs(rootPath)
 			cnfgs.TinkoffApiConfig.Token = tc.token
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-			defer cancel()
-			client := New(ctx, logg, cnfgs.TinkoffApiConfig)
-			client.FillClient(tc.token)
-			_, err := client.getShareCurrencyBy(tc.figi)
+			ctx := context.Background()
+
+			client := NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logg)
+			client.GetClient(ctx, tc.token)
+			_, err := client.GetShareCurrencyBy(tc.figi)
 			if tc.wantErr {
 				require.Error(t, err)
 				return

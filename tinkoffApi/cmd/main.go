@@ -21,6 +21,7 @@ func main() {
 	app.MustInitialize()
 	rootPath := app.MustGetRoot()
 
+	// TODO: Подключить Redis и забирать токен оттуда
 	cnfgs := configs.MustInitConfigs(rootPath)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
@@ -41,10 +42,16 @@ func main() {
 		log.Fatalf("logger creating error %v", err)
 	}
 
-	tinkoffApiClient := service.New(ctx, logger, cnfgs.TinkoffApiConfig)
-	// TODO: Подключить Redis и забирать токен оттуда
+	analyticsService := service.NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logger)
+	portfolioService := service.NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logger)
+	instrumentService := service.NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logger)
 
-	handlrs := hanlders.NewHandlers(tinkoffApiClient)
+	serviceClient := service.NewService(
+		analyticsService,
+		portfolioService,
+		instrumentService)
+
+	handlrs := hanlders.NewHandlers(serviceClient)
 
 	e := echo.New()
 
@@ -58,11 +65,21 @@ func main() {
 	e.POST("/tinkoff/future", handlrs.GetFutureBy)
 	e.POST("/tinkoff/bond", handlrs.GetBondBy)
 	e.POST("/tinkoff/currency", handlrs.GetCurrencyBy)
-	e.POST("/tinkoff/basesharecurrency", handlrs.GetBaseShareFutureValute)
+	e.POST("/tinkoff/share/currency", handlrs.GetShareCurrencyBy)
 	e.POST("/tinkoff/findby", handlrs.FindBy)
 	e.POST("/tinkoff/bondactions", handlrs.GetBondsActions)
 	e.POST("/tinkoff/lastprice", handlrs.GetLastPriceInPersentageToNominal)
 
+	// 👇 Graceful shutdown для Echo
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := e.Shutdown(shutdownCtx); err != nil {
+			logger.Error("Failed to shutdown server:", err)
+		}
+	}()
 	e.Start(cnfgs.Config.HttpServer)
 
 }

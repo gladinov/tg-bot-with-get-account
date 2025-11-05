@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	context "context"
 	service "tinkoffApi/internal/service"
 
 	mock "github.com/stretchr/testify/mock"
@@ -41,6 +42,24 @@ func (_m *PortfolioService) GetAccounts() (map[string]service.Account, error) {
 	}
 
 	return r0, r1
+}
+
+// GetClient provides a mock function with given fields: ctx, token
+func (_m *PortfolioService) GetClient(ctx context.Context, token string) error {
+	ret := _m.Called(ctx, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClient")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, token)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // GetOperations provides a mock function with given fields: request

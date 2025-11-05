@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	context "context"
 	service "tinkoffApi/internal/service"
 
 	mock "github.com/stretchr/testify/mock"
@@ -71,6 +72,24 @@ func (_m *InstrumentService) GetBondByUid(uid string) (service.Bond, error) {
 	return r0, r1
 }
 
+// GetClient provides a mock function with given fields: ctx, token
+func (_m *InstrumentService) GetClient(ctx context.Context, token string) error {
+	ret := _m.Called(ctx, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClient")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, token)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetCurrencyBy provides a mock function with given fields: figi
 func (_m *InstrumentService) GetCurrencyBy(figi string) (service.Currency, error) {
 	ret := _m.Called(figi)
@@ -127,12 +146,12 @@ func (_m *InstrumentService) GetFutureBy(figi string) (service.Future, error) {
 	return r0, r1
 }
 
-// getShareCurrencyBy provides a mock function with given fields: figi
-func (_m *InstrumentService) getShareCurrencyBy(figi string) (service.ShareCurrencyByResponse, error) {
+// GetShareCurrencyBy provides a mock function with given fields: figi
+func (_m *InstrumentService) GetShareCurrencyBy(figi string) (service.ShareCurrencyByResponse, error) {
 	ret := _m.Called(figi)
 
 	if len(ret) == 0 {
-		panic("no return value specified for getShareCurrencyBy")
+		panic("no return value specified for GetShareCurrencyBy")
 	}
 
 	var r0 service.ShareCurrencyByResponse

@@ -83,6 +83,9 @@ func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 		if err != nil {
 			return err
 		}
+		if account.Status != 2 {
+			continue
+		}
 		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return err
@@ -136,7 +139,9 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string)
 		if err != nil {
 			return err
 		}
-
+		if account.Status != 2 {
+			continue
+		}
 		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return err
@@ -274,7 +279,9 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 		if err != nil {
 			return nil, err
 		}
-
+		if account.Status != 2 {
+			continue
+		}
 		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return nil, err
@@ -501,6 +508,9 @@ func (c *Client) GetUnionPortfolioStructure(token string, accounts map[string]ti
 
 	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
+		if account.Status != 2 {
+			continue
+		}
 		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return "", err
@@ -528,6 +538,9 @@ func (c *Client) GetUnionPortfolioStructureWithSber(accounts map[string]tinkoffA
 
 	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
+		if account.Status != 2 {
+			continue
+		}
 		portfolio, err := c.TinkoffGetPortfolio(account)
 		if err != nil {
 			return "", err
