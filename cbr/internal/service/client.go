@@ -2,21 +2,19 @@ package service
 
 import (
 	"bytes"
-	timezone "cbr/lib/timeZone"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
-	"time"
 
 	"golang.org/x/text/encoding/charmap"
 )
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=HTTPClient
 type HTTPClient interface {
-	GetAllCurrencies(date time.Time) (ValCurs, error)
+	GetAllCurrencies(formatDate string) (CurrenciesResponce, error)
 }
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=HTTPTransport
@@ -44,24 +42,8 @@ func NewClient(transport HTTPTransport) *Client {
 	}
 }
 
-func (c *Client) GetAllCurrencies(date time.Time) (ValCurs, error) {
+func (c *Client) GetAllCurrencies(formatDate string) (CurrenciesResponce, error) {
 	const op = "service.GetAllCurrencies"
-	location, err := timezone.GetMoscowLocation()
-	if err != nil {
-		return ValCurs{}, fmt.Errorf("op: %s, error: failed to load Moscow location", op)
-	}
-	now := time.Now().In(location)
-	startDate := timezone.GetStartSingleExchangeRateRubble(location)
-
-	var formatDate string
-	switch {
-	case date.After(now):
-		formatDate = now.Format(layout)
-	case date.Before(startDate):
-		formatDate = startDate.Format(layout)
-	default:
-		formatDate = date.Format(layout)
-	}
 
 	Path := path.Join("scripts", "XML_daily.asp")
 
@@ -70,12 +52,12 @@ func (c *Client) GetAllCurrencies(date time.Time) (ValCurs, error) {
 
 	body, err := c.transport.DoRequest(Path, params)
 	if err != nil {
-		return ValCurs{}, fmt.Errorf("op: %s, error: could not do request", op)
+		return CurrenciesResponce{}, fmt.Errorf("op: %s, error: could not do request", op)
 	}
 	return c.parseCurrencies(body)
 }
 
-func (c *Client) parseCurrencies(data []byte) (ValCurs, error) {
+func (c *Client) parseCurrencies(data []byte) (CurrenciesResponce, error) {
 	const op = "service.parseCurrencies"
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	decoder.CharsetReader = func(label string, input io.Reader) (io.Reader, error) {
@@ -85,10 +67,10 @@ func (c *Client) parseCurrencies(data []byte) (ValCurs, error) {
 
 		return input, nil
 	}
-	var curr ValCurs
+	var curr CurrenciesResponce
 	err := decoder.Decode(&curr)
 	if err != nil {
-		return ValCurs{}, fmt.Errorf("op: %s, could not decode Xml file", op)
+		return CurrenciesResponce{}, fmt.Errorf("op: %s, could not decode Xml file", op)
 	}
 
 	return curr, nil

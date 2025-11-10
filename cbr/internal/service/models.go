@@ -4,7 +4,7 @@ const (
 	layout = "02/01/2006"
 )
 
-type Valute struct {
+type Currency struct {
 	NumCode   string `xml:"NumCode" json:"numCode,omitempty"`
 	CharCode  string `xml:"CharCode" json:"charCode,omitempty"`
 	Nominal   string `xml:"Nominal" json:"nominal,omitempty"`
@@ -13,13 +13,459 @@ type Valute struct {
 	VunitRate string `xml:"VunitRate" json:"vunitRate,omitempty"`
 }
 
-type ValCurs struct {
-	Date   string   `xml:"Date,attr" json:"date,omitempty"`
-	Valute []Valute `xml:"Valute" json:"valute,omitempty"`
+type CurrenciesResponce struct {
+	Date   string     `xml:"Date,attr" json:"date,omitempty"`
+	Valute []Currency `xml:"Valute" json:"valute,omitempty"`
 }
 
-var happyPathCurrencies = ValCurs{Date: "06.11.2025",
-	Valute: []Valute{
+var HappyPathCurrenciesInBytes = `{
+    "date": "06.11.2025",
+    "valute": [
+        {
+            "numCode": "036",
+            "charCode": "AUD",
+            "nominal": "1",
+            "name": "Австралийский доллар",
+            "value": "52,7076",
+            "vunitRate": "52,7076"
+        },
+        {
+            "numCode": "944",
+            "charCode": "AZN",
+            "nominal": "1",
+            "name": "Азербайджанский манат",
+            "value": "47,7579",
+            "vunitRate": "47,7579"
+        },
+        {
+            "numCode": "012",
+            "charCode": "DZD",
+            "nominal": "100",
+            "name": "Алжирских динаров",
+            "value": "62,1249",
+            "vunitRate": "0,621249"
+        },
+        {
+            "numCode": "826",
+            "charCode": "GBP",
+            "nominal": "1",
+            "name": "Фунт стерлингов",
+            "value": "105,9185",
+            "vunitRate": "105,9185"
+        },
+        {
+            "numCode": "051",
+            "charCode": "AMD",
+            "nominal": "100",
+            "name": "Армянских драмов",
+            "value": "21,2219",
+            "vunitRate": "0,212219"
+        },
+        {
+            "numCode": "048",
+            "charCode": "BHD",
+            "nominal": "1",
+            "name": "Бахрейнский динар",
+            "value": "215,8802",
+            "vunitRate": "215,8802"
+        },
+        {
+            "numCode": "933",
+            "charCode": "BYN",
+            "nominal": "1",
+            "name": "Белорусский рубль",
+            "value": "27,2673",
+            "vunitRate": "27,2673"
+        },
+        {
+            "numCode": "975",
+            "charCode": "BGN",
+            "nominal": "1",
+            "name": "Болгарский лев",
+            "value": "47,7004",
+            "vunitRate": "47,7004"
+        },
+        {
+            "numCode": "068",
+            "charCode": "BOB",
+            "nominal": "1",
+            "name": "Боливиано",
+            "value": "11,7494",
+            "vunitRate": "11,7494"
+        },
+        {
+            "numCode": "986",
+            "charCode": "BRL",
+            "nominal": "1",
+            "name": "Бразильский реал",
+            "value": "15,0787",
+            "vunitRate": "15,0787"
+        },
+        {
+            "numCode": "348",
+            "charCode": "HUF",
+            "nominal": "100",
+            "name": "Форинтов",
+            "value": "24,0551",
+            "vunitRate": "0,240551"
+        },
+        {
+            "numCode": "704",
+            "charCode": "VND",
+            "nominal": "10000",
+            "name": "Донгов",
+            "value": "32,3499",
+            "vunitRate": "0,00323499"
+        },
+        {
+            "numCode": "344",
+            "charCode": "HKD",
+            "nominal": "1",
+            "name": "Гонконгский доллар",
+            "value": "10,4597",
+            "vunitRate": "10,4597"
+        },
+        {
+            "numCode": "981",
+            "charCode": "GEL",
+            "nominal": "1",
+            "name": "Лари",
+            "value": "29,9489",
+            "vunitRate": "29,9489"
+        },
+        {
+            "numCode": "208",
+            "charCode": "DKK",
+            "nominal": "1",
+            "name": "Датская крона",
+            "value": "12,4961",
+            "vunitRate": "12,4961"
+        },
+        {
+            "numCode": "784",
+            "charCode": "AED",
+            "nominal": "1",
+            "name": "Дирхам ОАЭ",
+            "value": "22,1071",
+            "vunitRate": "22,1071"
+        },
+        {
+            "numCode": "840",
+            "charCode": "USD",
+            "nominal": "1",
+            "name": "Доллар США",
+            "value": "81,1885",
+            "vunitRate": "81,1885"
+        },
+        {
+            "numCode": "978",
+            "charCode": "EUR",
+            "nominal": "1",
+            "name": "Евро",
+            "value": "93,5131",
+            "vunitRate": "93,5131"
+        },
+        {
+            "numCode": "818",
+            "charCode": "EGP",
+            "nominal": "10",
+            "name": "Египетских фунтов",
+            "value": "17,1376",
+            "vunitRate": "1,71376"
+        },
+        {
+            "numCode": "356",
+            "charCode": "INR",
+            "nominal": "100",
+            "name": "Индийских рупий",
+            "value": "91,5964",
+            "vunitRate": "0,915964"
+        },
+        {
+            "numCode": "360",
+            "charCode": "IDR",
+            "nominal": "10000",
+            "name": "Рупий",
+            "value": "48,5461",
+            "vunitRate": "0,00485461"
+        },
+        {
+            "numCode": "364",
+            "charCode": "IRR",
+            "nominal": "100000",
+            "name": "Иранских риалов",
+            "value": "14,1128",
+            "vunitRate": "0,000141128"
+        },
+        {
+            "numCode": "398",
+            "charCode": "KZT",
+            "nominal": "100",
+            "name": "Тенге",
+            "value": "15,5388",
+            "vunitRate": "0,155388"
+        },
+        {
+            "numCode": "124",
+            "charCode": "CAD",
+            "nominal": "1",
+            "name": "Канадский доллар",
+            "value": "57,6214",
+            "vunitRate": "57,6214"
+        },
+        {
+            "numCode": "634",
+            "charCode": "QAR",
+            "nominal": "1",
+            "name": "Катарский риал",
+            "value": "22,3045",
+            "vunitRate": "22,3045"
+        },
+        {
+            "numCode": "417",
+            "charCode": "KGS",
+            "nominal": "100",
+            "name": "Сомов",
+            "value": "92,8399",
+            "vunitRate": "0,928399"
+        },
+        {
+            "numCode": "156",
+            "charCode": "CNY",
+            "nominal": "1",
+            "name": "Юань",
+            "value": "11,3362",
+            "vunitRate": "11,3362"
+        },
+        {
+            "numCode": "192",
+            "charCode": "CUP",
+            "nominal": "10",
+            "name": "Кубинских песо",
+            "value": "33,8285",
+            "vunitRate": "3,38285"
+        },
+        {
+            "numCode": "498",
+            "charCode": "MDL",
+            "nominal": "10",
+            "name": "Молдавских леев",
+            "value": "47,4021",
+            "vunitRate": "4,74021"
+        },
+        {
+            "numCode": "496",
+            "charCode": "MNT",
+            "nominal": "1000",
+            "name": "Тугриков",
+            "value": "22,6548",
+            "vunitRate": "0,0226548"
+        },
+        {
+            "numCode": "566",
+            "charCode": "NGN",
+            "nominal": "1000",
+            "name": "Найр",
+            "value": "56,6303",
+            "vunitRate": "0,0566303"
+        },
+        {
+            "numCode": "554",
+            "charCode": "NZD",
+            "nominal": "1",
+            "name": "Новозеландский доллар",
+            "value": "45,7944",
+            "vunitRate": "45,7944"
+        },
+        {
+            "numCode": "578",
+            "charCode": "NOK",
+            "nominal": "10",
+            "name": "Норвежских крон",
+            "value": "79,5583",
+            "vunitRate": "7,95583"
+        },
+        {
+            "numCode": "512",
+            "charCode": "OMR",
+            "nominal": "1",
+            "name": "Оманский риал",
+            "value": "211,1534",
+            "vunitRate": "211,1534"
+        },
+        {
+            "numCode": "985",
+            "charCode": "PLN",
+            "nominal": "1",
+            "name": "Злотый",
+            "value": "21,8890",
+            "vunitRate": "21,889"
+        },
+        {
+            "numCode": "682",
+            "charCode": "SAR",
+            "nominal": "1",
+            "name": "Саудовский риял",
+            "value": "21,6503",
+            "vunitRate": "21,6503"
+        },
+        {
+            "numCode": "946",
+            "charCode": "RON",
+            "nominal": "1",
+            "name": "Румынский лей",
+            "value": "18,3311",
+            "vunitRate": "18,3311"
+        },
+        {
+            "numCode": "960",
+            "charCode": "XDR",
+            "nominal": "1",
+            "name": "СДР (специальные права заимствования)",
+            "value": "110,0129",
+            "vunitRate": "110,0129"
+        },
+        {
+            "numCode": "702",
+            "charCode": "SGD",
+            "nominal": "1",
+            "name": "Сингапурский доллар",
+            "value": "62,1135",
+            "vunitRate": "62,1135"
+        },
+        {
+            "numCode": "972",
+            "charCode": "TJS",
+            "nominal": "10",
+            "name": "Сомони",
+            "value": "87,5461",
+            "vunitRate": "8,75461"
+        },
+        {
+            "numCode": "764",
+            "charCode": "THB",
+            "nominal": "10",
+            "name": "Батов",
+            "value": "24,9350",
+            "vunitRate": "2,4935"
+        },
+        {
+            "numCode": "050",
+            "charCode": "BDT",
+            "nominal": "100",
+            "name": "Так",
+            "value": "66,5471",
+            "vunitRate": "0,665471"
+        },
+        {
+            "numCode": "949",
+            "charCode": "TRY",
+            "nominal": "10",
+            "name": "Турецких лир",
+            "value": "19,3113",
+            "vunitRate": "1,93113"
+        },
+        {
+            "numCode": "934",
+            "charCode": "TMT",
+            "nominal": "1",
+            "name": "Новый туркменский манат",
+            "value": "23,1967",
+            "vunitRate": "23,1967"
+        },
+        {
+            "numCode": "860",
+            "charCode": "UZS",
+            "nominal": "10000",
+            "name": "Узбекских сумов",
+            "value": "67,9366",
+            "vunitRate": "0,00679366"
+        },
+        {
+            "numCode": "980",
+            "charCode": "UAH",
+            "nominal": "10",
+            "name": "Гривен",
+            "value": "19,2973",
+            "vunitRate": "1,92973"
+        },
+        {
+            "numCode": "203",
+            "charCode": "CZK",
+            "nominal": "10",
+            "name": "Чешских крон",
+            "value": "38,2766",
+            "vunitRate": "3,82766"
+        },
+        {
+            "numCode": "752",
+            "charCode": "SEK",
+            "nominal": "10",
+            "name": "Шведских крон",
+            "value": "84,9167",
+            "vunitRate": "8,49167"
+        },
+        {
+            "numCode": "756",
+            "charCode": "CHF",
+            "nominal": "1",
+            "name": "Швейцарский франк",
+            "value": "100,1462",
+            "vunitRate": "100,1462"
+        },
+        {
+            "numCode": "230",
+            "charCode": "ETB",
+            "nominal": "100",
+            "name": "Эфиопских быров",
+            "value": "53,0511",
+            "vunitRate": "0,530511"
+        },
+        {
+            "numCode": "941",
+            "charCode": "RSD",
+            "nominal": "100",
+            "name": "Сербских динаров",
+            "value": "79,5863",
+            "vunitRate": "0,795863"
+        },
+        {
+            "numCode": "710",
+            "charCode": "ZAR",
+            "nominal": "10",
+            "name": "Рэндов",
+            "value": "46,4832",
+            "vunitRate": "4,64832"
+        },
+        {
+            "numCode": "410",
+            "charCode": "KRW",
+            "nominal": "1000",
+            "name": "Вон",
+            "value": "56,4711",
+            "vunitRate": "0,0564711"
+        },
+        {
+            "numCode": "392",
+            "charCode": "JPY",
+            "nominal": "100",
+            "name": "Иен",
+            "value": "52,9122",
+            "vunitRate": "0,529122"
+        },
+        {
+            "numCode": "104",
+            "charCode": "MMK",
+            "nominal": "1000",
+            "name": "Кьятов",
+            "value": "38,6612",
+            "vunitRate": "0,0386612"
+        }
+    ]
+}`
+
+var HappyPathCurrencies = CurrenciesResponce{Date: "06.11.2025",
+	Valute: []Currency{
 		{NumCode: "036", CharCode: "AUD", Nominal: "1", Name: "Австралийский доллар", Value: "52,7076", VunitRate: "52,7076"},
 		{NumCode: "944", CharCode: "AZN", Nominal: "1", Name: "Азербайджанский манат", Value: "47,7579", VunitRate: "47,7579"},
 		{NumCode: "012", CharCode: "DZD", Nominal: "100", Name: "Алжирских динаров", Value: "62,1249", VunitRate: "0,621249"},
@@ -91,8 +537,8 @@ var xmlDataInBytes = []byte(`
 </ValCurs>
 `)
 
-var xmlData = ValCurs{Date: "03.03.1995",
-	Valute: []Valute{Valute{
+var xmlData = CurrenciesResponce{Date: "03.03.1995",
+	Valute: []Currency{Currency{
 		NumCode:   "036",
 		CharCode:  "AUD",
 		Nominal:   "1",

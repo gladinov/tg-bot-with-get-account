@@ -80,7 +80,7 @@ func TestGetAllCurrencies(t *testing.T) {
 		date          time.Time
 		path          string
 		params        url.Values
-		want          service.ValCurs
+		want          service.CurrenciesResponce
 		setupMock     func(*mocks.HTTPTransport, string, url.Values)
 		wantErr       error
 		assertNoCalls bool
@@ -90,7 +90,7 @@ func TestGetAllCurrencies(t *testing.T) {
 			date:   now,
 			path:   "",
 			params: url.Values{},
-			want:   service.ValCurs{},
+			want:   service.CurrenciesResponce{},
 
 			setupMock: func(mockHTTPTransport *mocks.HTTPTransport, path string, params url.Values) {
 				mockHTTPTransport.On("DoRequest", mock.Anything, mock.Anything).

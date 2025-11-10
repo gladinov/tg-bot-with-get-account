@@ -53,7 +53,7 @@ func TestParseCurrencies(t *testing.T) {
 	cases := []struct {
 		name    string
 		data    []byte
-		want    ValCurs
+		want    CurrenciesResponce
 		wantErr error
 	}{
 		{
@@ -65,7 +65,7 @@ func TestParseCurrencies(t *testing.T) {
 		{
 			name:    "Err: Incorrect data in byte",
 			data:    xmlDataInBytesErr,
-			want:    ValCurs{},
+			want:    CurrenciesResponce{},
 			wantErr: errors.New("op: service.parseCurrencies, could not decode Xml file"),
 		},
 	}
@@ -102,4 +102,48 @@ func TestParseCurrencies_UTF8CharsetReader(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "Австралийский доллар", got.Valute[0].Name)
+}
+
+func TestNormalizeDate(t *testing.T) {
+	location, _ := timezone.GetMoscowLocation()
+	now := time.Now()
+	startDate := timezone.GetStartSingleExchangeRateRubble(location)
+	cases := []struct {
+		name string
+		date time.Time
+		want string
+	}{
+		{
+			name: "Sucsess",
+			date: now,
+			want: now.Format(layout),
+		},
+		{
+			name: "FutureDate",
+			date: now.AddDate(100, 0, 0),
+			want: now.Format(layout),
+		},
+		{
+			name: "PastDate",
+			date: now.AddDate(-100, 0, 0),
+			want: startDate.Format(layout),
+		},
+		{
+			name: "Date After Start Single Exchange Rate Rubble",
+			date: startDate.AddDate(0, 0, 1),
+			want: startDate.AddDate(0, 0, 1).Format(layout),
+		},
+		{
+			name: "Border case",
+			date: startDate,
+			want: startDate.Format(layout),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := normalizeDate(tc.date, now, startDate)
+			require.Equal(t, tc.want, got)
+		})
+	}
+
 }
