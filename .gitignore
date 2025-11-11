@@ -9,3 +9,4 @@ tinkoffApi/configs/tinkoffApiConfig.yaml
 tinkoffApi/configs/local.yaml
 tinkoffApi/tokens.env
 myapp/tokens.env
+.idea
