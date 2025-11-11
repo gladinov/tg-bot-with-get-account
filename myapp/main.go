@@ -24,7 +24,7 @@ const (
 	// moexHost  = "iss.moex.com"
 	moexHost       = "localhost:8081"
 	tinkoffApiHost = "localhost:8082"
-	cbrHost        = "www.cbr.ru"
+	cbrHost        = "localhost:8083"
 	tgBotHost      = "api.telegram.org"
 	// storagePath            = "storage"
 	storageSqlPath         = "/data/sqlite/storage.db"

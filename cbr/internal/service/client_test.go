@@ -101,7 +101,7 @@ func TestParseCurrencies_UTF8CharsetReader(t *testing.T) {
 	got, err := client.parseCurrencies(xmlData)
 
 	require.NoError(t, err)
-	require.Equal(t, "Австралийский доллар", got.Valute[0].Name)
+	require.Equal(t, "Австралийский доллар", got.Currencies[0].Name)
 }
 
 func TestNormalizeDate(t *testing.T) {

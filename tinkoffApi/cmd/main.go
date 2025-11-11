@@ -70,7 +70,6 @@ func main() {
 	e.POST("/tinkoff/bondactions", handlrs.GetBondsActions)
 	e.POST("/tinkoff/lastprice", handlrs.GetLastPriceInPersentageToNominal)
 
-	// 👇 Graceful shutdown для Echo
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

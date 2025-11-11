@@ -2,34 +2,18 @@ package cbr
 
 import (
 	"bytes"
-	"encoding/xml"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
-
-	"golang.org/x/text/encoding/charmap"
-	"main.go/lib/e"
 )
 
 const (
 	layout = "02/01/2006"
 )
-
-type Valute struct {
-	NumCode   string `xml:"NumCode"`
-	CharCode  string `xml:"CharCode"`
-	Nominal   string `xml:"Nominal"`
-	Name      string `xml:"Name"`
-	Value     string `xml:"Value"`
-	VunitRate string `xml:"VunitRate"`
-}
-
-type ValCurs struct {
-	Date   string   `xml:"Date,attr"`
-	Valute []Valute `xml:"Valute"`
-}
 
 type Client struct {
 	host   string
@@ -43,58 +27,63 @@ func New(host string) *Client {
 	}
 }
 
-func (c *Client) GetAllCurrencies(date time.Time) (curr ValCurs, err error) {
-	defer func() { err = e.WrapIfErr("getAllCurrencies error", err) }()
-	formatDate := date.Format(layout)
-	Path := path.Join("scripts", "XML_daily.asp")
+func (c *Client) GetAllCurrencies(date time.Time) (CurrenciesResponce, error) {
+	const op = "cbr.GetAllCurrencies"
+	request := CurrencyRequest{Date: date}
+	Path := path.Join("cbr", "currencies")
 	params := url.Values{}
-	params.Add("date_req", formatDate)
-	body, err := c.doRequest(Path, params)
+	requestBody, err := json.Marshal(request)
 	if err != nil {
-		return curr, err
+		return CurrenciesResponce{}, err
 	}
+	formatRequestBody := bytes.NewBuffer(requestBody)
 
-	decoder := xml.NewDecoder(bytes.NewReader(body))
-	decoder.CharsetReader = func(label string, input io.Reader) (io.Reader, error) {
-		if label == "windows-1251" {
-			return charmap.Windows1251.NewDecoder().Reader(input), nil
-		}
-		return input, nil
-	}
-
-	err = decoder.Decode(&curr)
+	httpResponse, err := c.doRequest(Path, params, formatRequestBody)
 	if err != nil {
-		return curr, err
+		return CurrenciesResponce{}, err
+	}
+	switch httpResponse.StatusCode {
+	case http.StatusBadRequest:
+		return CurrenciesResponce{}, fmt.Errorf("op:%s, statusCode:%v, error: Invalid request", op, httpResponse.StatusCode)
+	case http.StatusInternalServerError:
+		return CurrenciesResponce{}, fmt.Errorf("op:%s, statusCode:%v, error: could not get currencies from cbr", op, httpResponse.StatusCode)
+	}
+	var currencies CurrenciesResponce
+	err = json.Unmarshal(httpResponse.Body, &currencies)
+	if err != nil {
+		return CurrenciesResponce{}, err
 	}
 
-	return curr, nil
+	return currencies, nil
 }
 
-func (c *Client) doRequest(Path string, query url.Values) (data []byte, err error) {
-	defer func() { err = e.WrapIfErr("can`t do request", err) }()
+func (c *Client) doRequest(Path string, query url.Values, requestBody io.Reader) (HTTPResponse, error) {
 	u := url.URL{
-		Scheme: "https",
+		Scheme: "http",
 		Host:   c.host,
 		Path:   Path,
 	}
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, u.String(), requestBody)
 	if err != nil {
-		return nil, err
+		return HTTPResponse{}, err
 	}
 	req.URL.RawQuery = query.Encode()
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; MyApp/1.0)")
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, err
+		return HTTPResponse{}, err
 	}
 
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return HTTPResponse{}, err
 	}
-
-	return body, nil
+	httpResponse := HTTPResponse{
+		StatusCode: resp.StatusCode,
+		Body:       body,
+	}
+	return httpResponse, nil
 }

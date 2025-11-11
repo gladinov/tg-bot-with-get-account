@@ -40,7 +40,7 @@ func (c *Client) GetCurrencyFromCB(charCode string, date time.Time) (vunit_rate 
 
 }
 
-func transformCurrenciesFromCB(inCurrencies cbr.ValCurs) (_ *service_models.Currencies, err error) {
+func transformCurrenciesFromCB(inCurrencies cbr.CurrenciesResponce) (_ *service_models.Currencies, err error) {
 	defer func() { err = e.WrapIfErr("can't transform currencies from CB", err) }()
 	outCurrencies := &service_models.Currencies{
 		CurrenciesMap: make(map[string]service_models.Currency),
@@ -50,7 +50,7 @@ func transformCurrenciesFromCB(inCurrencies cbr.ValCurs) (_ *service_models.Curr
 	if err != nil {
 		return outCurrencies, err
 	}
-	for _, inCurrency := range inCurrencies.Valute {
+	for _, inCurrency := range inCurrencies.Currencies {
 		var outCurrency service_models.Currency
 		outCurrency.Date = date
 		outCurrency.NumCode = inCurrency.NumCode

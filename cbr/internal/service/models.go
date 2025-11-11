@@ -14,8 +14,8 @@ type Currency struct {
 }
 
 type CurrenciesResponce struct {
-	Date   string     `xml:"Date,attr" json:"date,omitempty"`
-	Valute []Currency `xml:"Valute" json:"valute,omitempty"`
+	Date       string     `xml:"Date,attr" json:"date,omitempty"`
+	Currencies []Currency `xml:"Valute" json:"valute,omitempty"`
 }
 
 var HappyPathCurrenciesInBytes = `{
@@ -465,7 +465,7 @@ var HappyPathCurrenciesInBytes = `{
 }`
 
 var HappyPathCurrencies = CurrenciesResponce{Date: "06.11.2025",
-	Valute: []Currency{
+	Currencies: []Currency{
 		{NumCode: "036", CharCode: "AUD", Nominal: "1", Name: "Австралийский доллар", Value: "52,7076", VunitRate: "52,7076"},
 		{NumCode: "944", CharCode: "AZN", Nominal: "1", Name: "Азербайджанский манат", Value: "47,7579", VunitRate: "47,7579"},
 		{NumCode: "012", CharCode: "DZD", Nominal: "100", Name: "Алжирских динаров", Value: "62,1249", VunitRate: "0,621249"},
@@ -538,7 +538,7 @@ var xmlDataInBytes = []byte(`
 `)
 
 var xmlData = CurrenciesResponce{Date: "03.03.1995",
-	Valute: []Currency{Currency{
+	Currencies: []Currency{Currency{
 		NumCode:   "036",
 		CharCode:  "AUD",
 		Nominal:   "1",

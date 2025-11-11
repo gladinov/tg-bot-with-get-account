@@ -129,7 +129,7 @@ func (c *Client) GetPortfolio(requestBody PortfolioRequest) (Portfolio, error) {
 		var statusErr map[string]string
 		err = json.Unmarshal(body, &statusErr)
 		if err != nil {
-			return Portfolio{}, fmt.Errorf("op:%s, could not unmarshall json, delete this block. err : %s", op, err.Error())
+			return Portfolio{}, fmt.Errorf("op:%s, could not unmarshall json", op)
 		}
 		return Portfolio{}, fmt.Errorf("op:%s, err:"+statusErr["error"], op)
 	}
