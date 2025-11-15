@@ -3,14 +3,13 @@ package tinkoffApi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
-
-	"main.go/lib/e"
 )
 
 type Client struct {
@@ -29,7 +28,6 @@ func NewClient(host string) *Client {
 }
 
 func (c *Client) IsToken(token string) (err error) {
-	defer func() { err = e.WrapIfErr("isTokent error", err) }()
 
 	if len(token) == 88 { // TODO:модифицировать проверку
 		c.Token = token
@@ -41,7 +39,7 @@ func (c *Client) IsToken(token string) (err error) {
 		return nil
 	}
 	c.Token = ""
-	return err
+	return errors.New("is not token")
 }
 
 func (c *Client) GetAccounts() (map[string]Account, error) {

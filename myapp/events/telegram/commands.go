@@ -44,14 +44,14 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		p.service.Tinkoffapi.Token = token
 	case false:
 		err := p.service.Tinkoffapi.IsToken(text)
-		switch err {
-		case nil:
-			token = text
-			p.storage.Save(context.Background(), username, chatID, text)
-			return p.tg.SendMessage(chatID, msgTrueToken)
-		default:
+		if err != nil {
 			return p.tg.SendMessage(chatID, msgNoToken)
 		}
+
+		token = text
+		p.storage.Save(context.Background(), username, chatID, text)
+		return p.tg.SendMessage(chatID, msgTrueToken)
+
 	}
 
 	switch text {

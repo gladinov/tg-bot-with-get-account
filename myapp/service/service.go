@@ -15,7 +15,6 @@ import (
 	"main.go/clients/sber"
 	"main.go/clients/tinkoffApi"
 	"main.go/lib/e"
-	pathwd "main.go/lib/pathWD"
 	"main.go/service/service_models"
 	service_storage "main.go/service/storage"
 	"main.go/service/visualization"
@@ -51,22 +50,20 @@ const (
 	indexType     = "TYPE_INDEX"
 )
 
-const (
-	sberConfigPath = "/configs/sber.yaml"
-)
-
 type Client struct {
 	Tinkoffapi *tinkoffApi.Client
 	MoexApi    *moex.Client
 	CbrApi     *cbr.Client
+	Sber       *sber.Client
 	Storage    service_storage.Storage
 }
 
-func New(tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient *cbr.Client, storage service_storage.Storage) *Client {
+func New(tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient *cbr.Client, sber *sber.Client, storage service_storage.Storage) *Client {
 	return &Client{
 		Tinkoffapi: tinkoffApiClient,
 		MoexApi:    moexClient,
 		CbrApi:     CbrClient,
+		Sber:       sber,
 		Storage:    storage,
 	}
 }
@@ -554,21 +551,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(accounts map[string]tinkoffA
 		positionsList = append(positionsList, potfolioStructure)
 	}
 
-	sberConfigAbsolutPath, err := pathwd.PathFromWD(sberConfigPath)
-	if err != nil {
-		return "", err
-	}
-	sberConfig, err := sber.LoadConfigSber(sberConfigAbsolutPath)
-	if err != nil {
-		return "", err
-	}
-
-	processConfig, err := sber.ProcessConfigSber(sberConfig)
-	if err != nil {
-		return "", err
-	}
-
-	sberPortfolio, err := c.DivideByTypeFromSber(processConfig)
+	sberPortfolio, err := c.DivideByTypeFromSber(c.Sber.Portfolio)
 	if err != nil {
 		return "", err
 	}

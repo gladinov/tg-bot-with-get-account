@@ -1,7 +1,9 @@
 package sber
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -11,6 +13,10 @@ import (
 
 type ConfigSber struct {
 	Bonds string `yaml:"Bonds"`
+}
+
+type Client struct {
+	Portfolio map[string]float64
 }
 
 func LoadConfigSber(filename string) (_ ConfigSber, err error) {
@@ -40,4 +46,19 @@ func ProcessConfigSber(config ConfigSber) (map[string]float64, error) {
 		retBonds[ticker] = float64(quantity)
 	}
 	return retBonds, nil
+}
+
+func NewClient(rootPath, sberConfigPath string) (*Client, error) {
+	filename := filepath.Join(rootPath, sberConfigPath)
+	config, err := LoadConfigSber(filename)
+	if err != nil {
+		return nil, fmt.Errorf("load sber config failed: %w", err)
+	}
+	portfolio, err := ProcessConfigSber(config)
+	if err != nil {
+		return nil, fmt.Errorf("process sber config failed: %w", err)
+	}
+	var client Client
+	client.Portfolio = portfolio
+	return &client, nil
 }

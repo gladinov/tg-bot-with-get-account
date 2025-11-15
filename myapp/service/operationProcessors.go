@@ -30,7 +30,7 @@ const (
 func (c *Client) GetSpecificationsFromTinkoff(position *service_models.PositionByFIFO) error {
 	resSpecFromTinkoff, err := c.TinkoffGetBondActions(position.InstrumentUid)
 	if err != nil {
-		return errors.New("service:GetSpecificationsFromMoex" + err.Error())
+		return errors.New("service:GetSpecificationsFromMoex " + err.Error())
 	}
 	position.Ticker = resSpecFromTinkoff.Ticker
 	position.ClassCode = resSpecFromTinkoff.ClassCode
