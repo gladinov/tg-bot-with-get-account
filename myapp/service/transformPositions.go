@@ -3,25 +3,35 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"main.go/clients/tinkoffApi"
 	"main.go/lib/e"
 	"main.go/service/service_models"
 )
 
-func (c *Client) TransformPositions(accountID string, portffolioPositions []tinkoffApi.PortfolioPositions) (_ []service_models.PortfolioPosition, err error) {
+var ErrEmptyUidAfterUpdate = errors.New("asset uid by this instrument uid is not exist")
+
+const (
+	hoursToUpdate = 12.0
+)
+
+func (c *Client) TransformPositions(portffolioPositions []tinkoffApi.PortfolioPositions) (_ []service_models.PortfolioPosition, err error) {
 	defer func() { err = e.WrapIfErr("transPositions err ", err) }()
 	portfolio := make([]service_models.PortfolioPosition, 0)
 	for _, v := range portffolioPositions {
 		assetUid, err := c.GetUidByInstrUid(v.InstrumentUid)
-		if err != nil {
-			return portfolio, err
+		if err != nil && !errors.Is(err, ErrEmptyUidAfterUpdate) {
+			return nil, err
 		}
-		transPosionRet := service_models.PortfolioPosition{
+		if errors.Is(err, ErrEmptyUidAfterUpdate) {
+			assetUid = ""
+		}
+		transformPosition := service_models.PortfolioPosition{
 			InstrumentType: v.InstrumentType,
+			AssetUid:       assetUid,
 		}
-		transPosionRet.AssetUid = assetUid
-		portfolio = append(portfolio, transPosionRet)
+		portfolio = append(portfolio, transformPosition)
 	}
 
 	return portfolio, nil
@@ -29,26 +39,30 @@ func (c *Client) TransformPositions(accountID string, portffolioPositions []tink
 
 func (c *Client) GetUidByInstrUid(instrumentUid string) (asset_uid string, err error) {
 	defer func() { err = e.WrapIfErr("can't get uid", err) }()
-	exist, err := c.Storage.IsUpdatedUids(context.Background())
+	date, err := c.Storage.IsUpdatedUids(context.Background())
 	if err != nil && !errors.Is(err, service_models.ErrEmptyUids) {
 		return "", err
 	}
 
-	if exist {
+	if errors.Is(err, service_models.ErrEmptyUids) {
+		return c.updateAndGetUid(instrumentUid)
+	}
+
+	if time.Since(date).Hours() < hoursToUpdate {
 		assetUid, err := c.Storage.GetUid(context.Background(), instrumentUid)
-		if err == nil {
-			return assetUid, nil
+		if errors.Is(err, service_models.ErrEmptyUids) {
+			return "", ErrEmptyUidAfterUpdate
 		}
-		if !errors.Is(err, service_models.ErrEmptyUids) {
+		if err != nil {
 			return "", err
 		}
+		return assetUid, nil
 	}
 
 	assetUid, err := c.updateAndGetUid(instrumentUid)
 	if err != nil {
 		return "", err
 	}
-
 	return assetUid, nil
 
 }
@@ -61,7 +75,7 @@ func (c *Client) updateAndGetUid(instrumentUid string) (asset_uid string, err er
 	}
 	asset_uid, exist := allAssetUids[instrumentUid]
 	if !exist {
-		return "", err
+		return "", ErrEmptyUidAfterUpdate
 	}
 	err = c.Storage.SaveUids(context.Background(), allAssetUids)
 	if err != nil {

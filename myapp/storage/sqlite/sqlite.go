@@ -51,15 +51,6 @@ func (s *Storage) PickToken(ctx context.Context, chatId int) (string, error) {
 	return token, nil
 }
 
-func (s *Storage) Remove(ctx context.Context, page *storage.Page) error {
-	q := `DELETE FROM pages WHERE url = ? AND chatID = ?`
-	if _, err := s.db.ExecContext(ctx, q, page.URL, page.ChatId); err != nil {
-		return fmt.Errorf("can't remove page: %w", err)
-
-	}
-	return nil
-}
-
 func (s *Storage) IsExists(ctx context.Context, chatId int) (bool, error) {
 	q := `SELECT COUNT(*) FROM users WHERE chatID = ?`
 

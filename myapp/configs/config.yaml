@@ -1,0 +1,4 @@
+env: local
+dbType: "postgreSQL" # "postgreSQL" , "SQLite"
+serviceStorageSQLLitePath: "/data/sqlite/service_storage.db"
+postgeSQLHost: "localhost:5432"

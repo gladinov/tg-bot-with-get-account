@@ -44,14 +44,14 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		p.service.Tinkoffapi.Token = token
 	case false:
 		err := p.service.Tinkoffapi.IsToken(text)
-		switch err {
-		case nil:
-			token = text
-			p.storage.Save(context.Background(), username, chatID, text)
-			return p.tg.SendMessage(chatID, msgTrueToken)
-		default:
+		if err != nil {
 			return p.tg.SendMessage(chatID, msgNoToken)
 		}
+
+		token = text
+		p.storage.Save(context.Background(), username, chatID, text)
+		return p.tg.SendMessage(chatID, msgTrueToken)
+
 	}
 
 	switch text {
@@ -60,7 +60,7 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 	case AccountsCmd:
 		return p.sendAccounts(chatID, token)
 	case GetBondReport:
-		return p.getBondReports(chatID, token)
+		return p.getBondReports(chatID)
 	case GetGeneralBondReport:
 		return p.getBondRepotsWithPng(chatID, token)
 	case GetUSD:
@@ -96,8 +96,8 @@ func (p *Processor) sendAccounts(chatID int, token string) error {
 	return nil
 }
 
-func (p *Processor) getBondReports(chatID int, token string) (err error) {
-	if err = p.service.GetBondReportsByFifo(chatID, token); err != nil {
+func (p *Processor) getBondReports(chatID int) (err error) {
+	if err = p.service.GetBondReportsByFifo(chatID); err != nil {
 		return e.WrapIfErr("getBondReport: can't get Bond reports", err)
 	}
 

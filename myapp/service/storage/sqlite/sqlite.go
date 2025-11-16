@@ -12,10 +12,6 @@ import (
 	"main.go/service/service_models"
 )
 
-const (
-	hoursToUpdate = 12.0
-)
-
 type Storage struct {
 	db *sql.DB
 }
@@ -31,6 +27,9 @@ func New(path string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
+func (s *Storage) CloseDB() {
+	_ = s.db.Close()
+}
 func (s *Storage) Init(ctx context.Context) error {
 	q_bondReport := `CREATE TABLE IF NOT EXISTS bond_reports (
         id integer primary key,
@@ -228,6 +227,7 @@ func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string
 	if err != nil {
 		return nil, e.WrapIfErr("query error", err)
 	}
+
 	for rows.Next() {
 		var operation service_models.Operation
 		err := rows.Scan(&operation.Name,
@@ -422,28 +422,25 @@ func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err err
 	return tx.Commit()
 }
 
-func (s *Storage) IsUpdatedUids(ctx context.Context) (bool, error) {
+func (s *Storage) IsUpdatedUids(ctx context.Context) (time.Time, error) {
 	q := `SELECT update_time FROM uids LIMIT 1`
 
 	var date time.Time
 
 	err := s.db.QueryRowContext(ctx, q).Scan(&date)
 	if err == sql.ErrNoRows {
-		return false, service_models.ErrEmptyUids
+		return time.Time{}, service_models.ErrEmptyUids
 	}
 	if err != nil {
-		return false, e.WrapIfErr("can't check update uids:", err)
+		return time.Time{}, e.WrapIfErr("can't check update uids:", err)
 
 	}
 
-	if time.Since(date).Hours() > hoursToUpdate {
-		return false, nil
-	}
-	return true, nil
+	return date, nil
 }
 
 func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (string, error) {
-	q := "SELECT asset_uid FROM uids WHERE instrument_uid = ?"
+	q := `SELECT asset_uid FROM uids WHERE instrument_uid = ?`
 
 	var asset_uid string
 

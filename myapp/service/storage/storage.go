@@ -13,6 +13,7 @@ type Storage interface {
 	GeneralBondReportStorage
 	CurrencyStorage
 	UidsStorage
+	CloseStorage
 }
 
 type OperationStorage interface {
@@ -38,6 +39,10 @@ type CurrencyStorage interface {
 
 type UidsStorage interface {
 	SaveUids(ctx context.Context, uids map[string]string) error
-	IsUpdatedUids(ctx context.Context) (bool, error)
+	IsUpdatedUids(ctx context.Context) (time.Time, error)
 	GetUid(ctx context.Context, instrumentUid string) (string, error)
+}
+
+type CloseStorage interface {
+	CloseDB()
 }

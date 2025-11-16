@@ -66,5 +66,6 @@ func (c *Client) GetSpecifications(ticker string, date time.Time) (Values, error
 	if err != nil {
 		return Values{}, err
 	}
+	
 	return data, nil
 }

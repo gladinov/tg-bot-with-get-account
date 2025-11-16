@@ -12,11 +12,11 @@ import (
 	"tinkoffApi/internal/service"
 	"tinkoffApi/internal/service/mocks"
 	testhelpfunc "tinkoffApi/lib/testHelpFunc"
-	"tinkoffApi/pkg/app"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"main.go/pkg/app"
 )
 
 const (

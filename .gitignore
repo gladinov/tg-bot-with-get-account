@@ -3,9 +3,11 @@
 /myapp/data/sqlite/service_storage.db
 /myapp/archive
 /myapp/mybot.exe
+/myapp/configs
 tinkoff_commands.yaml
 tinkoffApi/configs/config.yaml
 tinkoffApi/configs/tinkoffApiConfig.yaml
 tinkoffApi/configs/local.yaml
 tinkoffApi/tokens.env
 myapp/tokens.env
+.idea
