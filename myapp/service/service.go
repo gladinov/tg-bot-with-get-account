@@ -68,7 +68,7 @@ func New(tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient
 	}
 }
 
-func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
+func (c *Client) GetBondReportsByFifo(chatID int) (err error) {
 	defer func() { err = e.WrapIfErr("can't get bond reports", err) }()
 	accounts, err := c.Tinkoffapi.GetAccounts()
 	if err != nil {
@@ -88,7 +88,7 @@ func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 			return err
 		}
 
-		portfolioPositions, err := c.TransformPositions(account.Id, portfolio.Positions)
+		portfolioPositions, err := c.TransformPositions(portfolio.Positions)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,9 @@ func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 			return err
 		}
 		bondsInRub := make([]service_models.BondReport, 0)
+
 		for _, v := range portfolioPositions {
+
 			if v.InstrumentType == "bond" {
 				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
 				if err != nil {
@@ -144,7 +146,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string)
 			return err
 		}
 
-		portfolioPositions, err := c.TransformPositions(account.Id, portfolio.Positions)
+		portfolioPositions, err := c.TransformPositions(portfolio.Positions)
 		if err != nil {
 			return err
 		}
@@ -284,7 +286,7 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 			return nil, err
 		}
 
-		portfolioPositions, err := c.TransformPositions(account.Id, portfolio.Positions)
+		portfolioPositions, err := c.TransformPositions(portfolio.Positions)
 		if err != nil {
 			return nil, err
 		}

@@ -241,7 +241,7 @@ from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 
 
 		return nil, fmt.Errorf("%s,rows iteration failed: %w", op, err)
 	}
-	
+
 	return operationRes, nil
 
 }
@@ -284,7 +284,7 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
         nominal,
         profit,
         annualized_return
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,$16,$17)
+    ) VALUES ($1, $2, $3, $4, NULLIF($5,'')::date, NULLIF($6,'')::date, $7, NULLIF($8,'')::date, $9, $10, $11, $12, $13, $14, $15,$16,$17)
 	`,
 			chatID,
 			accountId,
@@ -476,10 +476,9 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (time.Time, error) {
 
 func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (string, error) {
 	q := `SELECT asset_uid FROM uids WHERE instrument_uid = $1`
-
 	var asset_uid string
-
 	err := s.db.QueryRow(ctx, q, instrumentUid).Scan(&asset_uid)
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", service_models.ErrEmptyUids

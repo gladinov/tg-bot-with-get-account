@@ -440,7 +440,7 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (time.Time, error) {
 }
 
 func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (string, error) {
-	q := "SELECT asset_uid FROM uids WHERE instrument_uid = ?"
+	q := `SELECT asset_uid FROM uids WHERE instrument_uid = ?`
 
 	var asset_uid string
 

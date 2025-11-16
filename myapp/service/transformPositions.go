@@ -10,23 +10,28 @@ import (
 	"main.go/service/service_models"
 )
 
+var ErrEmptyUidAfterUpdate = errors.New("asset uid by this instrument uid is not exist")
+
 const (
 	hoursToUpdate = 12.0
 )
 
-func (c *Client) TransformPositions(accountID string, portffolioPositions []tinkoffApi.PortfolioPositions) (_ []service_models.PortfolioPosition, err error) {
+func (c *Client) TransformPositions(portffolioPositions []tinkoffApi.PortfolioPositions) (_ []service_models.PortfolioPosition, err error) {
 	defer func() { err = e.WrapIfErr("transPositions err ", err) }()
 	portfolio := make([]service_models.PortfolioPosition, 0)
 	for _, v := range portffolioPositions {
 		assetUid, err := c.GetUidByInstrUid(v.InstrumentUid)
-		if err != nil {
-			return portfolio, err
+		if err != nil && !errors.Is(err, ErrEmptyUidAfterUpdate) {
+			return nil, err
 		}
-		transPosionRet := service_models.PortfolioPosition{
+		if errors.Is(err, ErrEmptyUidAfterUpdate) {
+			assetUid = ""
+		}
+		transformPosition := service_models.PortfolioPosition{
 			InstrumentType: v.InstrumentType,
+			AssetUid:       assetUid,
 		}
-		transPosionRet.AssetUid = assetUid
-		portfolio = append(portfolio, transPosionRet)
+		portfolio = append(portfolio, transformPosition)
 	}
 
 	return portfolio, nil
@@ -39,9 +44,16 @@ func (c *Client) GetUidByInstrUid(instrumentUid string) (asset_uid string, err e
 		return "", err
 	}
 
+	if errors.Is(err, service_models.ErrEmptyUids) {
+		return c.updateAndGetUid(instrumentUid)
+	}
+
 	if time.Since(date).Hours() < hoursToUpdate {
 		assetUid, err := c.Storage.GetUid(context.Background(), instrumentUid)
-		if !errors.Is(err, service_models.ErrEmptyUids) {
+		if errors.Is(err, service_models.ErrEmptyUids) {
+			return "", ErrEmptyUidAfterUpdate
+		}
+		if err != nil {
 			return "", err
 		}
 		return assetUid, nil
@@ -51,7 +63,6 @@ func (c *Client) GetUidByInstrUid(instrumentUid string) (asset_uid string, err e
 	if err != nil {
 		return "", err
 	}
-
 	return assetUid, nil
 
 }
@@ -64,7 +75,7 @@ func (c *Client) updateAndGetUid(instrumentUid string) (asset_uid string, err er
 	}
 	asset_uid, exist := allAssetUids[instrumentUid]
 	if !exist {
-		return "", err
+		return "", ErrEmptyUidAfterUpdate
 	}
 	err = c.Storage.SaveUids(context.Background(), allAssetUids)
 	if err != nil {
