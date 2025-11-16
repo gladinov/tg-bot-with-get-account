@@ -4,28 +4,26 @@ import (
 	"context"
 	"errors"
 
-	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
+	"main.go/clients/tinkoffApi"
 	"main.go/lib/e"
 	"main.go/service/service_models"
 )
 
-func (c *Client) TransformPositions(accountID string, portffolioPositions []*pb.PortfolioPosition) (_ []service_models.PortfolioPosition, err error) {
+func (c *Client) TransformPositions(accountID string, portffolioPositions []tinkoffApi.PortfolioPositions) (_ []service_models.PortfolioPosition, err error) {
 	defer func() { err = e.WrapIfErr("transPositions err ", err) }()
 	portfolio := make([]service_models.PortfolioPosition, 0)
 	for _, v := range portffolioPositions {
-		assetUid, err := c.GetUidByInstrUid(v.GetInstrumentUid())
+		assetUid, err := c.GetUidByInstrUid(v.InstrumentUid)
 		if err != nil {
 			return portfolio, err
 		}
 		transPosionRet := service_models.PortfolioPosition{
-			InstrumentType: v.GetInstrumentType(),
+			InstrumentType: v.InstrumentType,
 		}
 		transPosionRet.AssetUid = assetUid
 		portfolio = append(portfolio, transPosionRet)
 	}
 
-	c.Tinkoffapi.Client.Logger.Infof("✓ Добавлено %v позиций в portfolio по счету %s\n", len(portfolio), accountID)
-	// fmt.Printf("✓ Добавлено %v позиций в portfolio по счету %s\n", len(portfolio), accountID)
 	return portfolio, nil
 }
 

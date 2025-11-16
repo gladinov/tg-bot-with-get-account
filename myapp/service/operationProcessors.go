@@ -28,7 +28,7 @@ const (
 )
 
 func (c *Client) GetSpecificationsFromTinkoff(position *service_models.PositionByFIFO) error {
-	resSpecFromTinkoff, err := c.Tinkoffapi.GetBondsActionsFromTinkoff(position.InstrumentUid)
+	resSpecFromTinkoff, err := c.TinkoffGetBondActions(position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex" + err.Error())
 	}
@@ -43,15 +43,15 @@ func (c *Client) GetSpecificationsFromTinkoff(position *service_models.PositionB
 		if err != nil {
 			return e.WrapIfErr("getSpecificationsFromMoex err", err)
 		}
-		position.Nominal = resSpecFromTinkoff.Nominal * vunit_rate
+		position.Nominal = resSpecFromTinkoff.Nominal.ToFloat() * vunit_rate
 	} else {
-		position.Nominal = resSpecFromTinkoff.Nominal
+		position.Nominal = resSpecFromTinkoff.Nominal.ToFloat()
 	}
-	resLastPriceFromTinkoff, err := c.Tinkoffapi.GetLastPriceFromTinkoffInPersentageToNominal(position.InstrumentUid)
+	resp, err := c.TinkoffGetLastPriceInPersentageToNominal(position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex:" + err.Error())
 	}
-
+	resLastPriceFromTinkoff := resp.LastPrice.ToFloat()
 	position.SellPrice = math.Round(resLastPriceFromTinkoff/100*position.Nominal*100) / 100
 	return nil
 
@@ -194,6 +194,7 @@ func (c *Client) processPurchaseOfSecurities(operation service_models.Operation,
 		BuyAccruedInt:  operation.AccruedInt, // НКД при покупке
 		TotalComission: operation.Commission,
 	}
+
 	err := c.GetSpecificationsFromTinkoff(&position)
 	if err != nil {
 		return errors.New("service:processPurchaseOfSecurities:" + err.Error())

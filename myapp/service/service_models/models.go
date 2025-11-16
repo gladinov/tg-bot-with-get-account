@@ -18,27 +18,27 @@ const (
 )
 
 type Operation struct {
-	BrokerAccountId   string
-	Currency          string
-	Operation_Id      string
-	ParentOperationId string
-	Name              string
-	Date              time.Time // Время в UTC
-	Type              int64
-	Description       string
-	InstrumentUid     string
-	Figi              string
-	InstrumentType    string
-	InstrumentKind    string
-	PositionUid       string
-	Payment           float64
-	Price             float64
-	Commission        float64
-	Yield             float64
-	YieldRelative     float64
-	AccruedInt        float64
-	QuantityDone      float64
-	AssetUid          string
+	BrokerAccountId   string    `json:"brokerAccountId,omitempty"`
+	Currency          string    `json:"currency,omitempty"`
+	Operation_Id      string    `json:"operationId,omitempty"`
+	ParentOperationId string    `json:"parentOperationId,omitempty"`
+	Name              string    `json:"name,omitempty"`
+	Date              time.Time `json:"date,omitempty"`
+	Type              int64     `json:"type,omitempty"`
+	Description       string    `json:"description,omitempty"`
+	InstrumentUid     string    `json:"instrumentUid,omitempty"`
+	Figi              string    `json:"figi,omitempty"`
+	InstrumentType    string    `json:"instrumentType,omitempty"`
+	InstrumentKind    string    `json:"instrumentKind,omitempty"`
+	PositionUid       string    `json:"positionUid,omitempty"`
+	Payment           float64   `json:"payment,omitempty"`
+	Price             float64   `json:"price,omitempty"`
+	Commission        float64   `json:"commission,omitempty"`
+	Yield             float64   `json:"yield,omitempty"`
+	YieldRelative     float64   `json:"yieldRelative,omitempty"`
+	AccruedInt        float64   `json:"accruedInt,omitempty"`
+	QuantityDone      float64   `json:"quantityDone,omitempty"`
+	AssetUid          string    `json:"assetUid,omitempty"`
 }
 
 type ReportPositions struct {

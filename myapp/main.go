@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"main.go/clients/cbr"
 	"main.go/clients/moex"
 	tgClient "main.go/clients/telegram"
@@ -20,9 +21,11 @@ import (
 )
 
 const (
-	moexHost  = "iss.moex.com"
-	cbrHost   = "www.cbr.ru"
-	tgBotHost = "api.telegram.org"
+	// moexHost  = "iss.moex.com"
+	moexHost       = "localhost:8081"
+	tinkoffApiHost = "localhost:8082"
+	cbrHost        = "localhost:8083"
+	tgBotHost      = "api.telegram.org"
 	// storagePath            = "storage"
 	storageSqlPath         = "/data/sqlite/storage.db"
 	service_storageSqlPath = "/data/sqlite/service_storage.db"
@@ -30,13 +33,13 @@ const (
 )
 
 func main() {
-	//  for local
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Printf("Error loading .env file. Erorr: %v", err.Error())
-	// }
+	// //  for local
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Printf("Error loading .env file. Erorr: %v", err.Error())
+	}
 
-	token := os.Getenv("BOT_TOKEN")
+	token := os.Getenv("LOCAL_BOT_TOKEN")
 	if token == "" {
 		log.Fatal("BOT_TOKEN environment variable is required")
 	}
@@ -45,11 +48,11 @@ func main() {
 
 	logger := loggAdapter.SetupLogger()
 
-	moexApi := moex.New(moexHost)
+	moexApi := moex.NewClient(moexHost)
 
 	cbrApi := cbr.New(cbrHost)
 
-	tinkoffApiClient := tinkoffapi.New(context.TODO(), logger)
+	tinkoffApiClient := tinkoffapi.NewClient(tinkoffApiHost)
 
 	storageAbsolutPath, err := pathwd.PathFromWD(storageSqlPath)
 	if err != nil {

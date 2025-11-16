@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"main.go/clients/cbr"
 	"main.go/clients/moex"
 	"main.go/clients/sber"
@@ -74,15 +73,7 @@ func New(tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient
 
 func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 	defer func() { err = e.WrapIfErr("can't get bond reports", err) }()
-
-	client := c.Tinkoffapi
-
-	err = client.FillClient(token)
-	if err != nil {
-		return err
-	}
-
-	accounts, err := c.Tinkoffapi.GetAcc()
+	accounts, err := c.Tinkoffapi.GetAccounts()
 	if err != nil {
 		return err
 	}
@@ -92,9 +83,11 @@ func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 		if err != nil {
 			return err
 		}
-
-		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
-		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
+		if account.Status != 2 {
+			continue
+		}
+		portfolio, err := c.TinkoffGetPortfolio(account)
+		if err != nil {
 			return err
 		}
 
@@ -135,14 +128,8 @@ func (c *Client) GetBondReportsByFifo(chatID int, token string) (err error) {
 
 func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string) (err error) {
 	defer func() { err = e.WrapIfErr("can't get general bond report", err) }()
-	client := c.Tinkoffapi
 
-	err = client.FillClient(token)
-	if err != nil {
-		return err
-	}
-
-	accounts, err := c.Tinkoffapi.GetAcc()
+	accounts, err := c.Tinkoffapi.GetAccounts()
 	if err != nil {
 		return err
 	}
@@ -152,9 +139,11 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string)
 		if err != nil {
 			return err
 		}
-
-		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
-		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
+		if account.Status != 2 {
+			continue
+		}
+		portfolio, err := c.TinkoffGetPortfolio(account)
+		if err != nil {
 			return err
 		}
 
@@ -182,7 +171,9 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string)
 				if err != nil {
 					return err
 				}
-				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, portfolio.TotalAmount)
+				totalAmount := portfolio.TotalAmount.ToFloat()
+
+				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, totalAmount)
 				if err != nil {
 					return err
 				}
@@ -215,10 +206,6 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(chatID int, token string)
 			return err
 		}
 
-		// err = c.Storage.SaveGeneralBondReport(context.Background(), chatID, account.Id, generalBondReportPositionsSorted)
-		// if err != nil {
-		// 	return err
-		// }
 	}
 
 	return nil
@@ -281,14 +268,8 @@ func Vizualization(generalBondReports *service_models.GeneralBondReports, chatID
 func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models.MediaGroup, err error) {
 	defer func() { err = e.WrapIfErr("can't get general bond report", err) }()
 	reportsInByteByAccounts := make([][]*service_models.MediaGroup, 0)
-	client := c.Tinkoffapi
 
-	err = client.FillClient(token)
-	if err != nil {
-		return nil, err
-	}
-
-	accounts, err := c.Tinkoffapi.GetAcc()
+	accounts, err := c.Tinkoffapi.GetAccounts()
 	if err != nil {
 		return nil, err
 	}
@@ -298,9 +279,11 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 		if err != nil {
 			return nil, err
 		}
-
-		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
-		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
+		if account.Status != 2 {
+			continue
+		}
+		portfolio, err := c.TinkoffGetPortfolio(account)
+		if err != nil {
 			return nil, err
 		}
 
@@ -308,6 +291,7 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 		if err != nil {
 			return nil, err
 		}
+
 		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.Id)
 		if err != nil {
 			return nil, err
@@ -328,7 +312,9 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 				if err != nil {
 					return nil, err
 				}
-				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, portfolio.TotalAmount)
+				totalAmount := portfolio.TotalAmount.ToFloat()
+
+				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, totalAmount)
 				if err != nil {
 					return nil, err
 				}
@@ -361,10 +347,7 @@ func (c *Client) GetBondReports(chatID int, token string) (_ [][]*service_models
 			return nil, err
 		}
 		reportsInByteByAccounts = append(reportsInByteByAccounts, reportsInByte)
-		// err = c.Storage.SaveGeneralBondReport(context.Background(), chatID, account.Id, generalBondReportPositionsSorted)
-		// if err != nil {
-		// 	return err
-		// }
+
 	}
 
 	return reportsInByteByAccounts, nil
@@ -439,19 +422,14 @@ func sortGeneralBondReports(report map[service_models.TickerTimeKey]service_mode
 
 func (c *Client) GetAccountsList(token string) (answ string, err error) {
 	defer func() { err = e.WrapIfErr("can't get accounts", err) }()
-	client := c.Tinkoffapi
 	var accStr string = "По данному аккаунту доступны следующие счета:"
-	err = client.FillClient(token)
-	if err != nil {
-		return "", err
-	}
 
-	accs, err := c.Tinkoffapi.GetAcc()
+	accs, err := c.Tinkoffapi.GetAccounts()
 	if err != nil {
 		return "", err
 	}
 	for _, account := range accs {
-		accStr += fmt.Sprintf("\n ID:%v, Type: %s, Name: %s, Status: %v \n", account.Id, account.Type, account.Name, account.Status)
+		accStr += fmt.Sprintf("\n ID:%s, Type: %s, Name: %s, Status: %v \n", account.Id, account.Type, account.Name, account.Status)
 	}
 
 	return accStr, nil
@@ -469,6 +447,8 @@ func (c *Client) GetUsd() (float64, error) {
 func (c *Client) updateOperations(chatID int, accountId string, openDate time.Time) (err error) {
 	defer func() { err = e.WrapIfErr("can't updateOperations", err) }()
 	fromDate, err := c.Storage.LastOperationTime(context.Background(), chatID, accountId)
+	// TODO: Если fromDate будет больше time.Now, то будет ошибка.
+	// Есть вероятность такой ошибки, поэтому при тестировании функции нужно придумать другой способ вызова функции по последней операции
 	fromDate = fromDate.Add(time.Microsecond * 1)
 
 	if err != nil {
@@ -479,10 +459,11 @@ func (c *Client) updateOperations(chatID int, accountId string, openDate time.Ti
 		}
 	}
 
-	tinkoffOperations, err := c.Tinkoffapi.GetOperations(accountId, fromDate)
+	tinkoffOperations, err := c.TinkoffGetOperations(accountId, fromDate)
 	if err != nil {
 		return err
 	}
+
 	operations := c.TransOperations(tinkoffOperations)
 
 	err = c.Storage.SaveOperations(context.Background(), chatID, accountId, operations)
@@ -492,16 +473,10 @@ func (c *Client) updateOperations(chatID int, accountId string, openDate time.Ti
 	return nil
 }
 
-func (c *Client) GetAccounts(token string) (_ map[string]tinkoffApi.Account, err error) {
+func (c *Client) GetAccounts() (_ map[string]tinkoffApi.Account, err error) {
 	defer func() { err = e.WrapIfErr("cant' get accounts", err) }()
-	client := c.Tinkoffapi
 
-	err = client.FillClient(token)
-	if err != nil {
-		return nil, err
-	}
-
-	accounts, err := c.Tinkoffapi.GetAcc()
+	accounts, err := c.Tinkoffapi.GetAccounts()
 	if err != nil {
 		return nil, err
 	}
@@ -509,21 +484,11 @@ func (c *Client) GetAccounts(token string) (_ map[string]tinkoffApi.Account, err
 	return accounts, nil
 }
 
-func (c *Client) GetPortfolioStructure(token string, account tinkoffApi.Account) (_ string, err error) {
+func (c *Client) GetPortfolioStructure(account tinkoffApi.Account) (_ string, err error) {
 	defer func() { err = e.WrapIfErr("cant' get portfolio structure", err) }()
-	client := c.Tinkoffapi
-
-	err = client.FillClient(token)
+	portfolio, err := c.TinkoffGetPortfolio(account)
 	if err != nil {
 		return "", err
-	}
-
-	portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
-	if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
-		return "", err
-	}
-	if errors.Is(err, tinkoffApi.ErrCloseAccount) {
-		return "", tinkoffApi.ErrCloseAccount
 	}
 	positions := portfolio.Positions
 
@@ -540,21 +505,15 @@ func (c *Client) GetPortfolioStructure(token string, account tinkoffApi.Account)
 
 func (c *Client) GetUnionPortfolioStructure(token string, accounts map[string]tinkoffApi.Account) (_ string, err error) {
 	defer func() { err = e.WrapIfErr("service: can't get union portfolio structure", err) }()
-	client := c.Tinkoffapi
-
-	err = client.FillClient(token)
-	if err != nil {
-		return "", err
-	}
 
 	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
-		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
-		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
-			return "", err
-		}
-		if errors.Is(err, tinkoffApi.ErrCloseAccount) {
+		if account.Status != 2 {
 			continue
+		}
+		portfolio, err := c.TinkoffGetPortfolio(account)
+		if err != nil {
+			return "", err
 		}
 		positions := portfolio.Positions
 
@@ -574,23 +533,17 @@ func (c *Client) GetUnionPortfolioStructure(token string, accounts map[string]ti
 	return out, nil
 }
 
-func (c *Client) GetUnionPortfolioStructureWithSber(token string, accounts map[string]tinkoffApi.Account) (_ string, err error) {
+func (c *Client) GetUnionPortfolioStructureWithSber(accounts map[string]tinkoffApi.Account) (_ string, err error) {
 	defer func() { err = e.WrapIfErr("service: can't get union portfolio structure with Sber", err) }()
-	client := c.Tinkoffapi
-
-	err = client.FillClient(token)
-	if err != nil {
-		return "", err
-	}
 
 	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
-		portfolio, err := c.Tinkoffapi.GetPortf(account.Id, account.Status)
-		if err != nil && !errors.Is(err, tinkoffApi.ErrCloseAccount) {
-			return "", err
-		}
-		if errors.Is(err, tinkoffApi.ErrCloseAccount) {
+		if account.Status != 2 {
 			continue
+		}
+		portfolio, err := c.TinkoffGetPortfolio(account)
+		if err != nil {
+			return "", err
 		}
 		positions := portfolio.Positions
 
@@ -632,7 +585,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(token string, accounts map[s
 	return out, nil
 }
 
-func (c *Client) DivideByType(positions []*pb.PortfolioPosition) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
+func (c *Client) DivideByType(positions []tinkoffApi.PortfolioPositions) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
 	defer func() { err = e.WrapIfErr("can't divide by type", err) }()
 	portfolio := service_models.NewPortfolioByTypeAndCurrency()
 	date := time.Now()
@@ -655,7 +608,7 @@ func (c *Client) DivideByType(positions []*pb.PortfolioPosition) (_ *service_mod
 
 		switch pos.InstrumentType {
 		case bond:
-			positionPrice += pos.CurrentNkd.ToFloat() * pos.GetQuantity().ToFloat() * vunit_rate
+			positionPrice += pos.CurrentNkd.ToFloat() * pos.Quantity.ToFloat() * vunit_rate
 			portfolio.BondsAssets.SumOfAssets += positionPrice
 			if _, exist := portfolio.BondsAssets.AssetsByCurrency[currencyOfPos]; !exist {
 				portfolio.BondsAssets.AssetsByCurrency[currencyOfPos] = service_models.NewAssetsByParam()
@@ -668,10 +621,9 @@ func (c *Client) DivideByType(positions []*pb.PortfolioPosition) (_ *service_mod
 			}
 			portfolio.SharesAssets.AssetsByCurrency[currencyOfPos].SumOfAssets += positionPrice
 		case futures:
-
-			futures, err := c.Tinkoffapi.GetFutureBy(pos.Figi)
+			futures, err := c.TinkoffGetFutureBy(pos.Figi)
 			if err != nil {
-				return portfolio, e.WrapIfErr("can't divide by type", err)
+				return portfolio, e.WrapIfErr("can't get future data", err)
 			}
 
 			positionPrice = positionPrice / futures.MinPriceIncrement.ToFloat() * futures.MinPriceIncrementAmount.ToFloat()
@@ -692,10 +644,11 @@ func (c *Client) DivideByType(positions []*pb.PortfolioPosition) (_ *service_mod
 				portfolio.FuturesAssets.AssetsByType.Currency.SumOfAssets += positionPrice
 				portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[futures.Name].SumOfAssets += positionPrice
 			case securityType:
-				valute, err := c.Tinkoffapi.GetBaseShareFutureValute(futures.BasicAssetPositionUid)
+				resp, err := c.TinkoffGetBaseShareFutureValute(futures.BasicAssetPositionUid)
 				if err != nil {
 					return nil, e.WrapIfErr("can't divide by type", err)
 				}
+				valute := resp.Currency
 				if _, exist := portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency[valute]; !exist {
 					portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency[valute] = service_models.NewAssetsByParam()
 				}
@@ -721,7 +674,7 @@ func (c *Client) DivideByType(positions []*pb.PortfolioPosition) (_ *service_mod
 			}
 			portfolio.EtfsAssets.AssetsByCurrency[currencyOfPos].SumOfAssets += positionPrice
 		case currency:
-			curr, err := c.Tinkoffapi.GetCurrencyBy(pos.Figi)
+			curr, err := c.TinkoffGetCurrencyBy(pos.Figi)
 			if err != nil {
 				return portfolio, e.WrapIfErr("can't divide by type", err)
 			}
@@ -748,7 +701,7 @@ func (c *Client) DivideByTypeFromSber(positions map[string]float64) (*service_mo
 		return portfolio, errors.New("positions are empty")
 	}
 	for ticker, quantity := range positions {
-		positionsClassCodeVariants, err := c.Tinkoffapi.FindBy(ticker)
+		positionsClassCodeVariants, err := c.TinkoffFindBy(ticker)
 		if err != nil {
 			return nil, e.WrapIfErr("can't divide by type from sber", err)
 		}
@@ -759,17 +712,18 @@ func (c *Client) DivideByTypeFromSber(positions map[string]float64) (*service_mo
 		switch positionsClassCodeVariants[0].InstrumentType {
 		case bond:
 			bondUid := positionsClassCodeVariants[0].Uid
-			bondActions, err := c.Tinkoffapi.GetBondByUid(bondUid)
+			bond, err := c.TinkoffGetBondByUid(bondUid)
 			if err != nil {
 				return nil, e.WrapIfErr("can't divide by type from sber", err)
 			}
-			currentNkd := bondActions.AciValue.ToFloat()
-			currency := bondActions.Currency
-			currentPriceInPers, err := c.Tinkoffapi.GetLastPriceFromTinkoffInPersentageToNominal(bondUid)
+			currentNkd := bond.AciValue.ToFloat()
+			currency := bond.Currency
+			resp, err := c.TinkoffGetLastPriceInPersentageToNominal(bondUid)
 			if err != nil {
 				return nil, e.WrapIfErr("can't divide by type from sber", err)
 			}
-			currentPrice := currentPriceInPers / 100 * bondActions.Nominal.ToFloat()
+			currentPriceInPers := resp.LastPrice.ToFloat()
+			currentPrice := currentPriceInPers / 100 * bond.Nominal.ToFloat()
 			currentNkdOfPosition := currentNkd * quantity
 			positionPrice := currentPrice*quantity + currentNkdOfPosition
 
