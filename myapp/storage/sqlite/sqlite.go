@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"main.go/storage"
@@ -51,24 +52,26 @@ func (s *Storage) PickToken(ctx context.Context, chatId int) (string, error) {
 	return token, nil
 }
 
-func (s *Storage) IsExists(ctx context.Context, chatId int) (bool, error) {
-	q := `SELECT COUNT(*) FROM users WHERE chatID = ?`
+func (s *Storage) IsExistsToken(ctx context.Context, chatId int) (bool, error) {
+	q := `SELECT token FROM users WHERE chatID = ?`
 
-	var count int
+	var token sql.NullString
 
-	if err := s.db.QueryRowContext(ctx, q, chatId).Scan(&count); err != nil {
+	err := s.db.QueryRowContext(ctx, q, chatId).Scan(&token)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
 		return false, fmt.Errorf("can't check user in storage: %w", err)
 	}
 
-	return count > 0, nil
+	return token.Valid, nil
 }
 
 func (s *Storage) Init(ctx context.Context) error {
-	q_users := `CREATE TABLE IF NOT EXISTS users (user_name TEXT, chatID INTEGER, token TEXT)`
+	return s.db.PingContext(ctx)
+}
 
-	_, err := s.db.ExecContext(ctx, q_users)
-	if err != nil {
-		return fmt.Errorf("can't create users table: %w", err)
-	}
-	return nil
+func (s *Storage) CloseDB() {
+	_ = s.db.Close()
 }
