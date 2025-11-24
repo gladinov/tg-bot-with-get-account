@@ -3,13 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/joho/godotenv"
+	postgresMigrator "main.go/migrators/postgres"
+	sqliteMigrator "main.go/migrators/sqlite"
+
 	"main.go/clients/cbr"
 	"main.go/clients/moex"
 	"main.go/clients/sber"
@@ -18,6 +20,7 @@ import (
 	event_consumer "main.go/consumer/event-consumer"
 	"main.go/events/telegram"
 	"main.go/internal/config"
+	"main.go/lib/cryptoToken"
 	pathwd "main.go/lib/pathWD"
 	loggAdapter "main.go/logger"
 	"main.go/pkg/app"
@@ -25,17 +28,20 @@ import (
 	storageInterface "main.go/service/storage"
 	"main.go/service/storage/postgreSQL"
 	servicet_sqlite "main.go/service/storage/sqlite"
+	"main.go/storage"
+	"main.go/storage/postgres"
 	"main.go/storage/sqlite"
 )
 
 const (
-	moexHost       = "localhost:8081"
-	tinkoffApiHost = "localhost:8082"
-	cbrHost        = "localhost:8083"
-	tgBotHost      = "api.telegram.org"
-	storageSqlPath = "/data/sqlite/storage.db"
-	sberConfigPath = "/configs/sber.yaml"
-	batchSize      = 100
+	moexHost        = "localhost:8081"
+	tinkoffApiHost  = "localhost:8082"
+	cbrHost         = "localhost:8083"
+	tgBotHost       = "api.telegram.org"
+	storageSqlPath  = "/data/sqlite/storage.db"
+	sberConfigPath  = "/configs/sber.yaml"
+	redisConfigPath = "/configs/redisConfig.yaml"
+	batchSize       = 100
 )
 
 const (
@@ -48,6 +54,9 @@ func main() {
 	rootPath := app.MustGetRoot()
 
 	cnfg := config.MustInitConfig(rootPath)
+	userStorageConfig := config.MustInitStorageConfig(rootPath)
+	
+	//redisConfig := config.MustInitRedisConfig(rootPath, redisConfigPath)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -63,6 +72,13 @@ func main() {
 		log.Fatal("BOT_TOKEN environment variable is required")
 	}
 
+	key := os.Getenv("KEY")
+	if key == "" {
+		log.Fatal("KEY environment variable is required")
+	}
+
+	tokenCrypter := cryptoToken.NewTokenCrypter(key)
+
 	telegrammClient := tgClient.New(tgBotHost, token)
 
 	logger := loggAdapter.SetupLogger()
@@ -71,7 +87,7 @@ func main() {
 
 	cbrApi := cbr.New(cbrHost)
 
-	sber, err := sber.NewClient(rootPath, sberConfigPath)
+	sberClient, err := sber.NewClient(rootPath, sberConfigPath)
 	if err != nil {
 		logger.Fatalf("create sber client failed: %s", err.Error())
 	}
@@ -86,32 +102,28 @@ func main() {
 			serviceStorage.CloseDB()
 		}
 	}()
-	// TODO: Change to REdis
-	storageAbsolutPath, err := pathwd.PathFromWD(rootPath, storageSqlPath)
-	if err != nil {
-		logger.Fatalf("can't create absolute storare path by: %s", storageSqlPath)
-	}
 
-	storage, err := sqlite.New(storageAbsolutPath)
+	userStorage, err := NewStorage(ctx, userStorageConfig, rootPath)
 	if err != nil {
-		logger.Fatalf("can't connect to storage err:%s:", err.Error())
+		logger.Fatalf("can't create user_storage: %s", err.Error())
 	}
-
-	if err := storage.Init(context.TODO()); err != nil {
-		logger.Fatalf("can't init storage ")
-	}
-	// TODO: Change to REdis
+	defer func() {
+		if userStorage != nil {
+			userStorage.CloseDB()
+		}
+	}()
 
 	serviceClient := service.New(
 		tinkoffApiClient,
 		moexApi,
 		cbrApi,
-		sber,
+		sberClient,
 		serviceStorage)
 
 	processor := telegram.NewProccesor(
+		tokenCrypter,
 		telegrammClient,
-		storage,
+		userStorage,
 		serviceClient,
 	)
 
@@ -126,26 +138,10 @@ func main() {
 	}
 }
 
-func mustToken() string {
-	token := flag.String(
-		"tg-bot-token",
-		"",
-		"token for access to telegram bot",
-	)
-
-	flag.Parse()
-
-	if *token == "" {
-		log.Fatal("token is not specified")
-	}
-
-	return *token
-}
-
 func NewServiceStorage(ctx context.Context, config config.Config, rootPath string) (storageInterface.Storage, error) {
 	switch config.DbType {
 	case postreSQL:
-		serviceStorage, err := postgreSQL.NewStorage()
+		serviceStorage, err := postgreSQL.NewStorage(config)
 		if err != nil {
 			return nil, err
 		}
@@ -153,6 +149,7 @@ func NewServiceStorage(ctx context.Context, config config.Config, rootPath strin
 		if err != nil {
 			return nil, err
 		}
+
 		return serviceStorage, nil
 
 	case SQLite:
@@ -170,6 +167,43 @@ func NewServiceStorage(ctx context.Context, config config.Config, rootPath strin
 			return nil, err
 		}
 		return serviceStorage, nil
+	default:
+		return nil, errors.New("Possible init only SQLite or PostgreSQL databases")
+	}
+}
+
+func NewStorage(ctx context.Context, config config.UserStorageConfig, rootPath string) (storage.Storage, error) {
+	switch config.DbType {
+	case postreSQL:
+		storage, err := postgres.NewStorage(config)
+		if err != nil {
+			return nil, err
+		}
+		postgresMigrator.MustMigratePostgres(rootPath, config)
+
+		err = storage.Init(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return storage, nil
+	case SQLite:
+		storageAbsolutPath, err := pathwd.PathFromWD(rootPath, storageSqlPath)
+		if err != nil {
+			return nil, err
+		}
+		storage, err := sqlite.New(storageAbsolutPath)
+		if err != nil {
+			return nil, err
+		}
+		sqliteMigrator.MustMigrateSqllite(rootPath, storageAbsolutPath, config.MigrationsSqllitePath)
+
+		err = storage.Init(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return storage, nil
 	default:
 		return nil, errors.New("Possible init only SQLite or PostgreSQL databases")
 	}

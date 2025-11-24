@@ -5,15 +5,17 @@ import (
 
 	"main.go/clients/telegram"
 	"main.go/events"
+	"main.go/lib/cryptoToken"
 	"main.go/lib/e"
 	"main.go/service"
 	"main.go/storage"
 )
 
 type Processor struct {
-	tg      *telegram.Client
-	storage storage.Storage
-	service *service.Client
+	tokenCrypter *cryptoToken.TokenCrypter
+	tg           *telegram.Client
+	storage      storage.Storage
+	service      *service.Client
 }
 
 type Meta struct {
@@ -24,11 +26,12 @@ type Meta struct {
 var ErrUnknownEventType = errors.New("unknown event type")
 var ErrUnknownMetaType = errors.New("unknown meta type")
 
-func NewProccesor(client *telegram.Client, storage storage.Storage, serviceCLient *service.Client) *Processor {
+func NewProccesor(tokenCrypter *cryptoToken.TokenCrypter, client *telegram.Client, storage storage.Storage, serviceCLient *service.Client) *Processor {
 	return &Processor{
-		tg:      client,
-		storage: storage,
-		service: serviceCLient,
+		tokenCrypter: tokenCrypter,
+		tg:           client,
+		storage:      storage,
+		service:      serviceCLient,
 	}
 }
 

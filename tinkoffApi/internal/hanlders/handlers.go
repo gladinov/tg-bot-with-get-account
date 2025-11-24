@@ -2,22 +2,26 @@ package hanlders
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 	"tinkoffApi/internal/service"
+	"tinkoffApi/lib/cryptoToken"
 
 	"github.com/labstack/echo/v4"
 )
 
 type Handlers struct {
 	service *service.Service
+	key     string
 }
 
-func NewHandlers(service *service.Service) *Handlers {
+func NewHandlers(service *service.Service, key string) *Handlers {
 	return &Handlers{
 		service: service,
+		key:     key,
 	}
 }
 
@@ -25,25 +29,31 @@ var errHeaderRequierd error = errors.New("header auth requierd")
 var errInvalidAuthFormat error = errors.New("invalid Authorization format, expected: Bearer <token>")
 var errEmptyToken error = errors.New("empty token")
 
-func auth(c echo.Context) (string, error) {
-	authHeader := c.Request().Header.Get("Authorization")
+func (h *Handlers) auth(c echo.Context) (string, error) {
+	authHeader := c.Request().Header.Get("X-Encrypted-Token")
 	if authHeader == "" {
 		return "", errHeaderRequierd
 	}
 
-	if !strings.HasPrefix(authHeader, "Bearer ") {
+	decodedJson, err := base64.StdEncoding.DecodeString(authHeader)
+	if err != nil {
+		return "", errHeaderRequierd
+	}
+	var encrypredToken cryptoToken.EncryptedToken
+	err = json.Unmarshal(decodedJson, &encrypredToken)
+	if err != nil {
+		return "", errInvalidAuthFormat
+	}
+	token, err := cryptoToken.DecryptToken(&encrypredToken, h.key)
+	if err != nil {
 		return "", errInvalidAuthFormat
 	}
 
-	token := strings.TrimPrefix(authHeader, "Bearer ")
-	if token == "" {
-		return "", errEmptyToken
-	}
 	return token, nil
 }
 
 func (h *Handlers) GetAccounts(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
 	}
@@ -63,7 +73,7 @@ func (h *Handlers) GetAccounts(c echo.Context) error {
 }
 
 func (h *Handlers) GetPortfolio(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
 	}
@@ -90,7 +100,7 @@ func (h *Handlers) GetPortfolio(c echo.Context) error {
 }
 
 func (h *Handlers) GetOperations(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
 	}
@@ -117,7 +127,7 @@ func (h *Handlers) GetOperations(c echo.Context) error {
 }
 
 func (h *Handlers) GetAllAssetUids(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
 	}
@@ -137,7 +147,7 @@ func (h *Handlers) GetAllAssetUids(c echo.Context) error {
 }
 
 func (h *Handlers) GetFutureBy(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
 	}
@@ -162,7 +172,7 @@ func (h *Handlers) GetFutureBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetBondBy(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
 	}
@@ -187,7 +197,7 @@ func (h *Handlers) GetBondBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetCurrencyBy(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
 	}
@@ -212,7 +222,7 @@ func (h *Handlers) GetCurrencyBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetShareCurrencyBy(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
 	}
@@ -237,7 +247,7 @@ func (h *Handlers) GetShareCurrencyBy(c echo.Context) error {
 }
 
 func (h *Handlers) FindBy(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
 	}
@@ -262,7 +272,7 @@ func (h *Handlers) FindBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetBondsActions(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
 	}
@@ -287,7 +297,7 @@ func (h *Handlers) GetBondsActions(c echo.Context) error {
 }
 
 func (h *Handlers) GetLastPriceInPersentageToNominal(c echo.Context) error {
-	authHeader, err := auth(c)
+	authHeader, err := h.auth(c)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
 	}

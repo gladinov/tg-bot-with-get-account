@@ -3,7 +3,6 @@ package tinkoffApi
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,25 +26,11 @@ func NewClient(host string) *Client {
 	}
 }
 
-func (c *Client) IsToken(token string) (err error) {
-
-	if len(token) == 88 { // TODO:модифицировать проверку
-		c.Token = token
-		_, err = c.GetAccounts()
-		if err != nil {
-			c.Token = ""
-			return err
-		}
-		return nil
-	}
-	c.Token = ""
-	return errors.New("is not token")
-}
-
 func (c *Client) GetAccounts() (map[string]Account, error) {
 	const op = "tinkoffApi.GetAccounts"
 	Path := path.Join("tinkoff", "accounts")
-	token := c.Token
+	tokenBase64 := c.Token
+
 	u := url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -56,8 +41,8 @@ func (c *Client) GetAccounts() (map[string]Account, error) {
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
-	authorization := "Bearer " + token
-	req.Header.Set("Authorization", authorization)
+
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -89,7 +74,7 @@ func (c *Client) GetAccounts() (map[string]Account, error) {
 
 func (c *Client) GetPortfolio(requestBody PortfolioRequest) (Portfolio, error) {
 	const op = "tinkoffApi.GetPortfolio"
-	token := c.Token
+	tokenBase64 := c.Token
 	Path := path.Join("tinkoff", "portfolio")
 
 	u := url.URL{
@@ -108,9 +93,8 @@ func (c *Client) GetPortfolio(requestBody PortfolioRequest) (Portfolio, error) {
 		return Portfolio{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -144,7 +128,7 @@ func (c *Client) GetPortfolio(requestBody PortfolioRequest) (Portfolio, error) {
 func (c *Client) GetOperations(requestBody OperationsRequest) (_ []Operation, err error) {
 	const op = "tinkoffApi.GetOperations"
 	Path := path.Join("tinkoff", "operations")
-	token := c.Token
+	tokenBase64 := c.Token
 	u := url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -161,9 +145,8 @@ func (c *Client) GetOperations(requestBody OperationsRequest) (_ []Operation, er
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -196,7 +179,7 @@ func (c *Client) GetOperations(requestBody OperationsRequest) (_ []Operation, er
 func (c *Client) GetAllAssetUids() (map[string]string, error) {
 	const op = "tinkoffApi.GetAllAssetUids"
 	Path := path.Join("tinkoff", "allassetsuid")
-	token := c.Token
+	tokenBase64 := c.Token
 	u := url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -207,8 +190,7 @@ func (c *Client) GetAllAssetUids() (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
-	authorization := "Bearer " + token
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -240,7 +222,7 @@ func (c *Client) GetAllAssetUids() (map[string]string, error) {
 func (c *Client) GetFutureBy(figi string) (Future, error) {
 	const op = "tinkoffApi.GetFutureBy"
 	Path := path.Join("tinkoff", "future")
-	token := c.Token
+	tokenBase64 := c.Token
 	requestBody := FutureReq{
 		Figi: figi,
 	}
@@ -261,9 +243,8 @@ func (c *Client) GetFutureBy(figi string) (Future, error) {
 		return Future{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -295,7 +276,7 @@ func (c *Client) GetFutureBy(figi string) (Future, error) {
 func (c *Client) GetBondByUid(uid string) (Bond, error) {
 	const op = "tinkoffApi.GetBondByUid"
 	Path := path.Join("tinkoff", "bond")
-	token := c.Token
+	tokenBase64 := c.Token
 	requestBody := BondReq{
 		Uid: uid,
 	}
@@ -316,9 +297,8 @@ func (c *Client) GetBondByUid(uid string) (Bond, error) {
 		return Bond{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -350,7 +330,7 @@ func (c *Client) GetBondByUid(uid string) (Bond, error) {
 func (c *Client) GetCurrencyBy(figi string) (Currency, error) {
 	const op = "tinkoffApi.GetCurrencyBy"
 	Path := path.Join("tinkoff", "currency")
-	token := c.Token
+	tokenBase64 := c.Token
 	requestBody := CurrencyReq{
 		Figi: figi,
 	}
@@ -371,9 +351,8 @@ func (c *Client) GetCurrencyBy(figi string) (Currency, error) {
 		return Currency{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -405,7 +384,7 @@ func (c *Client) GetCurrencyBy(figi string) (Currency, error) {
 func (c *Client) FindBy(query string) ([]InstrumentShort, error) {
 	const op = "tinkoffApi.FindBy"
 	Path := path.Join("tinkoff", "findby")
-	token := c.Token
+	tokenBase64 := c.Token
 	requestBody := FindByReq{
 		Query: query,
 	}
@@ -426,9 +405,8 @@ func (c *Client) FindBy(query string) ([]InstrumentShort, error) {
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -460,7 +438,7 @@ func (c *Client) FindBy(query string) ([]InstrumentShort, error) {
 func (c *Client) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, error) {
 	const op = "tinkoffApi.GetBondsActions"
 	Path := path.Join("tinkoff", "bondactions")
-	token := c.Token
+	tokenBase64 := c.Token
 	requestBody := BondsActionsReq{
 		InstrumentUid: instrumentUid,
 	}
@@ -481,9 +459,8 @@ func (c *Client) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, er
 		return BondIdentIdentifiers{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -515,7 +492,7 @@ func (c *Client) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, er
 func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPriceResponse, error) {
 	const op = "tinkoffApi.GetLastPriceInPersentageToNominal"
 	Path := path.Join("tinkoff", "lastprice")
-	token := c.Token
+	tokenBase64 := c.Token
 	requestBody := LastPriceReq{
 		InstrumentUid: instrumentUid,
 	}
@@ -536,9 +513,8 @@ func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPr
 		return LastPriceResponse{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -570,7 +546,7 @@ func (c *Client) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPr
 func (c *Client) GetShareCurrencyBy(figi string) (ShareCurrencyByResponse, error) {
 	const op = "tinkoffApi.GetShareCurrencyBy"
 	Path := path.Join("tinkoff", "share", "currency")
-	token := c.Token
+	tokenBase64 := c.Token
 	requestBody := ShareCurrencyByRequest{
 		Figi: figi,
 	}
@@ -591,9 +567,8 @@ func (c *Client) GetShareCurrencyBy(figi string) (ShareCurrencyByResponse, error
 		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	authorization := "Bearer " + token
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authorization)
+	req.Header.Set("X-Encrypted-Token", tokenBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {

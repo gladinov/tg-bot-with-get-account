@@ -109,6 +109,7 @@ func (c *InstrumentsServiceClient) GetClient(ctx context.Context, token string) 
 	c.config.Token = token
 
 	client, err := investgo.NewClient(ctx, *c.config, c.Logg)
+
 	if err != nil {
 		return fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
 	}
@@ -122,6 +123,7 @@ func (c *AnalyticsServiceClient) GetClient(ctx context.Context, token string) (e
 	c.config.Token = token
 
 	client, err := investgo.NewClient(ctx, *c.config, c.Logg)
+
 	if err != nil {
 		return fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
 	}
@@ -135,6 +137,7 @@ func (c *PortfolioServiceClient) GetClient(ctx context.Context, token string) (e
 	c.config.Token = token
 
 	client, err := investgo.NewClient(ctx, *c.config, c.Logg)
+
 	if err != nil {
 		return fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
 

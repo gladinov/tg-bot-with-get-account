@@ -8,20 +8,25 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"main.go/internal/config"
 	"main.go/lib/e"
 	"main.go/service/service_models"
 )
 
 const (
-	postgresHost = "host=localhost user=user password=parol dbname=service port=5432 sslmode=disable"
-	layout       = "2006-01-02"
+	//postgresHost = "host=localhost user=user password=parol dbname=service port=5432 sslmode=disable"
+	layout = "2006-01-02"
 )
 
 type Storage struct {
 	db *pgxpool.Pool
 }
 
-func NewStorage() (*Storage, error) {
+func NewStorage(postgresConfig config.Config) (*Storage, error) {
+	postgresHost, err := postgresConfig.PostgresHost.GetStringHost()
+	if err != nil {
+		return nil, err
+	}
 	db, err := pgxpool.New(context.Background(), postgresHost)
 	if err != nil {
 		return nil, err

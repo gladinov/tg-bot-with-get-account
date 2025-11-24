@@ -2,10 +2,15 @@ package telegram
 
 import (
 	"context"
+	"errors"
+	"fmt"
+
 	"log"
+
 	"strconv"
 	"strings"
 
+	"main.go/lib/cryptoToken"
 	"main.go/lib/e"
 )
 
@@ -21,12 +26,34 @@ const (
 	GetUnionWithSber           = "/unionpswithsber"
 )
 
+var constList = []string{HelpCmd,
+	StartCmd,
+	AccountsCmd,
+	GetBondReport,
+	GetGeneralBondReport,
+	GetUSD,
+	GetPortfolioStructure,
+	GetUnionPortfolioStructure,
+	GetUnionWithSber}
+
+func ContainsInConstantCommands(text string) bool {
+	for _, v := range constList {
+		if text == v {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Processor) doCmd(text string, chatID int, username string) error {
 	text = strings.TrimSpace(text)
 	var token string
-	log.Printf("got new command '%s' from '%s' in chat: %v", text, username, chatID)
-
-	haveToken, err := p.checkUser(chatID)
+	if ContainsInConstantCommands(text) {
+		log.Printf("got new command '%s' from '%s' in chat: %v", text, username, chatID)
+	} else {
+		log.Printf("got new other command from '%s' in chat: %v", username, chatID)
+	}
+	haveToken, err := p.checkUserToken(chatID)
 	if err != nil {
 		return e.WrapIfErr("doCmd: can`t check availability of token", err)
 	}
@@ -37,21 +64,25 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 
 	switch haveToken {
 	case true:
-		token, err = p.storage.PickToken(context.Background(), chatID)
+		tokenInBase64, err := p.storage.PickToken(context.Background(), chatID)
 		if err != nil {
 			return e.WrapIfErr("doCmd: can't pick token from storage", err)
 		}
-		p.service.Tinkoffapi.Token = token
+
+		p.service.Tinkoffapi.Token = tokenInBase64
 	case false:
-		err := p.service.Tinkoffapi.IsToken(text)
+		err := p.isToken(text)
 		if err != nil {
 			return p.tg.SendMessage(chatID, msgNoToken)
 		}
 
 		token = text
-		p.storage.Save(context.Background(), username, chatID, text)
+		tokenInBase64, err := p.tokenToBase64(token)
+		if err != nil {
+			return err
+		}
+		p.storage.Save(context.Background(), username, chatID, tokenInBase64)
 		return p.tg.SendMessage(chatID, msgTrueToken)
-
 	}
 
 	switch text {
@@ -74,6 +105,37 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 	default:
 		return p.tg.SendMessage(chatID, msgUnknownCommand)
 	}
+}
+
+func (p *Processor) tokenToBase64(token string) (string, error) {
+	const op = "telegram.tokenToBase64"
+	encryptedToken, err := cryptoToken.EncryptToken(token, p.tokenCrypter.Key)
+	if err != nil {
+		return "", e.WrapIfErr("could not encrypt token", err)
+	}
+	tokenInBase64, err := encryptedToken.ToBase64()
+	if err != nil {
+		return "", fmt.Errorf("%s:%w", op, err)
+	}
+	return tokenInBase64, nil
+}
+
+func (p *Processor) isToken(token string) (err error) {
+	if len(token) == 88 { // TODO:модифицировать проверку
+		tokenInBase64, err := p.tokenToBase64(token)
+		if err != nil {
+			return err
+		}
+		p.service.Tinkoffapi.Token = tokenInBase64
+		_, err = p.service.Tinkoffapi.GetAccounts()
+		if err != nil {
+			p.service.Tinkoffapi.Token = ""
+			return err
+		}
+		return nil
+	}
+	p.service.Tinkoffapi.Token = ""
+	return errors.New("is not token")
 }
 
 func (p *Processor) getUSD(chatId int) error {
@@ -193,10 +255,10 @@ func (p *Processor) sendHello(chatID int) error {
 	return p.tg.SendMessage(chatID, msgHello)
 }
 
-func (p *Processor) checkUser(chatId int) (res bool, err error) {
+func (p *Processor) checkUserToken(chatId int) (res bool, err error) {
 	defer func() { err = e.WrapIfErr("can't do command: checkUser", err) }()
 
-	isExists, err := p.storage.IsExists(context.Background(), chatId)
+	isExists, err := p.storage.IsExistsToken(context.Background(), chatId)
 	if err != nil {
 		return false, err
 	}

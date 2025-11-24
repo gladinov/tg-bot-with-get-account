@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"main.go/events"
+	"main.go/events/telegram"
 )
 
 type Consumer struct {
@@ -46,7 +47,12 @@ func (c Consumer) Start() error {
 
 func (c *Consumer) handleEvents(events []events.Event) error {
 	for _, event := range events {
-		log.Printf("got new event: %s", event.Text)
+		//TODO: Подумать насколько это корректно
+		if telegram.ContainsInConstantCommands(event.Text) {
+			log.Printf("got new event: %s", event.Text)
+		} else {
+			log.Print("got new other event")
+		}
 
 		if err := c.processor.Process(event); err != nil {
 			log.Printf("can't handle event", err.Error())
