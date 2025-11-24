@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 	"tinkoffApi/internal/configs"
@@ -12,6 +14,7 @@ import (
 
 	"tinkoffApi/pkg/app"
 
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
@@ -52,7 +55,18 @@ func main() {
 		portfolioService,
 		instrumentService)
 
-	handlrs := hanlders.NewHandlers(serviceClient)
+	envPath := filepath.Join(rootPath, ".env")
+	err = godotenv.Load(envPath)
+	if err != nil {
+		log.Fatalf("could not get key env")
+	}
+
+	key := os.Getenv("KEY")
+	if key == "" {
+		log.Fatal("KEY environment variable is required")
+	}
+
+	handlrs := hanlders.NewHandlers(serviceClient, key)
 
 	e := echo.New()
 
