@@ -235,7 +235,7 @@ func NewPortfolioByTypeAndCurrency() *PortfolioByTypeAndCurrency {
 }
 
 type MediaGroup struct {
-	Reports []*ImageData
+	Reports []*ImageData `json:"reports"`
 }
 
 func NewMediaGroup() *MediaGroup {
@@ -245,11 +245,39 @@ func NewMediaGroup() *MediaGroup {
 }
 
 type ImageData struct {
-	Name    string
-	Data    []byte
-	Caption string
+	Name    string `json:"name"`
+	Data    []byte `json:"data"`
+	Caption string `json:"caption"`
 }
 
 func NewImageData() *ImageData {
 	return &ImageData{}
+}
+
+type AccountListResponce struct {
+	Accounts string `json:"accounts,omitempty"`
+}
+
+type BondReportsByFifoRequest struct {
+	ChatID int `json:"chatID,omitempty"`
+}
+
+type UsdResponce struct {
+	Usd float64 `json:"usd,omitempty"`
+}
+
+type BondReportsResponce struct {
+	Media [][]*MediaGroup `json:"media"`
+}
+
+type PortfolioStructureForEachAccountResponce struct {
+	PortfolioStructures []string `json:"potftfolio"`
+}
+
+type UnionPortfolioStructureResponce struct {
+	Report string `json:"report"`
+}
+
+type UnionPortfolioStructureWithSberResponce struct {
+	Report string `json:"report"`
 }
