@@ -85,10 +85,8 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		return p.tg.SendMessage(chatID, msgNoToken)
 	case err == nil:
 		switch tokenStatus {
-		case TokenFound:
-
 		case TokenInserted:
-			p.tg.SendMessage(chatID, msgTrueToken)
+			return p.tg.SendMessage(chatID, msgTrueToken)
 		}
 	}
 
