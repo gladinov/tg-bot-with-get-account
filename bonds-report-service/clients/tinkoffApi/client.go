@@ -1,6 +1,7 @@
 package tinkoffApi
 
 import (
+	"bonds-report-service/lib/valuefromcontext"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -30,7 +31,7 @@ func NewClient(host string) *Client {
 func (c *Client) GetAccounts(ctx context.Context) (map[string]Account, error) {
 	const op = "tinkoffApi.GetAccounts"
 	Path := path.Join("tinkoff", "accounts")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -46,7 +47,7 @@ func (c *Client) GetAccounts(ctx context.Context) (map[string]Account, error) {
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -78,7 +79,7 @@ func (c *Client) GetAccounts(ctx context.Context) (map[string]Account, error) {
 
 func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest) (Portfolio, error) {
 	const op = "tinkoffApi.GetPortfolio"
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return Portfolio{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -101,7 +102,7 @@ func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -135,7 +136,7 @@ func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest)
 func (c *Client) GetOperations(ctx context.Context, requestBody OperationsRequest) (_ []Operation, err error) {
 	const op = "tinkoffApi.GetOperations"
 	Path := path.Join("tinkoff", "operations")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -156,7 +157,7 @@ func (c *Client) GetOperations(ctx context.Context, requestBody OperationsReques
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -189,7 +190,7 @@ func (c *Client) GetOperations(ctx context.Context, requestBody OperationsReques
 func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error) {
 	const op = "tinkoffApi.GetAllAssetUids"
 	Path := path.Join("tinkoff", "allassetsuid")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -203,7 +204,7 @@ func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error)
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -235,7 +236,7 @@ func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error)
 func (c *Client) GetFutureBy(ctx context.Context, figi string) (Future, error) {
 	const op = "tinkoffApi.GetFutureBy"
 	Path := path.Join("tinkoff", "future")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return Future{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -260,7 +261,7 @@ func (c *Client) GetFutureBy(ctx context.Context, figi string) (Future, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -292,7 +293,7 @@ func (c *Client) GetFutureBy(ctx context.Context, figi string) (Future, error) {
 func (c *Client) GetBondByUid(ctx context.Context, uid string) (Bond, error) {
 	const op = "tinkoffApi.GetBondByUid"
 	Path := path.Join("tinkoff", "bond")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return Bond{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -317,7 +318,7 @@ func (c *Client) GetBondByUid(ctx context.Context, uid string) (Bond, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -349,7 +350,7 @@ func (c *Client) GetBondByUid(ctx context.Context, uid string) (Bond, error) {
 func (c *Client) GetCurrencyBy(ctx context.Context, figi string) (Currency, error) {
 	const op = "tinkoffApi.GetCurrencyBy"
 	Path := path.Join("tinkoff", "currency")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return Currency{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -374,7 +375,7 @@ func (c *Client) GetCurrencyBy(ctx context.Context, figi string) (Currency, erro
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -406,7 +407,7 @@ func (c *Client) GetCurrencyBy(ctx context.Context, figi string) (Currency, erro
 func (c *Client) FindBy(ctx context.Context, query string) ([]InstrumentShort, error) {
 	const op = "tinkoffApi.FindBy"
 	Path := path.Join("tinkoff", "findby")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -431,7 +432,7 @@ func (c *Client) FindBy(ctx context.Context, query string) ([]InstrumentShort, e
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -463,7 +464,7 @@ func (c *Client) FindBy(ctx context.Context, query string) ([]InstrumentShort, e
 func (c *Client) GetBondsActions(ctx context.Context, instrumentUid string) (BondIdentIdentifiers, error) {
 	const op = "tinkoffApi.GetBondsActions"
 	Path := path.Join("tinkoff", "bondactions")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return BondIdentIdentifiers{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -488,7 +489,7 @@ func (c *Client) GetBondsActions(ctx context.Context, instrumentUid string) (Bon
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -520,7 +521,7 @@ func (c *Client) GetBondsActions(ctx context.Context, instrumentUid string) (Bon
 func (c *Client) GetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (LastPriceResponse, error) {
 	const op = "tinkoffApi.GetLastPriceInPersentageToNominal"
 	Path := path.Join("tinkoff", "lastprice")
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return LastPriceResponse{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -545,7 +546,7 @@ func (c *Client) GetLastPriceInPersentageToNominal(ctx context.Context, instrume
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -578,7 +579,7 @@ func (c *Client) GetShareCurrencyBy(ctx context.Context, figi string) (ShareCurr
 	const op = "tinkoffApi.GetShareCurrencyBy"
 	Path := path.Join("tinkoff", "share", "currency")
 
-	tokenBase64, err := getToken(ctx)
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return ShareCurrencyByResponse{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -603,7 +604,7 @@ func (c *Client) GetShareCurrencyBy(ctx context.Context, figi string) (ShareCurr
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Encrypted-Token", tokenBase64)
+	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
 
 	resp, err := c.client.Do(req)
 	if err != nil {

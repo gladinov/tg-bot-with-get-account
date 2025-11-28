@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"bonds-report-service/internal/service"
-	"bonds-report-service/internal/service/service_models"
+	"bonds-report-service/lib/valuefromcontext"
 	"context"
 	"net/http"
 
@@ -19,12 +19,12 @@ func NewHandlers(service *service.Client) *Client {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := c.GetHeader("X-Encrypted-Token")
-		if token == "" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing X-Encrypted-Token header"})
+		chatID := c.GetHeader(valuefromcontext.HeaderChatID)
+		if chatID == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing X-Chat-ID header"})
 			return
 		}
-		ctx := context.WithValue(c.Request.Context(), "token", token)
+		ctx := context.WithValue(c.Request.Context(), valuefromcontext.ChatIdKey, chatID)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
@@ -40,25 +40,16 @@ func (h *Client) GetAccountsList(c *gin.Context) {
 
 	c.JSON(http.StatusOK, accountsResponce)
 	return
-
 }
 
 func (h *Client) GetBondReportsByFifo(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	var request service_models.BondReportsByFifoRequest
-
-	err := c.ShouldBindJSON(&request)
+	chatID, err := valuefromcontext.GetChatIDFromCtxInt(ctx)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "could not unmarshal body json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "incorrect X-ChatId header"})
 		return
 	}
-	if request.ChatID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "chatID is required"})
-		return
-	}
-
-	err = h.service.GetBondReportsByFifo(ctx, request.ChatID)
+	err = h.service.GetBondReportsByFifo(ctx, chatID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -83,20 +74,12 @@ func (h *Client) GetUSD(c *gin.Context) {
 }
 func (h *Client) GetBondReports(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	var request service_models.BondReportsByFifoRequest
-
-	err := c.ShouldBindJSON(&request)
+	chatID, err := valuefromcontext.GetChatIDFromCtxInt(ctx)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "could not unmarshal body json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "incorrect X-ChatId header"})
 		return
 	}
-	if request.ChatID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "chatID is required"})
-		return
-	}
-
-	getBondReportsResponce, err := h.service.GetBondReports(ctx, request.ChatID)
+	getBondReportsResponce, err := h.service.GetBondReports(ctx, chatID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return

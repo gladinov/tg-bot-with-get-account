@@ -49,9 +49,9 @@ func main() {
 	router.Use(gin.Logger())
 
 	router.GET("/bondReportService/accounts", handlers.AuthMiddleware(), handl.GetAccountsList)
-	router.POST("/bondReportService/getBondReportsByFifo", handlers.AuthMiddleware(), handl.GetBondReportsByFifo)
+	router.GET("/bondReportService/getBondReportsByFifo", handlers.AuthMiddleware(), handl.GetBondReportsByFifo)
 	router.GET("/bondReportService/getUSD", handlers.AuthMiddleware(), handl.GetUSD)
-	router.POST("/bondReportService/getBondReports", handlers.AuthMiddleware(), handl.GetBondReports)
+	router.GET("/bondReportService/getBondReports", handlers.AuthMiddleware(), handl.GetBondReports)
 	router.GET("/bondReportService/getPortfolioStructure", handlers.AuthMiddleware(), handl.GetPortfolioStructure)
 	router.GET("/bondReportService/getUnionPortfolioStructure", handlers.AuthMiddleware(), handl.GetUnionPortfolioStructure)
 	router.GET("/bondReportService/getUnionPortfolioStructureWithSber", handlers.AuthMiddleware(), handl.GetUnionPortfolioStructureWithSber)

@@ -258,7 +258,7 @@ type AccountListResponce struct {
 	Accounts string `json:"accounts,omitempty"`
 }
 
-type BondReportsByFifoRequest struct {
+type BondReportsRequest struct {
 	ChatID int `json:"chatID,omitempty"`
 }
 
