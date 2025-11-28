@@ -6,6 +6,14 @@ import (
 	"encoding/base64"
 )
 
+type TokenCrypter struct {
+	Key string
+}
+
+func NewTokenCrypter(key string) *TokenCrypter {
+	return &TokenCrypter{Key: key}
+}
+
 type EncryptedToken struct {
 	IV         string `json:"iv"`
 	Ciphertext string `json:"ciphertext"`

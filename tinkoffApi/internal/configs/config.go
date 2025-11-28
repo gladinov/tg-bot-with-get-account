@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/joho/godotenv"
@@ -16,7 +17,17 @@ type Configs struct {
 }
 
 type Config struct {
-	HttpServer string `yaml:"http_server"`
+	HttpServer      string          `yaml:"http_server"`
+	RedisHTTPServer RedisHTTPServer `yaml:"redisHTTP"`
+}
+type RedisHTTPServer struct {
+	Address     string        `yaml:"addr"`
+	Password    string        `yaml:"password"`
+	User        string        `yaml:"user"`
+	DB          int           `yaml:"db"`
+	MaxRetries  int           `yaml:"max_retries"`
+	DialTimeout time.Duration `yaml:"dial_timeout"`
+	Timeout     time.Duration `yaml:"timeout"`
 }
 
 func MustTinkoffConfigLoad(rootPath string) *investgo.Config {

@@ -10,7 +10,9 @@ import (
 	"time"
 	"tinkoffApi/internal/configs"
 	"tinkoffApi/internal/hanlders"
+	redisClient "tinkoffApi/internal/repository/redis"
 	"tinkoffApi/internal/service"
+	"tinkoffApi/lib/cryptoToken"
 
 	"tinkoffApi/pkg/app"
 
@@ -66,13 +68,22 @@ func main() {
 		log.Fatal("KEY environment variable is required")
 	}
 
-	handlrs := hanlders.NewHandlers(serviceClient, key)
+	tokenCrypter := cryptoToken.NewTokenCrypter(key)
+
+	redis, err := redisClient.NewClient(ctx, cnfgs.Config)
+	if err != nil {
+		logger.Fatalf("haven't connect with redis")
+	}
+
+	handlrs := hanlders.NewHandlers(serviceClient, tokenCrypter, redis)
 
 	e := echo.New()
 
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
+	e.Use(handlrs.AuthCheckTokenMiddleWare)
 
+	e.GET("/tinkoff/checktoken", handlrs.CheckToken)
 	e.GET("/tinkoff/accounts", handlrs.GetAccounts)
 	e.POST("/tinkoff/portfolio", handlrs.GetPortfolio)
 	e.POST("/tinkoff/operations", handlrs.GetOperations)
