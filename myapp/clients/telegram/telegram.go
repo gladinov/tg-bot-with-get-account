@@ -12,8 +12,8 @@ import (
 	"path"
 	"strconv"
 
+	bondreportservice "main.go/clients/bondReportService"
 	"main.go/lib/e"
-	"main.go/service/service_models"
 )
 
 type Client struct {
@@ -131,7 +131,7 @@ func (c *Client) SendImageFromBuffer(chatID int, imageData []byte, caption strin
 	return err
 }
 
-func (c *Client) SendMediaGroupFromBuffer(chatID int, images []*service_models.ImageData) error {
+func (c *Client) SendMediaGroupFromBuffer(chatID int, images []*bondreportservice.ImageData) error {
 	if len(images) == 0 {
 		return errors.New("no images to send")
 	}
