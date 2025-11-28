@@ -1,13 +1,27 @@
-env: local
+clients: 
+  bondReportServiceHost: "localhost:8084"
+  telegramHost: "api.telegram.org"
+  tinkoffApiHost: "localhost:8082"
 dbType: "postgreSQL" # "postgreSQL" , "SQLite"
-serviceStorageSQLLitePath: "/data/sqlite/service_storage.db"
+redisConfigPath: "/configs/redisConfig.yaml"
+storageSQLLitePath: "/data/sqlite/storage.db"
+migrationsSqllitePath: "/migrations/sqlite"
+migrationsPostgresPath: "/migrations/postgres"
 postgresHost:
   host: "localhost"
   user: "user"
   password: "parol"
-  dbname: "service"
-  port: 5432
+  dbname: "users"
+  port: 5433
   sslmode: "disable"
+redis:
+  addr: "localhost:6379"
+  password: "mGEf3PvW2KZBrtY"
+  user: "user"
+  db: 0
+  max_retries: 5
+  dial_timeout: 10s
+  timeout: 5s
 
 
 

@@ -8,8 +8,9 @@ import (
 	"tinkoffApi/lib/e/logger/loggerdicard"
 	testhelpfunc "tinkoffApi/lib/testHelpFunc"
 
+	"tinkoffApi/pkg/app"
+
 	"github.com/stretchr/testify/require"
-	"main.go/pkg/app"
 )
 
 func TestGetClient_AnalyticService(t *testing.T) {

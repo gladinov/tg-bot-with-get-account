@@ -9,58 +9,90 @@ import (
 	"time"
 	"tinkoffApi/internal/service"
 	"tinkoffApi/lib/cryptoToken"
+	"tinkoffApi/lib/valuefromcontext"
 
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 )
 
 type Handlers struct {
-	service *service.Service
-	key     string
+	service      *service.Service
+	tokenCrypter *cryptoToken.TokenCrypter
+	redis        *redis.Client
 }
 
-func NewHandlers(service *service.Service, key string) *Handlers {
+func NewHandlers(service *service.Service, tokenCrypter *cryptoToken.TokenCrypter, redis *redis.Client) *Handlers {
 	return &Handlers{
-		service: service,
-		key:     key,
+		service:      service,
+		tokenCrypter: tokenCrypter,
+		redis:        redis,
 	}
 }
 
 var errHeaderRequierd error = errors.New("header auth requierd")
 var errInvalidAuthFormat error = errors.New("invalid Authorization format, expected: Bearer <token>")
 var errEmptyToken error = errors.New("empty token")
+var errNoTokenInRedis error = errors.New("token not found for the provided user id")
+var errRedisDoNotAnswer error = errors.New("token storage temporarily unavailable")
 
-func (h *Handlers) auth(c echo.Context) (string, error) {
-	authHeader := c.Request().Header.Get("X-Encrypted-Token")
-	if authHeader == "" {
-		return "", errHeaderRequierd
-	}
+func (h *Handlers) AuthCheckTokenMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		chatID := c.Request().Header.Get(HeaderChatID)
 
-	decodedJson, err := base64.StdEncoding.DecodeString(authHeader)
-	if err != nil {
-		return "", errHeaderRequierd
+		if chatID == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": errHeaderRequierd.Error()})
+		}
+		ctx := c.Request().Context()
+		tokenInBase64, err := h.redis.Get(ctx, chatID).Result()
+		if err == redis.Nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": errNoTokenInRedis.Error()})
+		}
+		if err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": errRedisDoNotAnswer.Error()})
+		}
+		decodedJson, err := base64.StdEncoding.DecodeString(tokenInBase64)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": errHeaderRequierd.Error()})
+		}
+		var encrypredToken cryptoToken.EncryptedToken
+		err = json.Unmarshal(decodedJson, &encrypredToken)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": errHeaderRequierd.Error()})
+		}
+		token, err := cryptoToken.DecryptToken(&encrypredToken, h.tokenCrypter.Key)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": errInvalidAuthFormat.Error()})
+		}
+		ctx = context.WithValue(c.Request().Context(), valuefromcontext.EncryptedTokenKey, token)
+		c.SetRequest(c.Request().WithContext(ctx))
+		return next(c)
 	}
-	var encrypredToken cryptoToken.EncryptedToken
-	err = json.Unmarshal(decodedJson, &encrypredToken)
-	if err != nil {
-		return "", errInvalidAuthFormat
-	}
-	token, err := cryptoToken.DecryptToken(&encrypredToken, h.key)
-	if err != nil {
-		return "", errInvalidAuthFormat
-	}
-
-	return token, nil
 }
 
-func (h *Handlers) GetAccounts(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
-	}
+func (h *Handlers) CheckToken(c echo.Context) error {
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.PortfolioService.GetClient(ctx, authHeader)
+
+	err := h.service.PortfolioService.GetClient(ctx)
+
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
+	}
+	_, err = h.service.PortfolioService.GetAccounts()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not get accounts"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handlers) GetAccounts(c echo.Context) error {
+	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	err := h.service.PortfolioService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "incorrect token"})
@@ -73,20 +105,16 @@ func (h *Handlers) GetAccounts(c echo.Context) error {
 }
 
 func (h *Handlers) GetPortfolio(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
-	}
-
-	var portffolioReq service.PortfolioRequest
-	err = c.Bind(&portffolioReq)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
-	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.PortfolioService.GetClient(ctx, authHeader)
+	var portffolioReq service.PortfolioRequest
+	err := c.Bind(&portffolioReq)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+	}
+
+	err = h.service.PortfolioService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -100,20 +128,17 @@ func (h *Handlers) GetPortfolio(c echo.Context) error {
 }
 
 func (h *Handlers) GetOperations(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
-	}
-
-	var operationReq service.OperationsRequest
-	err = c.Bind(&operationReq)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
-	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.PortfolioService.GetClient(ctx, authHeader)
+
+	var operationReq service.OperationsRequest
+	err := c.Bind(&operationReq)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+	}
+
+	err = h.service.PortfolioService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -127,14 +152,10 @@ func (h *Handlers) GetOperations(c echo.Context) error {
 }
 
 func (h *Handlers) GetAllAssetUids(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
-	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.AnalyticsService.GetClient(ctx, authHeader)
+	err := h.service.AnalyticsService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -147,19 +168,16 @@ func (h *Handlers) GetAllAssetUids(c echo.Context) error {
 }
 
 func (h *Handlers) GetFutureBy(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
-	}
+
 	var body service.FutureReq
-	err = c.Bind(&body)
+	err := c.Bind(&body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.InstrumentService.GetClient(ctx, authHeader)
+	err = h.service.InstrumentService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -172,19 +190,15 @@ func (h *Handlers) GetFutureBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetBondBy(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
-	}
 	var body service.BondReq
-	err = c.Bind(&body)
+	err := c.Bind(&body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.InstrumentService.GetClient(ctx, authHeader)
+	err = h.service.InstrumentService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -197,19 +211,15 @@ func (h *Handlers) GetBondBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetCurrencyBy(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
-	}
 	var body service.CurrencyReq
-	err = c.Bind(&body)
+	err := c.Bind(&body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.InstrumentService.GetClient(ctx, authHeader)
+	err = h.service.InstrumentService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -222,19 +232,15 @@ func (h *Handlers) GetCurrencyBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetShareCurrencyBy(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
-	}
 	var body service.ShareCurrencyByRequest
-	err = c.Bind(&body)
+	err := c.Bind(&body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.InstrumentService.GetClient(ctx, authHeader)
+	err = h.service.InstrumentService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -247,19 +253,15 @@ func (h *Handlers) GetShareCurrencyBy(c echo.Context) error {
 }
 
 func (h *Handlers) FindBy(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
-	}
 	var body service.FindByReq
-	err = c.Bind(&body)
+	err := c.Bind(&body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.InstrumentService.GetClient(ctx, authHeader)
+	err = h.service.InstrumentService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -272,19 +274,15 @@ func (h *Handlers) FindBy(c echo.Context) error {
 }
 
 func (h *Handlers) GetBondsActions(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "incorrect token"})
-	}
 	var body service.BondsActionsReq
-	err = c.Bind(&body)
+	err := c.Bind(&body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.AnalyticsService.GetClient(ctx, authHeader)
+	err = h.service.AnalyticsService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})
@@ -297,19 +295,16 @@ func (h *Handlers) GetBondsActions(c echo.Context) error {
 }
 
 func (h *Handlers) GetLastPriceInPersentageToNominal(c echo.Context) error {
-	authHeader, err := h.auth(c)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Incorrect token"})
-	}
+
 	var body service.LastPriceReq
-	err = c.Bind(&body)
+	err := c.Bind(&body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 	ctx := c.Request().Context()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err = h.service.AnalyticsService.GetClient(ctx, authHeader)
+	err = h.service.AnalyticsService.GetClient(ctx)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "TinkoffApi does not accesept token"})

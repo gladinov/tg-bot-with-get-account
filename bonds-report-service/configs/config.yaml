@@ -1,0 +1,17 @@
+env: local
+moexHost: "localhost:8081"
+tinkoffApiHost: "localhost:8082"
+cbrHost: "localhost:8083"
+bondReportServiceHost: "localhost:8084"
+sberConfigPath: "/configs/sber.yaml"
+dbType: "postgreSQL" # "postgreSQL" , "SQLite"
+serviceStorageSQLLitePath: "/data/sqlite/service_storage.db"
+postgresHost:
+  host: "localhost"
+  user: "user"
+  password: "parol"
+  dbname: "service"
+  port: 5432
+  sslmode: "disable"
+
+

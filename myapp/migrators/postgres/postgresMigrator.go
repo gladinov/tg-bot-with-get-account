@@ -11,7 +11,7 @@ import (
 	"main.go/internal/config"
 )
 
-func MustMigratePostgres(rootPath string, postgresConfig config.UserStorageConfig) {
+func MustMigratePostgres(rootPath string, postgresConfig config.Config) {
 	migrationPath := filepath.Join(rootPath, postgresConfig.MigrationsPostgresPath)
 	migrationPath = filepath.ToSlash(migrationPath)
 

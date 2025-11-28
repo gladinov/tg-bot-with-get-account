@@ -6,15 +6,21 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
-	Env                       string `yaml:"env"`
-	DbType                    string `yaml:"dbType"`
-	ServiceStorageSQLLitePath string `yaml:"serviceStorageSQLLitePath"`
-	PostgresHost              `yaml:"postgresHost"`
+	//Env                       string `yaml:"env"`
+	ClientsHosts           Clients         `yaml:"clients"`
+	DbType                 string          `yaml:"dbType"`
+	RedisConfigPath        string          `yaml:"redisConfigPath"`
+	StorageSQLLitePath     string          `yaml:"storageSQLLitePath"`
+	MigrationsSqllitePath  string          `yaml:"migrationsSqllitePath"`
+	MigrationsPostgresPath string          `yaml:"migrationsPostgresPath"`
+	PostgresHost           PostgresHost    `yaml:"postgresHost"`
+	RedisHTTPServer        RedisHTTPServer `yaml:"redis"`
 }
 
 type PostgresHost struct {
@@ -24,6 +30,22 @@ type PostgresHost struct {
 	Dbname   string `yaml:"dbname"`
 	Port     int    `yaml:"port"`
 	SslMode  string `yaml:"sslmode"`
+}
+
+type Clients struct {
+	BondReportServiceHost string `yaml:"bondReportServiceHost"`
+	TelegramHost          string `yaml:"telegramHost"`
+	TinkoffApiHost        string `yaml:"tinkoffApiHost"`
+}
+
+type RedisHTTPServer struct {
+	Address     string        `yaml:"addr"`
+	Password    string        `yaml:"password"`
+	User        string        `yaml:"user"`
+	DB          int           `yaml:"db"`
+	MaxRetries  int           `yaml:"max_retries"`
+	DialTimeout time.Duration `yaml:"dial_timeout"`
+	Timeout     time.Duration `yaml:"timeout"`
 }
 
 func (p *PostgresHost) GetStringHost() (string, error) {
