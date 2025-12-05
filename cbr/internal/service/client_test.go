@@ -4,6 +4,7 @@ import (
 	timezone "cbr/lib/timeZone"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"path"
 	"testing"
@@ -17,6 +18,7 @@ const (
 )
 
 func TestDoRequest(t *testing.T) {
+	logg := slog.Default()
 	location, _ := timezone.GetMoscowLocation()
 	now := time.Now().In(location).Format(layout)
 	cases := []struct {
@@ -37,7 +39,7 @@ func TestDoRequest(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			transport := NewTransport(cbrHost)
+			transport := NewTransport(cbrHost, logg)
 			got, err := transport.DoRequest(tc.path, tc.params)
 			if tc.wantErr != nil {
 				require.Error(t, err)
@@ -50,6 +52,7 @@ func TestDoRequest(t *testing.T) {
 }
 
 func TestParseCurrencies(t *testing.T) {
+	logg := slog.Default()
 	cases := []struct {
 		name    string
 		data    []byte
@@ -71,8 +74,8 @@ func TestParseCurrencies(t *testing.T) {
 	}
 	for _, tc := range cases {
 		fmt.Println(string(xmlDataInBytes[:80]))
-		transport := NewTransport(cbrHost)
-		client := NewClient(transport)
+		transport := NewTransport(cbrHost, logg)
+		client := NewClient(transport, logg)
 		got, err := client.parseCurrencies(tc.data)
 
 		if tc.wantErr != nil {
@@ -85,6 +88,7 @@ func TestParseCurrencies(t *testing.T) {
 }
 
 func TestParseCurrencies_UTF8CharsetReader(t *testing.T) {
+	logg := slog.Default()
 	xmlData := []byte(`<?xml version="1.0" encoding="koi8-r"?>
 <ValCurs Date="03.03.1995" name="Foreign Currency Market">
     <Valute ID="R01010">
@@ -97,7 +101,7 @@ func TestParseCurrencies_UTF8CharsetReader(t *testing.T) {
     </Valute>
 </ValCurs>`)
 
-	client := NewClient(nil)
+	client := NewClient(nil, logg)
 	got, err := client.parseCurrencies(xmlData)
 
 	require.NoError(t, err)

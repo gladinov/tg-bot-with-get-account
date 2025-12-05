@@ -3,6 +3,7 @@ package service
 import (
 	timezone "cbr/lib/timeZone"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -13,10 +14,12 @@ type CurrencyService interface {
 
 type Service struct {
 	Client HTTPClient
+	Logger *slog.Logger
 }
 
-func NewService(client HTTPClient) *Service {
-	return &Service{Client: client}
+func NewService(client HTTPClient, logger *slog.Logger) *Service {
+	return &Service{Client: client,
+		Logger: logger}
 }
 
 func (s *Service) GetAllCurrencies(date time.Time) (CurrenciesResponce, error) {

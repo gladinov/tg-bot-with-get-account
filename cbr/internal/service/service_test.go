@@ -5,6 +5,7 @@ import (
 	"cbr/internal/service/mocks"
 	timezone "cbr/lib/timeZone"
 	"errors"
+	"log/slog"
 	"net/url"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ const (
 )
 
 func TestGetAllCurrencies_Date(t *testing.T) {
+	logg := slog.Default()
 	location, _ := timezone.GetMoscowLocation()
 	startDate := timezone.GetStartSingleExchangeRateRubble(location)
 	startDateStr := startDate.Format(layout)
@@ -56,10 +58,10 @@ func TestGetAllCurrencies_Date(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			transport := service.NewTransport(cbrHost)
-			client := service.NewClient(transport)
+			transport := service.NewTransport(cbrHost, logg)
+			client := service.NewClient(transport, logg)
 
-			cbr := service.NewService(client)
+			cbr := service.NewService(client, logg)
 			_, err := cbr.GetAllCurrencies(tc.date)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -73,6 +75,7 @@ func TestGetAllCurrencies_Date(t *testing.T) {
 }
 
 func TestGetAllCurrencies(t *testing.T) {
+	logg := slog.Default()
 	location, _ := timezone.GetMoscowLocation()
 	now := time.Now().In(location)
 	cases := []struct {
@@ -105,8 +108,8 @@ func TestGetAllCurrencies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHTTPTransport := mocks.NewHTTPTransport(t)
 			tc.setupMock(mockHTTPTransport, tc.path, tc.params)
-			client := service.NewClient(mockHTTPTransport)
-			cbr := service.NewService(client)
+			client := service.NewClient(mockHTTPTransport, logg)
+			cbr := service.NewService(client, logg)
 			got, err := cbr.GetAllCurrencies(tc.date)
 			if tc.wantErr != nil {
 				require.Error(t, err)
