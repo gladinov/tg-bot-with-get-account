@@ -9,7 +9,6 @@ import (
 	"bonds-report-service/internal/handlers"
 	"bonds-report-service/internal/repository"
 	"bonds-report-service/internal/service"
-	"bonds-report-service/pkg/app"
 	"context"
 	"log"
 	"os"
@@ -20,9 +19,22 @@ import (
 )
 
 func main() {
-	app.MustInitialize()
-	rootPath := app.MustGetRoot()
+	// for local run in terminal
+	//app.MustInitialize()
+	//rootPath := app.MustGetRoot()
+
+	// docker run
+	rootPath := os.Getenv("ROOT_PATH")
+	DbPassword := os.Getenv("POSTGRES_PASSWORD")
+	PostgresDb := os.Getenv("POSTGRES_DB")
+	PostgresUser := os.Getenv("POSTGRES_USER")
+	PostgresHost := os.Getenv("POSTGRES_HOST")
+
 	conf := config.MustInitConfig(rootPath)
+	conf.Password = DbPassword
+	conf.Dbname = PostgresDb
+	conf.User = PostgresUser
+	conf.Host = PostgresHost
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
