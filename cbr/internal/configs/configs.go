@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	Env         string `yaml:"env"`
 	CbrHost     string `yaml:"cbrHost"`
 	Http_server string `yaml:"http_server"`
 }
