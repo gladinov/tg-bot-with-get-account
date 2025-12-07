@@ -15,7 +15,6 @@ type Config struct {
 	//Env                       string `yaml:"env"`
 	ClientsHosts           Clients         `yaml:"clients"`
 	DbType                 string          `yaml:"dbType"`
-	RedisConfigPath        string          `yaml:"redisConfigPath"`
 	StorageSQLLitePath     string          `yaml:"storageSQLLitePath"`
 	MigrationsSqllitePath  string          `yaml:"migrationsSqllitePath"`
 	MigrationsPostgresPath string          `yaml:"migrationsPostgresPath"`

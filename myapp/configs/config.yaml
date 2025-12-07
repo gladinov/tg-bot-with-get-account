@@ -3,21 +3,20 @@ clients:
   telegramHost: "api.telegram.org"
   tinkoffApiHost: "localhost:8082"
 dbType: "postgreSQL" # "postgreSQL" , "SQLite"
-redisConfigPath: "/configs/redisConfig.yaml"
 storageSQLLitePath: "/data/sqlite/storage.db"
 migrationsSqllitePath: "/migrations/sqlite"
 migrationsPostgresPath: "/migrations/postgres"
 postgresHost:
-  host: "localhost"
-  user: "user"
-  password: "parol"
-  dbname: "users"
+  host: ""
+  user: ""
+  password: ""
+  dbname: ""
   port: 5433
   sslmode: "disable"
 redis:
-  addr: "localhost:6379"
-  password: "mGEf3PvW2KZBrtY"
-  user: "user"
+  addr: ""
+  password: ""
+  user: ""
   db: 0
   max_retries: 5
   dial_timeout: 10s
