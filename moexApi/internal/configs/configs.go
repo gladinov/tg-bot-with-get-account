@@ -1,35 +1,41 @@
 package configs
 
 import (
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	MoexHost   string `yaml:"moexHost"`
-	HttpServer string `yaml:"http_server"`
+	MoexHost string `yaml:"moexHost"`
+	Clients  Clients
 }
 
-func MustLoad(rootPath string) *Config {
+type Clients struct {
+	MoexApiAppClient MoexApiAppClient
+}
+
+type MoexApiAppClient struct {
+	Host string `yaml:"moexApiAppHost"`
+	Port string `env:"MOEX_API_PORT" env-required:"true"`
+}
+
+func (c *MoexApiAppClient) GetMoexApiAppClientAddress() string {
+	return getAddress(c.Host, c.Port)
+}
+
+func MustLoad() *Config {
 	const op = "configs.mustLoad"
-	envPath := filepath.Join(rootPath, ".env")
-
-	err := godotenv.Load(envPath)
+	envs, err := InjectEnvs()
 	if err != nil {
-		log.Fatalf("%s:Could not find any .env files:%s", op, err)
+		log.Fatalf("%s:%s", op, err)
 	}
-
-	configPath := filepath.Join(rootPath, os.Getenv("CONFIG_PATH"))
+	configPath := filepath.Join(envs.RootPath, envs.ConfigPath)
 	if configPath == "" {
 		log.Fatalf("%s: CONFIG_PATH is not set", op)
-	}
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("%s:config file does not exist:%s", op, err)
 	}
 
 	var cfg Config
@@ -39,4 +45,30 @@ func MustLoad(rootPath string) *Config {
 	}
 
 	return &cfg
+}
+
+type Envs struct {
+	RootPath   string
+	ConfigPath string
+}
+
+func InjectEnvs() (Envs, error) {
+	rootPath := os.Getenv("ROOT_PATH")
+	if rootPath == "" {
+		return Envs{}, errors.New("ROOT_PATH environment variable is required")
+	}
+
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		return Envs{}, errors.New("CONFIG_PATH environment variable is required")
+	}
+
+	envs := Envs{RootPath: rootPath,
+		ConfigPath: configPath}
+
+	return envs, nil
+}
+
+func getAddress(host string, port string) string {
+	return host + ":" + port
 }

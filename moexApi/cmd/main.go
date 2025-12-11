@@ -4,17 +4,16 @@ import (
 	"main/internal/configs"
 	"main/internal/handlers"
 	"main/internal/service"
-	"main/pkg/app"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	app.MustInitialize()
-	rootPath := app.MustGetRoot()
+	//app.MustInitialize()
+	//rootPath := app.MustGetRoot()
 
-	config := configs.MustLoad(rootPath)
+	config := configs.MustLoad()
 
 	service := service.NewSpecificationService(config.MoexHost)
 	handlers := handlers.NewHandlers(service)
@@ -25,5 +24,5 @@ func main() {
 
 	e.POST("/moex/specifications", handlers.GetSpecifications)
 
-	e.Start(config.HttpServer)
+	e.Start(config.Clients.MoexApiAppClient.GetMoexApiAppClientAddress())
 }

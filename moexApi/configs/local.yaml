@@ -1,2 +1,4 @@
 moexHost: "iss.moex.com"
-http_server: "localhost:8081"
+clients:
+  moexApiAppClient:
+    moexApiAppHost: "0.0.0.0"
