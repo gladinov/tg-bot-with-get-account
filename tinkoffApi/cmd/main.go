@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 	"tinkoffApi/internal/configs"
@@ -14,9 +13,6 @@ import (
 	"tinkoffApi/internal/service"
 	"tinkoffApi/lib/cryptoToken"
 
-	"tinkoffApi/pkg/app"
-
-	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
@@ -24,11 +20,9 @@ import (
 )
 
 func main() {
-	app.MustInitialize()
-	rootPath := app.MustGetRoot()
-
-	// TODO: Подключить Redis и забирать токен оттуда
-	cnfgs := configs.MustInitConfigs(rootPath)
+	// for local run
+	//app.MustInitialize()
+	//rootPath := app.MustGetRoot()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
@@ -48,6 +42,9 @@ func main() {
 		log.Fatalf("logger creating error %v", err)
 	}
 
+	cnfgs := configs.MustInitConfigs()
+	fmt.Println(cnfgs.Config, cnfgs.TinkoffApiConfig)
+
 	analyticsService := service.NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logger)
 	portfolioService := service.NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logger)
 	instrumentService := service.NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logger)
@@ -57,18 +54,7 @@ func main() {
 		portfolioService,
 		instrumentService)
 
-	envPath := filepath.Join(rootPath, ".env")
-	err = godotenv.Load(envPath)
-	if err != nil {
-		log.Fatalf("could not get key env")
-	}
-
-	key := os.Getenv("KEY")
-	if key == "" {
-		log.Fatal("KEY environment variable is required")
-	}
-
-	tokenCrypter := cryptoToken.NewTokenCrypter(key)
+	tokenCrypter := cryptoToken.NewTokenCrypter(cnfgs.Config.Key)
 
 	redis, err := redisClient.NewClient(ctx, cnfgs.Config)
 	if err != nil {
@@ -105,6 +91,6 @@ func main() {
 			logger.Error("Failed to shutdown server:", err)
 		}
 	}()
-	e.Start(cnfgs.Config.HttpServer)
+	e.Start(cnfgs.Config.GetAddress())
 
 }

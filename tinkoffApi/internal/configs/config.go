@@ -1,13 +1,13 @@
 package configs
 
 import (
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/joho/godotenv"
 	"github.com/russianinvestments/invest-api-go-sdk/investgo"
 )
 
@@ -17,38 +17,44 @@ type Configs struct {
 }
 
 type Config struct {
-	HttpServer      string          `yaml:"http_server"`
-	RedisHTTPServer RedisHTTPServer `yaml:"redisHTTP"`
+	Key               string          `env:"KEY" env-required:"true"`
+	TinkoffApiAppPort string          `env:"TINKOFF_API_PORT" env-required:"true"`
+	TinkoffApiAppHost string          `yaml:"TinkoffApiAppHost"`
+	RedisHTTPServer   RedisHTTPServer `yaml:"redisHTTP"`
 }
+
+func (c *Config) GetAddress() string {
+	return getAddress(c.TinkoffApiAppHost, c.TinkoffApiAppPort)
+}
+
 type RedisHTTPServer struct {
-	Address     string        `yaml:"addr"`
-	Password    string        `yaml:"password"`
-	User        string        `yaml:"user"`
+	Host     string `env:"REDIS_HOST" env-required:"true"`
+	Port     string `env:"REDIS_PORT" env-required:"true"`
+	Password string `env:"REDIS_PASSWORD" env-required:"true"`
+	//User        string
 	DB          int           `yaml:"db"`
 	MaxRetries  int           `yaml:"max_retries"`
 	DialTimeout time.Duration `yaml:"dial_timeout"`
 	Timeout     time.Duration `yaml:"timeout"`
 }
 
-func MustTinkoffConfigLoad(rootPath string) *investgo.Config {
+func (r *RedisHTTPServer) GetAddress() string {
+	return getAddress(r.Host, r.Port)
+}
+
+func NewConfigs() *Configs {
+	return &Configs{
+		Config: &Config{
+			RedisHTTPServer: RedisHTTPServer{},
+		},
+	}
+}
+
+func MustTinkoffConfigLoad(rootPath, configPath string) *investgo.Config {
 	const op = "configs.MustTinkoffConfigLoad"
-	envPath := filepath.Join(rootPath, ".env")
+	Path := filepath.Join(rootPath, configPath)
 
-	err := godotenv.Load(envPath)
-	if err != nil {
-		log.Fatalf("%s:Could not find any .env files:%s", op, err)
-	}
-
-	configPath := filepath.Join(rootPath, os.Getenv("TINKOFF_CONFIG_PATH"))
-	if configPath == "" {
-		log.Fatalf("%s: CONFIG_PATH is not set", op)
-	}
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("%s:config file does not exist:%s", op, err)
-	}
-
-	config, err := investgo.LoadConfig(configPath)
+	config, err := investgo.LoadConfig(Path)
 	if err != nil {
 		log.Fatalf("op: %s , can't load config", op)
 	}
@@ -56,36 +62,58 @@ func MustTinkoffConfigLoad(rootPath string) *investgo.Config {
 	return &config
 }
 
-func MustConfigLoad(rootPath string) *Config {
+func MustConfigLoad(rootPath, configPath string) *Config {
 	const op = "configs.MustConfigLoad"
-	envPath := filepath.Join(rootPath, ".env")
-
-	err := godotenv.Load(envPath)
-	if err != nil {
-		log.Fatalf("%s:Could not find any .env files:%s", op, err)
-	}
-
-	configPath := filepath.Join(rootPath, os.Getenv("CONFIG_PATH"))
-	if configPath == "" {
-		log.Fatalf("%s: CONFIG_PATH is not set", op)
-	}
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("%s:config file does not exist:%s", op, err)
-	}
-
+	Path := filepath.Join(rootPath, configPath)
 	var cfg Config
 
-	if err = cleanenv.ReadConfig(configPath, &cfg); err != nil {
+	if err := cleanenv.ReadConfig(Path, &cfg); err != nil {
 		log.Fatalf("%s:cannot read config:%s", op, err)
 	}
-
 	return &cfg
 }
 
-func MustInitConfigs(rootPath string) *Configs {
-	var configs Configs
-	configs.Config = MustConfigLoad(rootPath)
-	configs.TinkoffApiConfig = MustTinkoffConfigLoad(rootPath)
-	return &configs
+func MustInitConfigs() *Configs {
+	configs := NewConfigs()
+	envs, err := InjectEnvs()
+	if err != nil {
+		panic(err)
+	}
+
+	configs.Config = MustConfigLoad(envs.RootPath, envs.ConfigPath)
+	configs.TinkoffApiConfig = MustTinkoffConfigLoad(envs.RootPath, envs.TinkoffConfigPath)
+	return configs
+}
+
+type Envs struct {
+	RootPath          string
+	ConfigPath        string
+	TinkoffConfigPath string
+}
+
+func InjectEnvs() (Envs, error) {
+	rootPath := os.Getenv("ROOT_PATH")
+	if rootPath == "" {
+		return Envs{}, errors.New("ROOT_PATH environment variable is required")
+	}
+
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		return Envs{}, errors.New("CONFIG_PATH environment variable is required")
+	}
+
+	tinkoffConfigPath := os.Getenv("TINKOFF_CONFIG_PATH")
+	if tinkoffConfigPath == "" {
+		return Envs{}, errors.New("TINKOFF_CONFIG_PATH environment variable is required")
+	}
+
+	envs := Envs{RootPath: rootPath,
+		ConfigPath:        configPath,
+		TinkoffConfigPath: tinkoffConfigPath}
+	
+	return envs, nil
+}
+
+func getAddress(host string, port string) string {
+	return host + ":" + port
 }

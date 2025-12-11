@@ -91,7 +91,6 @@ func (c *AnalyticsServiceClient) GetClient(ctx context.Context) (err error) {
 	newConfig.Token = token
 
 	client, err := investgo.NewClient(ctx, newConfig, c.Logg)
-	fmt.Println(err)
 	if err != nil {
 		return fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
 	}
