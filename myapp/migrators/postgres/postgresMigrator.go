@@ -20,7 +20,6 @@ func MustMigratePostgres(rootPath string, postgresConfig config.Config) {
 	}
 
 	migrationsURL := "file://" + migrationPath + "/"
-	fmt.Println(migrationsURL)
 	databaseURL, err := postgresConfig.PostgresHost.GetHostToGoMigrate()
 	if err != nil {
 		panic(err)

@@ -8,8 +8,6 @@ import (
 	"main.go/internal/repository/postgres"
 	"main.go/internal/repository/sqlite"
 	pathwd "main.go/lib/pathWD"
-	postgresMigrator "main.go/migrators/postgres"
-	sqliteMigrator "main.go/migrators/sqlite"
 )
 
 // myapp\internal\repository\postgres\postrges.go
@@ -26,15 +24,13 @@ type Storage interface {
 	CloseDB()
 }
 
-func NewStorage(ctx context.Context, config config.Config, rootPath string) (Storage, error) {
+func NewStorage(ctx context.Context, config config.Config) (Storage, error) {
 	switch config.DbType {
 	case postreSQL:
 		storage, err := postgres.NewStorage(config)
 		if err != nil {
 			return nil, err
 		}
-		postgresMigrator.MustMigratePostgres(rootPath, config)
-
 		err = storage.Init(ctx)
 		if err != nil {
 			return nil, err
@@ -42,7 +38,7 @@ func NewStorage(ctx context.Context, config config.Config, rootPath string) (Sto
 
 		return storage, nil
 	case SQLite:
-		storageAbsolutPath, err := pathwd.PathFromWD(rootPath, config.StorageSQLLitePath)
+		storageAbsolutPath, err := pathwd.PathFromWD(config.RootPath, config.StorageSQLLitePath)
 		if err != nil {
 			return nil, err
 		}
@@ -50,8 +46,6 @@ func NewStorage(ctx context.Context, config config.Config, rootPath string) (Sto
 		if err != nil {
 			return nil, err
 		}
-		sqliteMigrator.MustMigrateSqllite(rootPath, storageAbsolutPath, config.MigrationsSqllitePath)
-
 		err = storage.Init(ctx)
 		if err != nil {
 			return nil, err

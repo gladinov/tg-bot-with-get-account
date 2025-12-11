@@ -9,7 +9,7 @@ import (
 
 func NewClient(ctx context.Context, cfg config.Config) (*redis.Client, error) {
 	db := redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisHTTPServer.Address,
+		Addr:     cfg.RedisHTTPServer.GetAddress(),
 		Password: cfg.RedisHTTPServer.Password,
 		DB:       cfg.RedisHTTPServer.DB,
 		// Username:     cfg.RedisHTTPServer.User,

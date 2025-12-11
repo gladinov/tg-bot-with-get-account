@@ -33,13 +33,9 @@ func main() {
 	//rootPath := app.MustGetRoot()
 
 	// docker run
-	rootPath := os.Getenv("ROOT_PATH")
-	if rootPath == "" {
-		logger.Fatalf("ROOT_PATH environment variable is required")
-	}
 
-	cnfg := config.MustInitConfig(rootPath)
-
+	cnfg := config.MustInitConfig()
+	fmt.Println(cnfg)
 	//// //  for local
 	//envPath := filepath.Join(rootPath, ".env")
 	//err := godotenv.Load(envPath)
@@ -47,73 +43,19 @@ func main() {
 	//	logger.Printf("Error loading .env file. Erorr: %v", err.Error())
 	//}
 	//
-	token := os.Getenv("LOCAL_BOT_TOKEN")
-	if token == "" {
-		logger.Fatalf("BOT_TOKEN environment variable is required")
-	}
-
-	key := os.Getenv("KEY")
-	if key == "" {
-		logger.Fatalf("KEY environment variable is required")
-	}
-
-	postgresPassword := os.Getenv("POSTGRES_PASSWORD")
-	if postgresPassword == "" {
-		logger.Fatalf("POSTGRES_PASSWORD environment variable is required")
-	}
-
-	postgresDB := os.Getenv("POSTGRES_DB")
-	if postgresDB == "" {
-		logger.Fatalf("POSTGRES_DB environment variable is required")
-	}
-
-	postgresUser := os.Getenv("POSTGRES_USER")
-	if postgresUser == "" {
-		logger.Fatalf("POSTGRES_USER environment variable is required")
-	}
-
-	postgresHost := os.Getenv("POSTGRES_HOST")
-	if postgresHost == "" {
-		logger.Fatalf("POSTGRES_HOST environment variable is required")
-	}
-
-	cnfg.PostgresHost.Host = postgresHost
-	cnfg.PostgresHost.Password = postgresPassword
-	cnfg.PostgresHost.Dbname = postgresDB
-	cnfg.PostgresHost.User = postgresUser
-
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-	if redisPassword == "" {
-		logger.Fatalf("REDIS_PASSWORD environment variable is required")
-	}
-
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		logger.Fatalf("REDIS_HOST environment variable is required")
-	}
-
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		logger.Fatalf("REDIS_PORT environment variable is required")
-	}
-
-	cnfg.RedisHTTPServer.Password = redisPassword
-	cnfg.RedisHTTPServer.Address = redisHost + ":" + redisPort
-
-	fmt.Println(cnfg)
 
 	redis, err := redis.NewClient(ctx, cnfg)
 	if err != nil {
 		logger.Fatalf("haven't connect with redis")
 	}
 
-	tokenCrypter := cryptoToken.NewTokenCrypter(key)
+	tokenCrypter := cryptoToken.NewTokenCrypter(cnfg.Key)
 
-	telegrammClient := tgClient.New(cnfg.ClientsHosts.TelegramHost, token)
+	telegrammClient := tgClient.New(cnfg.ClientsHosts.TelegramHost, cnfg.Token)
 
-	tinkoffApiClient := tinkoffapi.NewClient(cnfg.ClientsHosts.TinkoffApiHost)
+	tinkoffApiClient := tinkoffapi.NewClient(cnfg.ClientsHosts.GetTinkoffApiAddress())
 
-	userStorage, err := storage.NewStorage(ctx, cnfg, rootPath)
+	userStorage, err := storage.NewStorage(ctx, cnfg)
 	if err != nil {
 		logger.Fatalf("can't create user_storage: %s", err.Error())
 	}
@@ -123,7 +65,7 @@ func main() {
 		}
 	}()
 
-	bondReportServiceClient := bondreportservice.New(cnfg.ClientsHosts.BondReportServiceHost)
+	bondReportServiceClient := bondreportservice.New(cnfg.ClientsHosts.GetBondReportAddress())
 
 	processor := telegram.NewProccesor(
 		tokenCrypter,
