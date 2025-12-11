@@ -6,10 +6,11 @@ import (
 	loggerhandler "cbr/internal/handlers/logger"
 	"cbr/internal/service"
 	"cbr/lib/logger/sl"
-	"cbr/pkg/app"
 	"context"
 	"log/slog"
+	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -18,17 +19,28 @@ import (
 )
 
 func main() {
-	app.MustInitialize()
-	rootPath := app.MustGetRoot()
+	//for local
+	//app.MustInitialize()
+	//rootPath := app.MustGetRoot()
+	rootPath := os.Getenv("ROOT_PATH")
+	if rootPath == "" {
+		panic("ROOT_PATH environment variable is required")
+	}
 
-	cnfgs := configs.MustInitConfig(rootPath)
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		panic("CONFIG_PATH environment variable is required")
+	}
+
+	cnfgs := configs.MustInitConfig(rootPath, configPath)
 
 	logg := sl.NewLogger(cnfgs.Env)
 
 	logg.Info("start app",
 		slog.String("env", cnfgs.Env),
 		slog.String("host", cnfgs.CbrHost),
-		slog.String("server", cnfgs.Http_server))
+		slog.String("cbr_app_host", cnfgs.CbrAppHost),
+		slog.String("cbr_app_port", strconv.Itoa(cnfgs.CbrAppPort)))
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
@@ -50,5 +62,5 @@ func main() {
 		defer cancel()
 
 	}()
-	router.Start(cnfgs.Http_server)
+	router.Start(cnfgs.GetCbrAppServer())
 }
