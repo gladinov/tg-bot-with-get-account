@@ -1,6 +1,6 @@
 services:
   myapp:
-    build: /myapp
+    build: ../services/myapp
     container_name: myapp
     restart: unless-stopped
     depends_on:
@@ -8,13 +8,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - ./myapp/secrets/.env
     environment:
+      LOCAL_BOT_TOKEN: ${LOCAL_BOT_TOKEN}
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/config.yaml"
       POSTGRES_HOST: postgres-user-db
-      POSTGRES_USER_PORT: ${POSTGRES_USER_PORT}
+      POSTGRES_USER_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USERS_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_USERS_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_USERS_DB}
+      PGUSER: ${USERS_PGUSER}
       REDIS_HOST: redis
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -25,9 +28,9 @@ services:
       TINKOFF_API_PORT: ${TINKOFF_API_PORT}
 
     volumes:
-      - ./myapp/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
+      - ../services/myapp/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
     ports:
-      - "8080:8080"
+      - "${MYAPP_PORT}:8080"
     networks:
       - myapp_network
 
@@ -36,12 +39,15 @@ services:
     image: postgres:latest
     container_name: user_postgres
     restart: unless-stopped
-    env_file:
-      - ./myapp/secrets/.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERS_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_USERS_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_USERS_DB}
+      PGUSER: ${USERS_PGUSER}
     volumes:
       - postgres_data:/var/lib/postgresql
     ports:
-      - "5433:5432"
+      - "${POSTGRES_USER_PORT}:5432"
     networks:
       - myapp_network
     healthcheck:
@@ -54,11 +60,11 @@ services:
     image: redis/redis-stack:latest
     container_name: redis-redis-stack
     restart: unless-stopped
-    env_file:
-      - ./myapp/secrets/.env
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - "6379:6379"
-      - "8001:8001"
+      - "${REDIS_PORT}:6379"
+      - "${REDIS_STACK_PORT}:8001"
     volumes:
       - redis_data_a:/data
     networks:
@@ -70,40 +76,47 @@ services:
       retries: 5
 
   migrator:
-    build: /tools/migrator
+    build: ../tools/migrator
     container_name: migrator
     restart: no
     depends_on:
       postgres-user-db:
         condition: service_healthy
-    env_file:
-      - ./myapp/secrets/.env
     environment:
-      MIGRATOR_ROOT_PATH: "/usr/local/src"
-      MIGRATOR_CONFIG_PATH: "/config/config.yaml"
-      MIGRATOR_MIGRATIONS_PATH: "/migrations"
+      ROOT_PATH: "/usr/local/src"
+      CONFIG_PATH: "/config/config.yaml"
+      MIGRATIONS_PATH: "/migrations"
       POSTGRES_HOST: postgres-user-db
+      POSTGRES_PORT: 5432
+      POSTGRES_PASSWORD: ${POSTGRES_USERS_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_USERS_DB}
+      POSTGRES_USER: ${POSTGRES_USERS_USER}
+      PGUSER: ${USERS_PGUSER}
+
     volumes:
-      - ./migrations/myapp/postgres:/usr/local/src/migrations:ro
-      - ./tools/migrator/config/config.yaml:/usr/local/src/config/config.yaml:ro
+      - ../migrations/myapp/postgres:/usr/local/src/migrations:ro
+      - ../tools/migrator/config/config.yaml:/usr/local/src/config/config.yaml:ro
     networks:
       - myapp_network
 
   bond-report-service:
-    build: /bonds-report-service
+    build: ../services/bonds-report-service
     restart: unless-stopped
+    container_name: bond-report-service-app
     depends_on:
       postgres-service-db:
         condition: service_healthy
-    env_file:
-      - ./bonds-report-service/secrets/.env
     environment:
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/config.yaml"
       SBER_CONFIG_PATH: "/configs/sber.yaml"
       BOND_REPORT_SERVICE_PORT: ${BOND_REPORT_SERVICE_PORT}
       POSTGRES_HOST: postgres-service-db
-      POSTGRES_SERVICE_PORT: ${POSTGRES_SERVICE_PORT}
+      POSTGRES_SERVICE_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_SERVICE_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_SERVICE_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_SERVICE_DB}
+      PGUSER: ${SERVICE_PGUSER}
       CBR_HOST: cbr_app
       CBR_PORT: ${CBR_PORT}
       TINKOFF_API_HOST: tinkoffApi_app
@@ -111,8 +124,8 @@ services:
       MOEX_API_HOST: moex_app
       MOEX_API_PORT: ${MOEX_API_PORT}
     volumes:
-      - ./bonds-report-service/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
-      - ./bonds-report-service/configs/sber.yaml:/usr/local/src/configs/sber.yaml:ro
+      - ../services/bonds-report-service/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
+      - ../services/bonds-report-service/configs/sber.yaml:/usr/local/src/configs/sber.yaml:ro
     ports:
       - "${BOND_REPORT_SERVICE_PORT}:8084"
     networks:
@@ -122,12 +135,15 @@ services:
     image: postgres:latest
     container_name: service_postgres
     restart: unless-stopped
-    env_file:
-      - ./bonds-report-service/secrets/.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_SERVICE_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_SERVICE_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_SERVICE_DB}
+      PGUSER: ${SERVICE_PGUSER}
     volumes:
       - postgres_service_data:/var/lib/postgresql
     ports:
-      - "5432:5432"
+      - "${POSTGRES_SERVICE_PORT}:5432"
     networks:
       - myapp_network
     healthcheck:
@@ -137,27 +153,27 @@ services:
       retries: 5
 
   cbr_app:
-    build: /cbr
+    build: ../services/cbr
+    container_name: cbr_app
     restart: unless-stopped
     environment:
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/local.yaml"
-      CBR_PORT: "8083"
+      CBR_PORT: "${CBR_PORT}"
     volumes:
-      - ./cbr/configs/local.yaml:/usr/local/src/configs/local.yaml:ro
+      - ../services/cbr/configs/local.yaml:/usr/local/src/configs/local.yaml:ro
     ports:
-      - "8083:8083"
+      - "${CBR_PORT}:8083"
     networks:
       - myapp_network
 
   tinkoffapi_app:
-    build: /tinkoffApi
+    build: ../services/tinkoffApi
+    container_name: tinkoffapi_app
     restart: unless-stopped
     depends_on:
       redis:
         condition: service_healthy
-    env_file:
-      - ./tinkoffApi/secrets/.env
     environment:
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/local.yaml"
@@ -168,22 +184,23 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       KEY: ${KEY}
     volumes:
-      - ./tinkoffApi/configs/local.yaml:/usr/local/src/configs/local.yaml:ro
-      - ./tinkoffApi/configs/tinkoffApiConfig.yaml:/usr/local/src/configs/tinkoffApiConfig.yaml:ro
+      - ../services/tinkoffApi/configs/local.yaml:/usr/local/src/configs/local.yaml:ro
+      - ../services/tinkoffApi/configs/tinkoffApiConfig.yaml:/usr/local/src/configs/tinkoffApiConfig.yaml:ro
     ports:
       - "${TINKOFF_API_PORT}:8082"
     networks:
       - myapp_network
 
   moex_app:
-    build: /moexApi
+    build: ../services/moexApi
+    container_name: moex_app
     restart: unless-stopped
     environment:
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/local.yaml"
       MOEX_API_PORT: ${MOEX_API_PORT}
     volumes:
-      - ./moexApi/configs/local.yaml:/usr/local/src/configs/local.yaml:ro
+      - ../services/moexApi/configs/local.yaml:/usr/local/src/configs/local.yaml:ro
     ports:
       - "${MOEX_API_PORT}:8083"
     networks:
