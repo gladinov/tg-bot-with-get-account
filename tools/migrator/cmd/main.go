@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"migrator/internal/config"
-	"os"
 	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -13,24 +12,14 @@ import (
 )
 
 func main() {
-	rootPath := os.Getenv("MIGRATOR_ROOT_PATH")
-	if rootPath == "" {
-		panic("MIGRATOR_ROOT_PATH environment variable is required")
-	}
+	cnfg := config.MustInitConfig()
 
-	configPath := os.Getenv("MIGRATOR_CONFIG_PATH")
-	if configPath == "" {
-		panic("MIGRATOR_CONFIG_PATH environment variable is required")
-	}
-
-	cnfg := config.MustInitConfig(rootPath, configPath)
-
-	MustMigratePostgres(rootPath, cnfg)
+	MustMigratePostgres(cnfg)
 
 }
 
-func MustMigratePostgres(rootPath string, postgresConfig config.Config) {
-	migrationPath := filepath.Join(rootPath, postgresConfig.MigrationsPostgresPath)
+func MustMigratePostgres(postgresConfig config.Config) {
+	migrationPath := filepath.Join(postgresConfig.RootPath, postgresConfig.MigrationsPostgresPath)
 	migrationPath = filepath.ToSlash(migrationPath)
 
 	if migrationPath == "" {
@@ -38,7 +27,7 @@ func MustMigratePostgres(rootPath string, postgresConfig config.Config) {
 	}
 
 	migrationsURL := "file://" + migrationPath + "/"
-	
+
 	databaseURL, err := postgresConfig.PostgresHost.GetHostToGoMigrate()
 	if err != nil {
 		panic(err)

@@ -82,10 +82,10 @@ func TestGetAllCurrencies(t *testing.T) {
 		name          string
 		date          time.Time
 		path          string
-		params    url.Values
-		want      service.CurrenciesResponce
-		setupMock func(*mocks.HTTPTransport, string, url.Values)
-		wantErr   error
+		params        url.Values
+		want          service.CurrenciesResponce
+		setupMock     func(*mocks.HTTPTransport, string, url.Values)
+		wantErr       error
 		assertNoCalls bool
 	}{
 		{

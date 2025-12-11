@@ -11,16 +11,19 @@ import (
 )
 
 type Config struct {
-	MigrationsPostgresPath string       `yaml:"migrationsPostgresPath"`
+	RootPath               string       `env:"ROOT_PATH" env-required:"true"`
+	ConfigPath             string       `env:"CONFIG_PATH" env-required:"true"`
+	MigrationsPostgresPath string       `env:"MIGRATIONS_PATH" env-required:"true"`
 	PostgresHost           PostgresHost `yaml:"postgresHost"`
 }
 
 type PostgresHost struct {
-	Host     string `yaml:"host"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	Dbname   string `yaml:"dbname"`
-	Port     int    `yaml:"port"`
+	Host     string `env:"POSTGRES_HOST" env-required:"true"`
+	User     string `env:"POSTGRES_USER" env-required:"true"`
+	Password string `env:"POSTGRES_PASSWORD" env-required:"true"`
+	Dbname   string `env:"POSTGRES_DB" env-required:"true"`
+	Port     string `env:"POSTGRES_PORT" env-required:"true"`
+	PgUser   string `env:"PGUSER" env-required:"true"`
 	SslMode  string `yaml:"sslmode"`
 }
 
@@ -37,10 +40,10 @@ func (p *PostgresHost) GetStringHost() (string, error) {
 	if p.Dbname == "" {
 		return "", errors.New("empty dbname in config")
 	}
-	if p.Port == 0 {
+	if p.Port == "" {
 		return "", errors.New("empty port in config")
 	}
-	host := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%v sslmode=%s",
+	host := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		p.Host,
 		p.User,
 		p.Password,
@@ -63,46 +66,49 @@ func (p *PostgresHost) GetHostToGoMigrate() (string, error) {
 	if p.Dbname == "" {
 		return "", errors.New("empty dbname in config")
 	}
-	if p.Port == 0 {
+	if p.Port == "" {
 		return "", errors.New("empty port in config")
 	}
-	host := fmt.Sprintf("postgres://%s:%s@%s:%v/%s?sslmode=%s", p.User, p.Password, p.Host, p.Port, p.Dbname, p.SslMode)
+	host := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", p.User, p.Password, p.Host, p.Port, p.Dbname, p.SslMode)
 	return host, nil
 }
 
-func MustInitConfig(rootPath string, configPath string) Config {
-	path := filepath.Join(rootPath, configPath)
+func MustInitConfig() Config {
+	const op = "config.MustInitConfig"
+	envs, err := InjectEnvs()
+	if err != nil {
+		log.Fatalf("%s: %s", op, err)
+	}
+
+	path := filepath.Join(envs.RootPath, envs.ConfigPath)
 
 	var config Config
-	err := cleanenv.ReadConfig(path, &config)
+	err = cleanenv.ReadConfig(path, &config)
 	if err != nil {
 		log.Fatalf("cannot read config: %s", err)
 	}
-	configWithEnvs, err := InjectEnv(config)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
 
-	return configWithEnvs
+	return config
 }
 
-func InjectEnv(config Config) (Config, error) {
-	requiredEnv := []string{"POSTGRES_PASSWORD",
-		"POSTGRES_USER",
-		"POSTGRES_HOST",
-		"MIGRATOR_MIGRATIONS_PATH",
+type Envs struct {
+	RootPath   string
+	ConfigPath string
+}
+
+func InjectEnvs() (Envs, error) {
+	rootPath := os.Getenv("ROOT_PATH")
+	if rootPath == "" {
+		return Envs{}, errors.New("ROOT_PATH environment variable is required")
 	}
-	envValues := make(map[string]string)
-	for _, key := range requiredEnv {
-		value := os.Getenv(key)
-		if value == "" {
-			return Config{}, fmt.Errorf("%s environment variable is required", key)
-		}
-		envValues[key] = value
+
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		return Envs{}, errors.New("CONFIG_PATH environment variable is required")
 	}
-	config.PostgresHost.Password = envValues["POSTGRES_PASSWORD"]
-	config.PostgresHost.User = envValues["POSTGRES_USER"]
-	config.PostgresHost.Host = envValues["POSTGRES_HOST"]
-	config.MigrationsPostgresPath = envValues["MIGRATOR_MIGRATIONS_PATH"]
-	return config, nil
+
+	envs := Envs{RootPath: rootPath,
+		ConfigPath: configPath}
+
+	return envs, nil
 }

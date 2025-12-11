@@ -1,4 +1,0 @@
-moexHost: "iss.moex.com"
-clients:
-  moexApiAppClient:
-    moexApiAppHost: "0.0.0.0"

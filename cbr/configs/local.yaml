@@ -1,5 +1,0 @@
-env: "dev" # "local", "dev", "prod"
-cbrHost: "www.cbr.ru"
-cbr_app_host: "0.0.0.0:"
-cbr_app_port: 0
-

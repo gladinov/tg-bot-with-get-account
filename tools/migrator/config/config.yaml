@@ -1,4 +1,2 @@
 postgresHost:
-  dbname: "users"
-  port: 5432
   sslmode: "disable"

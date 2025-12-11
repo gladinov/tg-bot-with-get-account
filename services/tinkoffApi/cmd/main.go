@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -43,7 +42,6 @@ func main() {
 	}
 
 	cnfgs := configs.MustInitConfigs()
-	fmt.Println(cnfgs.Config, cnfgs.TinkoffApiConfig)
 
 	analyticsService := service.NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logger)
 	portfolioService := service.NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logger)

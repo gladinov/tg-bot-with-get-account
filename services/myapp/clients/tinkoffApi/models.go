@@ -130,14 +130,14 @@ type Operation struct {
 	Figi              string     `json:"figi,omitempty"`
 	InstrumentType    string     `json:"instrumentType,omitempty"`
 	InstrumentKind    string     `json:"instrumentKind,omitempty"`
-	PositionUid   string     `json:"positionUid,omitempty"`
-	Payment       MoneyValue `json:"payment,omitempty"`
-	Price         MoneyValue `json:"price,omitempty"`
-	Commission    MoneyValue `json:"commission,omitempty"`
-	Yield         MoneyValue `json:"yield,omitempty"`
-	YieldRelative Quotation  `json:"yieldRelative,omitempty"`
-	AccruedInt    MoneyValue `json:"accruedInt,omitempty"`
-	QuantityDone  int64      `json:"quantityDone,omitempty"`
+	PositionUid       string     `json:"positionUid,omitempty"`
+	Payment           MoneyValue `json:"payment,omitempty"`
+	Price             MoneyValue `json:"price,omitempty"`
+	Commission        MoneyValue `json:"commission,omitempty"`
+	Yield             MoneyValue `json:"yield,omitempty"`
+	YieldRelative     Quotation  `json:"yieldRelative,omitempty"`
+	AccruedInt        MoneyValue `json:"accruedInt,omitempty"`
+	QuantityDone      int64      `json:"quantityDone,omitempty"`
 	AssetUid          string     `json:"assetUid,omitempty"`
 }
 

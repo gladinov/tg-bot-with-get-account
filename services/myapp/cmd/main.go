@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,7 +34,7 @@ func main() {
 	// docker run
 
 	cnfg := config.MustInitConfig()
-	fmt.Println(cnfg)
+
 	//// //  for local
 	//envPath := filepath.Join(rootPath, ".env")
 	//err := godotenv.Load(envPath)
