@@ -57,7 +57,7 @@ const (
 	SQLite    = "SQLite"
 )
 
-func MustInitNewStorage(ctx context.Context, config config.Config, rootPath string) Storage {
+func MustInitNewStorage(ctx context.Context, config config.Config) Storage {
 	switch config.DbType {
 	case postreSQL:
 		serviceStorage, err := postgreSQL.NewStorage(config)
@@ -72,7 +72,7 @@ func MustInitNewStorage(ctx context.Context, config config.Config, rootPath stri
 		return serviceStorage
 
 	case SQLite:
-		serviceStorageAbsolutPath, err := pathwd.PathFromWD(rootPath, config.ServiceStorageSQLLitePath)
+		serviceStorageAbsolutPath, err := pathwd.PathFromWD(config.RootPath, config.ServiceStorageSQLLitePath)
 		if err != nil {
 			panic(err)
 		}

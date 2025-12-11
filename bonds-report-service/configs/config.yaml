@@ -1,18 +1,13 @@
 env: local
-moexHost: "0.0.0.0:8081"
-tinkoffApiHost: "0.0.0.0:8082"
-cbrHost: "0.0.0.0:8083"
-bondReportServiceHost: "0.0.0.0:8084"
-sberConfigPath: "/configs/sber.yaml"
 dbType: "postgreSQL" # "postgreSQL" , "SQLite"
 serviceStorageSQLLitePath: "/data/sqlite/service_storage.db"
 postgresHost:
-  host: "" #For docker
-#  host: "localhost" #For local run in terminal
-  user: "" # take from .env
-  password: "" # take from .env
-  dbname: "" # take from .env
-  port: 5432
   sslmode: "disable"
+clients:
+  tinkoffClient:
+  cbrClient:
+  moexClient:
+  bondReportService:
+    bondReportServiceHost: "0.0.0.0"
 
 

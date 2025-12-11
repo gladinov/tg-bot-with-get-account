@@ -30,7 +30,6 @@ func NewStorage(postgresConfig config.Config) (*Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(postgresHost)
 	db, err := pgxpool.New(context.Background(), postgresHost)
 	if err != nil {
 		return nil, err

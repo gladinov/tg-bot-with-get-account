@@ -11,23 +11,66 @@ import (
 )
 
 type Config struct {
-	Env                       string `yaml:"env"`
-	MoexHost                  string `yaml:"moexHost"`
-	TinkoffApiHost            string `yaml:"tinkoffApiHost"`
-	CBRHost                   string `yaml:"cbrHost"`
-	BondReportServiceHost     string `yaml:"bondReportServiceHost"`
-	SberConfigPath            string `yaml:"sberConfigPath"`
-	DbType                    string `yaml:"dbType"`
-	ServiceStorageSQLLitePath string `yaml:"serviceStorageSQLLitePath"`
-	PostgresHost              `yaml:"postgresHost"`
+	RootPath                  string       `env:"ROOT_PATH" env-required:"true"`
+	ConfigPath                string       `env:"CONFIG_PATH" env-required:"true"`
+	SberConfigPath            string       `env:"SBER_CONFIG_PATH" env-required:"true"`
+	Env                       string       `yaml:"env"`
+	DbType                    string       `yaml:"dbType"`
+	ServiceStorageSQLLitePath string       `yaml:"serviceStorageSQLLitePath"`
+	Clients                   Clients      `yaml:"clients"`
+	PostgresHost              PostgresHost `yaml:"postgresHost"`
+}
+
+type Clients struct {
+	TinkoffClient     TinkoffApiApp        `yaml:"tinkoffClient"`
+	CBRClient         CBRApp               `yaml:"cbrClient"`
+	MoexClient        MoexApp              `yaml:"moexClient"`
+	BondReportService BondReportServiceApp `yaml:"bondReportService"`
+}
+
+type TinkoffApiApp struct {
+	Host string `env:"TINKOFF_API_HOST" env-required:"true"`
+	Port string `env:"TINKOFF_API_PORT" env-required:"true"`
+}
+
+func (t *TinkoffApiApp) GetTinkoffApiAddress() string {
+	return getAddress(t.Host, t.Port)
+}
+
+type CBRApp struct {
+	Host string `env:"CBR_HOST" env-required:"true"`
+	Port string `env:"CBR_PORT" env-required:"true"`
+}
+
+func (c *CBRApp) GetCBRAppAddress() string {
+	return getAddress(c.Host, c.Port)
+}
+
+type MoexApp struct {
+	Host string `env:"MOEX_API_HOST" env-required:"true"`
+	Port string `env:"MOEX_API_PORT" env-required:"true"`
+}
+
+func (m *MoexApp) GetMoexAppAddress() string {
+	return getAddress(m.Host, m.Port)
+}
+
+type BondReportServiceApp struct {
+	Host string `yaml:"bondReportServiceHost"`
+	Port string `env:"BOND_REPORT_SERVICE_PORT" env-required:"true"`
+}
+
+func (b *BondReportServiceApp) GetBondReportServiceAppAddress() string {
+	return getAddress(b.Host, b.Port)
 }
 
 type PostgresHost struct {
-	Host     string `yaml:"host"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	Dbname   string `yaml:"dbname"`
-	Port     int    `yaml:"port"`
+	Host     string `env:"POSTGRES_HOST" env-required:"true"`
+	User     string `env:"POSTGRES_USER" env-required:"true"`
+	Password string `env:"POSTGRES_PASSWORD" env-required:"true"`
+	Dbname   string `env:"POSTGRES_DB" env-required:"true"`
+	Port     string `env:"POSTGRES_SERVICE_PORT" env-required:"true"`
+	PgUser   string `env:"PGUSER" env-required:"true"`
 	SslMode  string `yaml:"sslmode"`
 }
 
@@ -44,7 +87,7 @@ func (p *PostgresHost) GetStringHost() (string, error) {
 	if p.Dbname == "" {
 		return "", errors.New("empty dbname in config")
 	}
-	if p.Port == 0 {
+	if p.Port == "" {
 		return "", errors.New("empty port in config")
 	}
 	host := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%v sslmode=%s",
@@ -57,37 +100,52 @@ func (p *PostgresHost) GetStringHost() (string, error) {
 	return host, nil
 }
 
-func (p *PostgresHost) GetHostToGoMigrate() (string, error) {
-	if p.Host == "" {
-		return "", errors.New("empty host in config")
-	}
-	if p.User == "" {
-		return "", errors.New("empty user in config")
-	}
-	if p.Password == "" {
-		return "", errors.New("empty password in config")
-	}
-	if p.Dbname == "" {
-		return "", errors.New("empty dbname in config")
-	}
-	if p.Port == 0 {
-		return "", errors.New("empty port in config")
-	}
-	host := fmt.Sprintf("postgres://%s:%s@%s:%v/%s?sslmode=%s", p.User, p.Password, p.Host, p.Port, p.Dbname, p.SslMode)
-	return host, nil
-}
-
-func MustInitConfig(rootPath string) Config {
-	path := filepath.Join(rootPath, "configs", "config.yaml")
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log.Fatalf("config file does not exist: %s", path)
+func MustInitConfig() Config {
+	const op = "config.MustInitConfig"
+	envs, err := InjectEnvs()
+	if err != nil {
+		log.Fatalf("%s: %s", op, err)
 	}
 
+	Path := filepath.Join(envs.RootPath, envs.ConfigPath)
 	var config Config
-	err := cleanenv.ReadConfig(path, &config)
+	err = cleanenv.ReadConfig(Path, &config)
 	if err != nil {
 		log.Fatalf("cannot read config: %s", err)
 	}
 	return config
+}
+
+func getAddress(host string, port string) string {
+	return host + ":" + port
+}
+
+type Envs struct {
+	RootPath       string
+	ConfigPath     string
+	SberConfigPath string
+}
+
+func InjectEnvs() (Envs, error) {
+	rootPath := os.Getenv("ROOT_PATH")
+	if rootPath == "" {
+		return Envs{}, errors.New("ROOT_PATH environment variable is required")
+	}
+
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		return Envs{}, errors.New("CONFIG_PATH environment variable is required")
+	}
+
+	sberConfigPath := os.Getenv("SBER_CONFIG_PATH")
+	if sberConfigPath == "" {
+		return Envs{}, errors.New("SBER_CONFIG_PATH environment variable is required")
+	}
+
+	envs := Envs{RootPath: rootPath,
+		ConfigPath:     configPath,
+		SberConfigPath: sberConfigPath,
+	}
+
+	return envs, nil
 }

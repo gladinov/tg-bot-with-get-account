@@ -24,30 +24,20 @@ func main() {
 	//rootPath := app.MustGetRoot()
 
 	// docker run
-	rootPath := os.Getenv("ROOT_PATH")
-	DbPassword := os.Getenv("POSTGRES_PASSWORD")
-	PostgresDb := os.Getenv("POSTGRES_DB")
-	PostgresUser := os.Getenv("POSTGRES_USER")
-	PostgresHost := os.Getenv("POSTGRES_HOST")
-
-	conf := config.MustInitConfig(rootPath)
-	conf.Password = DbPassword
-	conf.Dbname = PostgresDb
-	conf.User = PostgresUser
-	conf.Host = PostgresHost
+	conf := config.MustInitConfig()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	repo := repository.MustInitNewStorage(ctx, conf, rootPath)
+	repo := repository.MustInitNewStorage(ctx, conf)
 
-	tinkoffClient := tinkoffApi.NewClient(conf.TinkoffApiHost)
+	tinkoffClient := tinkoffApi.NewClient(conf.Clients.TinkoffClient.GetTinkoffApiAddress())
 
-	moexClient := moex.NewClient(conf.MoexHost)
+	moexClient := moex.NewClient(conf.Clients.MoexClient.GetMoexAppAddress())
 
-	cbrClient := cbr.New(conf.CBRHost)
+	cbrClient := cbr.New(conf.Clients.CBRClient.GetCBRAppAddress())
 
-	sberClient, err := sber.NewClient(rootPath, conf.SberConfigPath)
+	sberClient, err := sber.NewClient(conf.RootPath, conf.SberConfigPath)
 	if err != nil {
 		log.Fatalf("could not create sber client: %s", err.Error())
 	}
@@ -68,6 +58,6 @@ func main() {
 	router.GET("/bondReportService/getUnionPortfolioStructure", handlers.AuthMiddleware(), handl.GetUnionPortfolioStructure)
 	router.GET("/bondReportService/getUnionPortfolioStructureWithSber", handlers.AuthMiddleware(), handl.GetUnionPortfolioStructureWithSber)
 
-	router.Run(conf.BondReportServiceHost)
+	router.Run(conf.Clients.BondReportService.GetBondReportServiceAppAddress())
 
 }

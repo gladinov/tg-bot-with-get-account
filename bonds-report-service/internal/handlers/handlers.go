@@ -4,6 +4,7 @@ import (
 	"bonds-report-service/internal/service"
 	"bonds-report-service/lib/valuefromcontext"
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -65,6 +66,7 @@ func (h *Client) GetUSD(c *gin.Context) {
 
 	usdResponce, err := h.service.GetUsd(ctx)
 	if err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
