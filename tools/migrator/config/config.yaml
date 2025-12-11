@@ -1,5 +1,4 @@
-migrationsPostgresPath: "/migrations/postgres"
 postgresHost:
   dbname: "users"
-  port: 5433
+  port: 5432
   sslmode: "disable"

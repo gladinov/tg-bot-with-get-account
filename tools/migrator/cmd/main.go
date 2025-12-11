@@ -13,14 +13,14 @@ import (
 )
 
 func main() {
-	rootPath := os.Getenv("ROOT_PATH")
+	rootPath := os.Getenv("MIGRATOR_ROOT_PATH")
 	if rootPath == "" {
-		panic("ROOT_PATH environment variable is required")
+		panic("MIGRATOR_ROOT_PATH environment variable is required")
 	}
 
-	configPath := os.Getenv("CONFIG_PATH")
+	configPath := os.Getenv("MIGRATOR_CONFIG_PATH")
 	if configPath == "" {
-		panic("CONFIG_PATH environment variable is required")
+		panic("MIGRATOR_CONFIG_PATH environment variable is required")
 	}
 
 	cnfg := config.MustInitConfig(rootPath, configPath)
@@ -38,11 +38,12 @@ func MustMigratePostgres(rootPath string, postgresConfig config.Config) {
 	}
 
 	migrationsURL := "file://" + migrationPath + "/"
-
+	
 	databaseURL, err := postgresConfig.PostgresHost.GetHostToGoMigrate()
 	if err != nil {
 		panic(err)
 	}
+
 	m, err := migrate.New(migrationsURL, databaseURL)
 	if err != nil {
 		panic(err)

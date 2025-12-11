@@ -8,7 +8,8 @@ tinkoff_commands.yaml
 tinkoffApi/configs/config.yaml
 tinkoffApi/configs/tinkoffApiConfig.yaml
 tinkoffApi/configs/local.yaml
-tinkoffApi/tokens.env
+tinkoffApi/secrets/tokens.env
 myapp/tokens.env
 .idea
 
+/tinkoffApi/secrets/tokens.env

@@ -11,8 +11,6 @@ import (
 )
 
 type Config struct {
-	StorageSQLLitePath     string       `yaml:"storageSQLLitePath"`
-	MigrationsSqllitePath  string       `yaml:"migrationsSqllitePath"`
 	MigrationsPostgresPath string       `yaml:"migrationsPostgresPath"`
 	PostgresHost           PostgresHost `yaml:"postgresHost"`
 }
@@ -89,7 +87,11 @@ func MustInitConfig(rootPath string, configPath string) Config {
 }
 
 func InjectEnv(config Config) (Config, error) {
-	requiredEnv := []string{"POSTGRES_PASSWORD", "POSTGRES_USER", "POSTGRES_HOST"}
+	requiredEnv := []string{"POSTGRES_PASSWORD",
+		"POSTGRES_USER",
+		"POSTGRES_HOST",
+		"MIGRATOR_MIGRATIONS_PATH",
+	}
 	envValues := make(map[string]string)
 	for _, key := range requiredEnv {
 		value := os.Getenv(key)
@@ -101,5 +103,6 @@ func InjectEnv(config Config) (Config, error) {
 	config.PostgresHost.Password = envValues["POSTGRES_PASSWORD"]
 	config.PostgresHost.User = envValues["POSTGRES_USER"]
 	config.PostgresHost.Host = envValues["POSTGRES_HOST"]
+	config.MigrationsPostgresPath = envValues["MIGRATOR_MIGRATIONS_PATH"]
 	return config, nil
 }
