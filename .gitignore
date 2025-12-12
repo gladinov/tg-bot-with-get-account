@@ -2,15 +2,9 @@ deployments/env/.env
 /services/myapp/data/sqlite/storage.db
 /services/myapp/data/sqlite/service_storage.db
 /services/myapp/archive
-/services/myapp/mybot.exe
-/services/myapp/configs
 tinkoff_commands.yaml
-services/tinkoffApi/configs/config.yaml
-services/tinkoffApi/configs/tinkoffApiConfig.yaml
-services/tinkoffApi/configs/local.yaml
 services/tinkoffApi/secrets/tokens.env
 services/myapp/tokens.env
 .idea
-
 /services/tinkoffApi/secrets/tokens.env
 /services/tinkoffApi/secrets/.env
