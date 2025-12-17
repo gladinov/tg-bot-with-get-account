@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +14,20 @@ import (
 )
 
 func (c *Client) GetCurrencyFromCB(charCode string, date time.Time) (vunit_rate float64, err error) {
-	defer func() { err = e.WrapIfErr("can't get currencies from CB", err) }()
+	const op = "service.GetCurrencyFromCB"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get currency from CB", err)
+	}()
+
 	vunit_rate, err = c.Storage.GetCurrency(context.Background(), charCode, date)
 	if err == nil {
 		return vunit_rate, nil
@@ -25,7 +39,7 @@ func (c *Client) GetCurrencyFromCB(charCode string, date time.Time) (vunit_rate 
 	if err != nil {
 		return vunit_rate, err
 	}
-	currencies, err := transformCurrenciesFromCB(currenciesFromCB)
+	currencies, err := transformCurrenciesFromCB(logg, currenciesFromCB)
 	if err != nil {
 		return vunit_rate, err
 	}
@@ -40,8 +54,21 @@ func (c *Client) GetCurrencyFromCB(charCode string, date time.Time) (vunit_rate 
 
 }
 
-func transformCurrenciesFromCB(inCurrencies cbr.CurrenciesResponce) (_ *service_models.Currencies, err error) {
-	defer func() { err = e.WrapIfErr("can't transform currencies from CB", err) }()
+func transformCurrenciesFromCB(logger *slog.Logger, inCurrencies cbr.CurrenciesResponce) (_ *service_models.Currencies, err error) {
+	const op = "service.transformCurrenciesFromCB"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't transform currency from CB", err)
+	}()
+
 	outCurrencies := &service_models.Currencies{
 		CurrenciesMap: make(map[string]service_models.Currency),
 	}

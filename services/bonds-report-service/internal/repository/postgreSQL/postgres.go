@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	config "bonds-report-service/internal/configs"
@@ -21,10 +22,24 @@ const (
 )
 
 type Storage struct {
-	db *pgxpool.Pool
+	logger *slog.Logger
+	db     *pgxpool.Pool
 }
 
-func NewStorage(postgresConfig config.Config) (*Storage, error) {
+func NewStorage(logger *slog.Logger, postgresConfig config.Config) (_ *Storage, err error) {
+	const op = "postgreSQL.NewStorage"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could create new postgreSQL storage", err)
+	}()
 
 	postgresHost, err := postgresConfig.PostgresHost.GetStringHost()
 	if err != nil {
@@ -34,33 +49,46 @@ func NewStorage(postgresConfig config.Config) (*Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Storage{db: db}, nil
+	return &Storage{db: db, logger: logger}, nil
 }
 
 func (s *Storage) CloseDB() {
 	s.db.Close()
 }
 
-func (s *Storage) InitDB(ctx context.Context) error {
-	err := s.createBondReportsTable(ctx)
+func (s *Storage) InitDB(ctx context.Context) (err error) {
+	const op = "postgreSQL.InitDB"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not InitDB", err)
+	}()
+	err = s.createBondReportsTable(ctx)
 	if err != nil {
 		return err
 	}
 	err = s.createGeneralBondReportsTable(ctx)
 	if err != nil {
-		return errors.New("could not create general bond reports table")
+		return err
 	}
 	err = s.createUidsTable(ctx)
 	if err != nil {
-		return errors.New("could not create uids table")
+		return err
 	}
 	err = s.createOperationsTable(ctx)
 	if err != nil {
-		return errors.New("could not create operations table")
+		return err
 	}
 	err = s.createCurrenciesTable(ctx)
 	if err != nil {
-		return errors.New("could not create currencies table")
+		return err
 	}
 
 	return nil
@@ -69,7 +97,7 @@ func (s *Storage) InitDB(ctx context.Context) error {
 func (s *Storage) createBondReportsTable(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, queryCreateBondReportsTable)
 	if err != nil {
-		return errors.New("could not create bond reports table")
+		return e.WrapIfErr("could not create bond reports table", err)
 	}
 	return nil
 }
@@ -77,7 +105,7 @@ func (s *Storage) createBondReportsTable(ctx context.Context) error {
 func (s *Storage) createGeneralBondReportsTable(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, queryCreateGeneralBondReportsTable)
 	if err != nil {
-		return fmt.Errorf("could not create general bond reports table: %w", err)
+		return e.WrapIfErr("could not create general bond reports table", err)
 	}
 	return nil
 }
@@ -85,7 +113,7 @@ func (s *Storage) createGeneralBondReportsTable(ctx context.Context) error {
 func (s *Storage) createUidsTable(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, queryCreateUidsTable)
 	if err != nil {
-		return errors.New("could not create uids table")
+		return e.WrapIfErr("could not create uids table", err)
 	}
 	return nil
 }
@@ -93,7 +121,7 @@ func (s *Storage) createUidsTable(ctx context.Context) error {
 func (s *Storage) createOperationsTable(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, queryCreateOperationsTable)
 	if err != nil {
-		return errors.New("could not create operations table")
+		return e.WrapIfErr("could not create operations table", err)
 	}
 	return nil
 }
@@ -101,17 +129,30 @@ func (s *Storage) createOperationsTable(ctx context.Context) error {
 func (s *Storage) createCurrenciesTable(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, queryCreateCurrenciesTable)
 	if err != nil {
-		return errors.New("could not create currencies table")
+		return e.WrapIfErr("could not create currencies table", err)
 	}
 	return nil
 }
 
-func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID string) (time.Time, error) {
+func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID string) (_ time.Time, err error) {
+	const op = "postgreSQL.LastOperationTime"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not get LastOperationTime", err)
+	}()
 	q := "SELECT date FROM operations WHERE chatId = $1 AND broker_account_id = $2 ORDER BY DATE DESC LIMIT 1"
 
 	var date time.Time
 
-	err := s.db.QueryRow(ctx, q, chatID, accountID).Scan(&date)
+	err = s.db.QueryRow(ctx, q, chatID, accountID).Scan(&date)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return time.Time{}, service_models.ErrNoOpperations
@@ -121,7 +162,20 @@ func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID s
 	return date, nil
 }
 
-func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []service_models.Operation) error {
+func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []service_models.Operation) (err error) {
+	const op = "postgreSQL.SaveOperations"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not SaveOperations", err)
+	}()
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx failed: %w", err)
@@ -201,8 +255,20 @@ func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId stri
 	return nil
 }
 
-func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) ([]service_models.Operation, error) {
+func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) (_ []service_models.Operation, err error) {
 	const op = "postgreSql.GetOperations"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not get operations", err)
+	}()
 	q := `select 
     name,
     date,
@@ -255,7 +321,20 @@ from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 
 }
 
 func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error) {
-	defer func() { err = e.WrapIfErr("can't delete bond report by chatId and accountId", err) }()
+	const op = "postgreSql.DeleteBondReport"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't delete bond report by chatId and accountId", err)
+	}()
+
 	q := `DELETE FROM bond_reports WHERE chatId = $1 AND broker_account_id = $2`
 	if _, err := s.db.Exec(ctx,
 		q,
@@ -265,7 +344,21 @@ func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId st
 	return nil
 }
 
-func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) error {
+func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) (err error) {
+	const op = "postgreSql.SaveBondReport"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't save bond report", err)
+	}()
+
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx failed: %w", err)
@@ -334,7 +427,19 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
 }
 
 func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accountId string) (err error) {
-	defer func() { err = e.WrapIfErr("can't delete general bond report by chatId and accountId", err) }()
+	const op = "postgreSql.SaveBondReport"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't delete general bond report by chatId and accountId", err)
+	}()
 
 	q := `DELETE FROM general_bond_report WHERE chatId = $1 AND broker_account_id = $2`
 
@@ -346,7 +451,21 @@ func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accou
 	return nil
 }
 
-func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []service_models.GeneralBondReportPosition) error {
+func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []service_models.GeneralBondReportPosition) (err error) {
+	const op = "postgreSql.SaveGeneralBondReport"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't save general bond report", err)
+	}()
+
 	batch := &pgx.Batch{}
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -416,7 +535,19 @@ func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, account
 }
 
 func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err error) {
-	defer func() { err = e.WrapIfErr("can't save uids", err) }()
+	const op = "postgreSql.SaveUids"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't save uids", err)
+	}()
 
 	if len(uids) == 0 {
 		return errors.New("empty uids map")
@@ -465,12 +596,26 @@ func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err err
 
 }
 
-func (s *Storage) IsUpdatedUids(ctx context.Context) (time.Time, error) {
+func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
+	const op = "postgreSql.IsUpdatedUids"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get update uids data", err)
+	}()
+
 	q := `SELECT update_time FROM uids LIMIT 1`
 
 	var date time.Time
 
-	err := s.db.QueryRow(ctx, q).Scan(&date)
+	err = s.db.QueryRow(ctx, q).Scan(&date)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return time.Time{}, service_models.ErrEmptyUids
 	}
@@ -482,10 +627,23 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (time.Time, error) {
 	return date, nil
 }
 
-func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (string, error) {
+func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, err error) {
+	const op = "postgreSql.GetUid"
+
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get uid", err)
+	}()
 	q := `SELECT asset_uid FROM uids WHERE instrument_uid = $1`
 	var asset_uid string
-	err := s.db.QueryRow(ctx, q, instrumentUid).Scan(&asset_uid)
+	err = s.db.QueryRow(ctx, q, instrumentUid).Scan(&asset_uid)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -497,7 +655,19 @@ func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (string, err
 	return asset_uid, nil
 }
 
-func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Currencies, date time.Time) error {
+func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Currencies, date time.Time) (err error) {
+	const op = "postgreSql.SaveCurrency"
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't save currency", err)
+	}()
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -537,7 +707,19 @@ func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Cu
 	return nil
 }
 
-func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Time) (float64, error) {
+func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Time) (_ float64, err error) {
+	const op = "postgreSql.SaveCurrency"
+	start := time.Now()
+	logg := s.logger.With(
+		slog.String("op", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Debug("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't save currency", err)
+	}()
 	q := `
         SELECT vunit_rate
         FROM currencies
@@ -546,7 +728,7 @@ func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Ti
         LIMIT 1
     `
 	var vunit_rate float64
-	err := s.db.QueryRow(ctx, q, charCode, date).Scan(&vunit_rate)
+	err = s.db.QueryRow(ctx, q, charCode, date).Scan(&vunit_rate)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return vunit_rate, service_models.ErrNoCurrency

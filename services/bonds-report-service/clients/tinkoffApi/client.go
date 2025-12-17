@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -15,13 +15,15 @@ import (
 )
 
 type Client struct {
+	logger *slog.Logger
 	host   string
 	client *http.Client
 }
 
-func NewClient(host string) *Client {
+func NewClient(logger *slog.Logger, host string) *Client {
 	return &Client{
-		host: host,
+		logger: logger,
+		host:   host,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -35,6 +37,16 @@ func (c *Client) GetAccounts(ctx context.Context) (map[string]Account, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("err", err),
+		)
+	}()
 
 	u := url.URL{
 		Scheme: "http",
@@ -79,6 +91,16 @@ func (c *Client) GetAccounts(ctx context.Context) (map[string]Account, error) {
 
 func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest) (Portfolio, error) {
 	const op = "tinkoffApi.GetPortfolio"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return Portfolio{}, fmt.Errorf("%s:%w", op, err)
@@ -135,6 +157,16 @@ func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest)
 
 func (c *Client) GetOperations(ctx context.Context, requestBody OperationsRequest) (_ []Operation, err error) {
 	const op = "tinkoffApi.GetOperations"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "operations")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -189,6 +221,16 @@ func (c *Client) GetOperations(ctx context.Context, requestBody OperationsReques
 
 func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error) {
 	const op = "tinkoffApi.GetAllAssetUids"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "allassetsuid")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -235,6 +277,16 @@ func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error)
 
 func (c *Client) GetFutureBy(ctx context.Context, figi string) (Future, error) {
 	const op = "tinkoffApi.GetFutureBy"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "future")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -292,6 +344,16 @@ func (c *Client) GetFutureBy(ctx context.Context, figi string) (Future, error) {
 
 func (c *Client) GetBondByUid(ctx context.Context, uid string) (Bond, error) {
 	const op = "tinkoffApi.GetBondByUid"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "bond")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -349,6 +411,16 @@ func (c *Client) GetBondByUid(ctx context.Context, uid string) (Bond, error) {
 
 func (c *Client) GetCurrencyBy(ctx context.Context, figi string) (Currency, error) {
 	const op = "tinkoffApi.GetCurrencyBy"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "currency")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -406,6 +478,16 @@ func (c *Client) GetCurrencyBy(ctx context.Context, figi string) (Currency, erro
 
 func (c *Client) FindBy(ctx context.Context, query string) ([]InstrumentShort, error) {
 	const op = "tinkoffApi.FindBy"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "findby")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -463,6 +545,16 @@ func (c *Client) FindBy(ctx context.Context, query string) ([]InstrumentShort, e
 
 func (c *Client) GetBondsActions(ctx context.Context, instrumentUid string) (BondIdentIdentifiers, error) {
 	const op = "tinkoffApi.GetBondsActions"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "bondactions")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -520,6 +612,16 @@ func (c *Client) GetBondsActions(ctx context.Context, instrumentUid string) (Bon
 
 func (c *Client) GetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (LastPriceResponse, error) {
 	const op = "tinkoffApi.GetLastPriceInPersentageToNominal"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "lastprice")
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
@@ -577,6 +679,16 @@ func (c *Client) GetLastPriceInPersentageToNominal(ctx context.Context, instrume
 
 func (c *Client) GetShareCurrencyBy(ctx context.Context, figi string) (ShareCurrencyByResponse, error) {
 	const op = "tinkoffApi.GetShareCurrencyBy"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	Path := path.Join("tinkoff", "share", "currency")
 
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
@@ -632,12 +744,4 @@ func (c *Client) GetShareCurrencyBy(ctx context.Context, figi string) (ShareCurr
 		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, could not unmarshall json", op)
 	}
 	return data, nil
-}
-
-func getToken(ctx context.Context) (string, error) {
-	tokenBase64, exist := ctx.Value("token").(string)
-	if !exist {
-		return "", errors.New("context has not token or token not string")
-	}
-	return tokenBase64, nil
 }

@@ -11,10 +11,10 @@ import (
 )
 
 type Config struct {
+	Env                       string       `env:"ENV" env-required:"true"`
 	RootPath                  string       `env:"ROOT_PATH" env-required:"true"`
 	ConfigPath                string       `env:"CONFIG_PATH" env-required:"true"`
 	SberConfigPath            string       `env:"SBER_CONFIG_PATH" env-required:"true"`
-	Env                       string       `yaml:"env"`
 	DbType                    string       `yaml:"dbType"`
 	ServiceStorageSQLLitePath string       `yaml:"serviceStorageSQLLitePath"`
 	Clients                   Clients      `yaml:"clients"`

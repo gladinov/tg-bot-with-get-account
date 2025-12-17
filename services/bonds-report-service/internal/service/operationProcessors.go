@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"math"
 	"time"
 
@@ -28,7 +29,21 @@ const (
 	baseTaxRate                                    = 0.13  // Налог с продажи ЦБ
 )
 
-func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *service_models.PositionByFIFO) error {
+func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *service_models.PositionByFIFO) (err error) {
+	const op = "service.GetSpecificationsFromTinkoff"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not get specifications from tinkoff", err)
+	}()
+
 	resSpecFromTinkoff, err := c.TinkoffGetBondActions(ctx, position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex " + err.Error())
@@ -58,23 +73,37 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *ser
 
 }
 
-func (c *Client) ProcessOperations(ctx context.Context, operations []service_models.Operation) (*service_models.ReportPositions, error) {
+func (c *Client) ProcessOperations(ctx context.Context, operations []service_models.Operation) (_ *service_models.ReportPositions, err error) {
+	const op = "service.ProcessOperations"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process operations", err)
+	}()
+
 	processPosition := &service_models.ReportPositions{}
 	for _, operation := range operations {
 		switch operation.Type {
 		// 2	Удержание НДФЛ по купонам.
 		// 8    Удержание налога по дивидендам.
 		case WithholdingOfPersonalIncomeTaxOnCoupons, WithholdingOfPersonalIncomeTaxOnDividends:
-			err := processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation, processPosition)
+			err := c.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation, processPosition)
 			if err != nil {
-				return nil, errors.New("ProcessOperations: processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends" + err.Error())
+				return nil, err
 			}
 
 			// 10	Частичное погашение облигаций.
 		case PartialRedemptionOfBonds:
-			err := processPartialRedemptionOfBonds(operation, processPosition)
+			err := c.processPartialRedemptionOfBonds(operation, processPosition)
 			if err != nil {
-				return nil, errors.New("ProcessOperations: processPartialRedemptionOfBonds" + err.Error())
+				return nil, err
 			}
 
 			// 15	Покупка ЦБ.
@@ -88,7 +117,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []service_mod
 			} else {
 				err := c.processPurchaseOfSecurities(ctx, operation, processPosition)
 				if err != nil {
-					return nil, errors.New("service:ProcessOperations:" + err.Error())
+					return nil, err
 				}
 			}
 			// 17	Перевод ценных бумаг из другого депозитария.
@@ -100,7 +129,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []service_mod
 			} else {
 				err := c.processTransferOfSecuritiesFromAnotherDepository(ctx, operation, processPosition)
 				if err != nil {
-					return nil, errors.New("service:ProcessOperations:" + err.Error())
+					return nil, err
 				}
 			}
 			// 19	Удержание комиссии за операцию.
@@ -109,9 +138,9 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []service_mod
 
 			// 21	Выплата дивидендов.
 		case PaymentOfDividends:
-			err := processPaymentOfDividends(operation, processPosition)
+			err := c.processPaymentOfDividends(operation, processPosition)
 			if err != nil {
-				return nil, errors.New("ProcessOperations: processPaymentOfDividends" + err.Error())
+				return nil, err
 			}
 			// 22	Продажа ЦБ.
 		case SaleOfSecurities:
@@ -120,24 +149,24 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []service_mod
 			if operation.QuantityDone == 0 {
 				continue
 			} else {
-				err := processSellOfSecurities(&operation, processPosition)
+				err := c.processSellOfSecurities(&operation, processPosition)
 				if err != nil {
-					return nil, errors.New("ProcessOperations: processSellOfSecurities" + err.Error())
+					return nil, err
 				}
 			}
 
 			// 23 Выплата купонов.
 		case PaymentOfCoupons:
-			err := processPaymentOfCoupons(operation, processPosition)
+			err := c.processPaymentOfCoupons(operation, processPosition)
 			if err != nil {
-				return nil, errors.New("ProcessOperations: processPaymentOfCoupons" + err.Error())
+				return nil, err
 			}
 
 			// 47	Гербовый сбор.
 		case StampDuty:
-			err := processStampDuty(operation, processPosition)
+			err := c.processStampDuty(operation, processPosition)
 			if err != nil {
-				return nil, errors.New("ProcessOperations: processStampDuty" + err.Error())
+				return nil, err
 			}
 		default:
 			continue
@@ -149,7 +178,20 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []service_mod
 
 // 2	Удержание НДФЛ по купонам.
 // 8    Удержание налога по дивидендам.
-func processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
+func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process withholding of personal income tax on coupons or dividends", err)
+	}()
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -163,7 +205,20 @@ func processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation service
 }
 
 // 10	Частичное погашение облигаций.
-func processPartialRedemptionOfBonds(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
+func (c *Client) processPartialRedemptionOfBonds(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processPartialRedemptionOfBonds"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process Partial Redemption Of Bonds", err)
+	}()
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -180,7 +235,21 @@ func processPartialRedemptionOfBonds(operation service_models.Operation, process
 // 15	Покупка ЦБ.
 // 16	Покупка ЦБ с карты.
 // 57   Перевод ценных бумаг с ИИС на Брокерский счет
-func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation service_models.Operation, processPosition *service_models.ReportPositions) error {
+func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processPurchaseOfSecurities"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process Purchase Of Securities", err)
+	}()
+
 	// при обработке фьючерсов и акций, где была маржтнальная позиция,
 	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
 	position := service_models.PositionByFIFO{
@@ -196,7 +265,7 @@ func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation serv
 		TotalComission: operation.Commission,
 	}
 
-	err := c.GetSpecificationsFromTinkoff(ctx, &position)
+	err = c.GetSpecificationsFromTinkoff(ctx, &position)
 	if err != nil {
 		return errors.New("service:processPurchaseOfSecurities:" + err.Error())
 	}
@@ -207,7 +276,20 @@ func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation serv
 }
 
 // 17	Перевод ценных бумаг из другого депозитария.
-func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation service_models.Operation, processPosition *service_models.ReportPositions) error {
+func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processTransferOfSecuritiesFromAnotherDepository"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process Transfer Of Securities From Another Depository", err)
+	}()
 	// при обработке фьючерсов и акций, где была маржтнальная позиция,
 	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
 	position := service_models.PositionByFIFO{
@@ -227,7 +309,7 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Co
 		position.BuyPrice = EuroTransBuyCost
 	}
 
-	err := c.GetSpecificationsFromTinkoff(ctx, &position)
+	err = c.GetSpecificationsFromTinkoff(ctx, &position)
 	if err != nil {
 		return errors.New("service:processTransferOfSecuritiesFromAnotherDepository:" + err.Error())
 	}
@@ -239,7 +321,21 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Co
 }
 
 // 21	Выплата дивидендов.
-func processPaymentOfDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
+func (c *Client) processPaymentOfDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processPaymentOfDividends"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process Payment Of Dividends", err)
+	}()
+
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -254,7 +350,21 @@ func processPaymentOfDividends(operation service_models.Operation, processPositi
 }
 
 // 23 Выплата купонов.
-func processPaymentOfCoupons(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
+func (c *Client) processPaymentOfCoupons(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processPaymentOfCoupons"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process Payment Of Coupons", err)
+	}()
+
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -269,7 +379,20 @@ func processPaymentOfCoupons(operation service_models.Operation, processPosition
 }
 
 // 47	Гербовый сбор.
-func processStampDuty(operation service_models.Operation, processPosition *service_models.ReportPositions) error {
+func (c *Client) processStampDuty(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processStampDuty"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process Payment Of Coupons", err)
+	}()
 	if processPosition.Quantity == 0 {
 		return errors.New("divide by zero")
 	} else {
@@ -284,8 +407,21 @@ func processStampDuty(operation service_models.Operation, processPosition *servi
 }
 
 // 22	Продажа ЦБ.
-func processSellOfSecurities(operation *service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
-	defer func() { err = e.WrapIfErr("processSellOfSecurities error", err) }()
+func (c *Client) processSellOfSecurities(operation *service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+	const op = "service.processSellOfSecurities"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not process Sell Of Securities", err)
+	}()
+
 	processPosition.Quantity -= operation.QuantityDone
 	// Переписать ПОЗЖЕ Переменная deleteCount отслеживает кол-во закрытых позиций для дальнейшего удаления в которых Кол-во проданных
 	// бумаг больше кол-ва бумаг в текущей позиции

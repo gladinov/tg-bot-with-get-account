@@ -2,10 +2,11 @@ module bonds-report-service
 
 go 1.24.0
 
-toolchain go1.24.10
+toolchain go1.24.11
 
 require (
 	github.com/fogleman/gg v1.3.0
+	github.com/gladinov/mylogger v0.0.3
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	golang.org/x/image v0.33.0

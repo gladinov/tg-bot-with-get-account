@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"sort"
@@ -52,6 +53,7 @@ const (
 )
 
 type Client struct {
+	logger     *slog.Logger
 	Tinkoffapi *tinkoffApi.Client
 	MoexApi    *moex.Client
 	CbrApi     *cbr.Client
@@ -59,8 +61,9 @@ type Client struct {
 	Storage    service_storage.Storage
 }
 
-func New(tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient *cbr.Client, sber *sber.Client, storage service_storage.Storage) *Client {
+func New(logger *slog.Logger, tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient *cbr.Client, sber *sber.Client, storage service_storage.Storage) *Client {
 	return &Client{
+		logger:     logger,
 		Tinkoffapi: tinkoffApiClient,
 		MoexApi:    moexClient,
 		CbrApi:     CbrClient,
@@ -70,15 +73,33 @@ func New(tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient
 }
 
 func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err error) {
-	defer func() { err = e.WrapIfErr("can't get bond reports", err) }()
+	const op = "service.GetBondReportsByFifo"
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get bond reports", err)
+	}()
 	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
 	if err != nil {
+		logg.Debug("get accounts error", slog.Any("error", err))
 		return err
 	}
 
 	for _, account := range accounts {
+		accountLogg := logg.With(
+			slog.String("account_id", account.Id),
+			slog.String("account_name", account.Name),
+			slog.String("account_type", account.Type))
 		err = c.updateOperations(ctx, chatID, account.Id, account.OpenedDate)
 		if err != nil {
+			accountLogg.Debug(
+				"update operation error", slog.Any("error", err))
 			return err
 		}
 		if account.Status != 2 {
@@ -86,32 +107,46 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 		}
 		portfolio, err := c.TinkoffGetPortfolio(ctx, account)
 		if err != nil {
+			accountLogg.Debug(
+				"tinkoffGetPortfolio err", slog.Any("error", err))
 			return err
 		}
 
 		portfolioPositions, err := c.TransformPositions(ctx, portfolio.Positions)
 		if err != nil {
+			accountLogg.Debug(
+				"transformPositions err", slog.Any("error", err))
 			return err
 		}
 		err = c.Storage.DeleteBondReport(context.Background(), chatID, account.Id)
 		if err != nil {
+			accountLogg.Debug(
+				"deleteBondReport err", slog.Any("error", err))
 			return err
 		}
 		bondsInRub := make([]service_models.BondReport, 0)
 
 		for _, v := range portfolioPositions {
-
+			positionLogg := accountLogg.With(
+				slog.String("Asset_uid", v.AssetUid),
+				slog.String("Instrument_type", v.InstrumentType))
 			if v.InstrumentType == "bond" {
 				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
 				if err != nil {
+					positionLogg.Debug(
+						"storage.GetOperation error", slog.Any("error", err))
 					return err
 				}
 				resultBondPosition, err := c.ProcessOperations(ctx, operationsDb)
 				if err != nil {
+					positionLogg.Debug(
+						"ProcessOperation error", slog.Any("error", err))
 					return err
 				}
 				bondReport, err := c.CreateBondReport(*resultBondPosition)
 				if err != nil {
+					positionLogg.Debug(
+						"CreateBondReport error", slog.Any("error", err))
 					return err
 				}
 				bondsInRub = append(bondsInRub, bondReport.BondsInRUB...)
@@ -119,15 +154,27 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 		}
 		err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondsInRub)
 		if err != nil {
+			accountLogg.Debug(
+				"Storage.SaveBondReport error", slog.Any("error", err))
 			return err
 		}
 	}
-
 	return nil
 }
 
 func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chatID int) (err error) {
-	defer func() { err = e.WrapIfErr("can't get general bond report", err) }()
+	const op = "service.GetBondReportsWithEachGeneralPosition"
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get general bond report", err)
+	}()
 
 	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
 	if err != nil {
@@ -201,7 +248,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 			}
 		}
 
-		err = Vizualization(&generalBondReports, chatID, account.Id)
+		err = Vizualization(logg, &generalBondReports, chatID, account.Id)
 		if err != nil {
 			return err
 		}
@@ -211,12 +258,34 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 	return nil
 }
 
-func Vizualization(generalBondReports *service_models.GeneralBondReports, chatID int, accountId string) error {
+func Vizualization(logger *slog.Logger, generalBondReports *service_models.GeneralBondReports, chatID int, accountId string) (err error) {
+	const op = "service.Vizualization"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't do vizualization", err)
+	}()
 	reports := make([][]service_models.GeneralBondReportPosition, 0)
 
-	rubbleBondReportSorted := sortGeneralBondReports(generalBondReports.RubBondsReport)
-	replacedBondReportSorted := sortGeneralBondReports(generalBondReports.ReplacedBondsReport)
-	euroBondReportSorted := sortGeneralBondReports(generalBondReports.EuroBondsReport)
+	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
+	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+		return err
+	}
+	replacedBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.ReplacedBondsReport)
+	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+		return err
+	}
+	euroBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.EuroBondsReport)
+	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+		return err
+	}
 	reports = append(reports, rubbleBondReportSorted)
 	reports = append(reports, replacedBondReportSorted)
 	reports = append(reports, euroBondReportSorted)
@@ -254,7 +323,7 @@ func Vizualization(generalBondReports *service_models.GeneralBondReports, chatID
 			if end > len(report) {
 				end = len(report)
 			}
-			err := visualization.Vizualize(report[start:end], pathAndName, typeOfBonds)
+			err := visualization.Vizualize(logg, report[start:end], pathAndName, typeOfBonds)
 			if err != nil {
 				return e.WrapIfErr("vizualize error", err)
 			}
@@ -266,7 +335,19 @@ func Vizualization(generalBondReports *service_models.GeneralBondReports, chatID
 }
 
 func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_models.BondReportsResponce, err error) {
-	defer func() { err = e.WrapIfErr("can't get general bond report", err) }()
+	const op = "service.GetBondReports"
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get general bond report", err)
+	}()
+
 	reportsInByteByAccounts := make([][]*service_models.MediaGroup, 0)
 
 	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
@@ -354,11 +435,34 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 }
 
 func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.GeneralBondReports, chatID int, accountId string) (_ []*service_models.MediaGroup, err error) {
+	const op = "service.PrepareToGenerateTablePNG"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't prepareToGeneratePNG", err)
+	}()
+
 	reports := make([][]service_models.GeneralBondReportPosition, 0)
 
-	rubbleBondReportSorted := sortGeneralBondReports(generalBondReports.RubBondsReport)
-	replacedBondReportSorted := sortGeneralBondReports(generalBondReports.ReplacedBondsReport)
-	euroBondReportSorted := sortGeneralBondReports(generalBondReports.EuroBondsReport)
+	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
+	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+		return nil, err
+	}
+	replacedBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.ReplacedBondsReport)
+	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+		return nil, err
+	}
+	euroBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.EuroBondsReport)
+	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+		return nil, err
+	}
 	reports = append(reports, rubbleBondReportSorted)
 	reports = append(reports, replacedBondReportSorted)
 	reports = append(reports, euroBondReportSorted)
@@ -385,7 +489,7 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 			if end > len(report) {
 				end = len(report)
 			}
-			pngData, err := visualization.GenerateTablePNG(report[start:end], typeOfBonds)
+			pngData, err := visualization.GenerateTablePNG(logg, report[start:end], typeOfBonds)
 			if err != nil {
 				return nil, e.WrapIfErr("vizualize error", err)
 			}
@@ -401,7 +505,26 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 	return reportsInByte, nil
 }
 
-func sortGeneralBondReports(report map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition) []service_models.GeneralBondReportPosition {
+func sortGeneralBondReports(logger *slog.Logger, report map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition) (_ []service_models.GeneralBondReportPosition, err error) {
+	const op = "service.sortGeneralBondReports"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't sort general bond report", err)
+	}()
+
+	// TODO: обработать более читаемо и в дальнейшем проверять ошибку
+	if len(report) == 0 {
+		return []service_models.GeneralBondReportPosition{}, service_models.ErrEmptyReport
+	}
+
 	keys := make([]service_models.TickerTimeKey, 0, len(report))
 	for k := range report {
 		keys = append(keys, k)
@@ -417,11 +540,24 @@ func sortGeneralBondReports(report map[service_models.TickerTimeKey]service_mode
 		result[i] = report[k]
 	}
 
-	return result
+	return result, nil
 }
 
 func (c *Client) GetAccountsList(ctx context.Context) (answ service_models.AccountListResponce, err error) {
-	defer func() { err = e.WrapIfErr("can't get accounts", err) }()
+	const op = "service.GetAccountsList"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get accounts", err)
+	}()
+
 	var accStr string = "По данному аккаунту доступны следующие счета:"
 
 	accs, err := c.Tinkoffapi.GetAccounts(ctx)
@@ -435,11 +571,24 @@ func (c *Client) GetAccountsList(ctx context.Context) (answ service_models.Accou
 	return accountResponce, nil
 }
 
-func (c *Client) GetUsd(ctx context.Context) (service_models.UsdResponce, error) {
+func (c *Client) GetUsd(ctx context.Context) (_ service_models.UsdResponce, err error) {
+	const op = "service.GetUsd"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("usd get error", err)
+	}()
 
 	usd, err := c.GetCurrencyFromCB("usd", time.Now())
 	if err != nil {
-		return service_models.UsdResponce{}, e.WrapIfErr("usd get error", err)
+		return service_models.UsdResponce{}, err
 	}
 	usdResponce := service_models.UsdResponce{Usd: usd}
 
@@ -447,7 +596,20 @@ func (c *Client) GetUsd(ctx context.Context) (service_models.UsdResponce, error)
 }
 
 func (c *Client) updateOperations(ctx context.Context, chatID int, accountId string, openDate time.Time) (err error) {
-	defer func() { err = e.WrapIfErr("can't updateOperations", err) }()
+	const op = "service.updateOperations"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't updateOperations", err)
+	}()
+
 	fromDate, err := c.Storage.LastOperationTime(context.Background(), chatID, accountId)
 	// TODO: Если fromDate будет больше time.Now, то будет ошибка.
 	// Есть вероятность такой ошибки, поэтому при тестировании функции нужно придумать другой способ вызова функции по последней операции
@@ -476,7 +638,19 @@ func (c *Client) updateOperations(ctx context.Context, chatID int, accountId str
 }
 
 func (c *Client) GetAccounts(ctx context.Context) (_ map[string]tinkoffApi.Account, err error) {
-	defer func() { err = e.WrapIfErr("cant' get accounts", err) }()
+	const op = "service.GetAccounts"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("cant' get accounts", err)
+	}()
 
 	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
 	if err != nil {
@@ -486,7 +660,21 @@ func (c *Client) GetAccounts(ctx context.Context) (_ map[string]tinkoffApi.Accou
 	return accounts, nil
 }
 
-func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (service_models.PortfolioStructureForEachAccountResponce, error) {
+func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ service_models.PortfolioStructureForEachAccountResponce, err error) {
+	const op = "service.GetPortfolioStructureForEachAccount"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("cant' Get Portfolio Structure For Each Account", err)
+	}()
+
 	accounts, err := c.GetAccounts(ctx)
 	response := service_models.PortfolioStructureForEachAccountResponce{}
 	if err != nil {
@@ -507,7 +695,20 @@ func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (servi
 }
 
 func (c *Client) getPortfolioStructure(ctx context.Context, account tinkoffApi.Account) (_ string, err error) {
-	defer func() { err = e.WrapIfErr("cant' get portfolio structure", err) }()
+	const op = "service.getPortfolioStructure"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("cant' get portfolio structure", err)
+	}()
+
 	portfolio, err := c.TinkoffGetPortfolio(ctx, account)
 	if err != nil {
 		return "", err
@@ -525,7 +726,21 @@ func (c *Client) getPortfolioStructure(ctx context.Context, account tinkoffApi.A
 	return response, nil
 }
 
-func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (service_models.UnionPortfolioStructureResponce, error) {
+func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (_ service_models.UnionPortfolioStructureResponce, err error) {
+	const op = "service.GetUnionPortfolioStructureForEachAccount"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("cant' Get Union Portfolio Structure For Each Account", err)
+	}()
+
 	accounts, err := c.GetAccounts(ctx)
 	response := service_models.UnionPortfolioStructureResponce{}
 	if err != nil {
@@ -542,7 +757,19 @@ func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (
 }
 
 func (c *Client) getUnionPortfolioStructure(ctx context.Context, accounts map[string]tinkoffApi.Account) (_ string, err error) {
-	defer func() { err = e.WrapIfErr("service: can't get union portfolio structure", err) }()
+	const op = "service.getUnionPortfolioStructure"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get union portfolio structuret", err)
+	}()
 
 	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
@@ -572,7 +799,20 @@ func (c *Client) getUnionPortfolioStructure(ctx context.Context, accounts map[st
 }
 
 func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ service_models.UnionPortfolioStructureWithSberResponce, err error) {
-	defer func() { err = e.WrapIfErr("service: can't get union portfolio structure with Sber", err) }()
+	const op = "service.GetUnionPortfolioStructureWithSber"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get union portfolio structure with Sber", err)
+	}()
+
 	responce := service_models.UnionPortfolioStructureWithSberResponce{}
 	accounts, err := c.GetAccounts(ctx)
 	if err != nil {
@@ -615,7 +855,20 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ serv
 }
 
 func (c *Client) DivideByType(ctx context.Context, positions []tinkoffApi.PortfolioPositions) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
-	defer func() { err = e.WrapIfErr("can't divide by type", err) }()
+	const op = "service.DivideByType"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't divide by type", err)
+	}()
+
 	portfolio := service_models.NewPortfolioByTypeAndCurrency()
 	date := time.Now()
 
@@ -723,7 +976,21 @@ func (c *Client) DivideByType(ctx context.Context, positions []tinkoffApi.Portfo
 	return portfolio, nil
 }
 
-func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]float64) (*service_models.PortfolioByTypeAndCurrency, error) {
+func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]float64) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
+	const op = "service.DivideByTypeFromSber"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't divide by type from sber", err)
+	}()
+
 	portfolio := service_models.NewPortfolioByTypeAndCurrency()
 
 	if len(positions) == 0 {
@@ -779,6 +1046,18 @@ func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]
 }
 
 func (c *Client) ResponsePortfolioStructure(portfolio *service_models.PortfolioByTypeAndCurrency) string {
+	const op = "service.ResponsePortfolioStructure"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	var output string
 	totalAmount := portfolio.AllAssets
 	totalBonds := portfolio.BondsAssets.SumOfAssets
@@ -899,7 +1178,21 @@ func (c *Client) ResponsePortfolioStructure(portfolio *service_models.PortfolioB
 	return output
 }
 
-func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurrency) (*service_models.PortfolioByTypeAndCurrency, error) {
+func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurrency) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
+	const op = "service.UnionPortf"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Info(fmt.Sprintf("start %s", op))
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't union portfolios ", err)
+	}()
+
 	unionPortf := service_models.NewPortfolioByTypeAndCurrency()
 	for _, portf := range portfolios {
 		unionPortf.AllAssets += portf.AllAssets

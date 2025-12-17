@@ -3,9 +3,24 @@ package service
 import (
 	"bonds-report-service/clients/tinkoffApi"
 	"bonds-report-service/internal/service/service_models"
+	"log/slog"
+	"time"
 )
 
 func (c *Client) TransOperations(operations []tinkoffApi.Operation) []service_models.Operation {
+	const op = "service.TransformOperations"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+		)
+
+	}()
+
 	transformOperations := make([]service_models.Operation, 0)
 	for _, v := range operations {
 		transformOperation := service_models.Operation{

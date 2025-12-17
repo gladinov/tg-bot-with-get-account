@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"image/png"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -20,7 +21,20 @@ const (
 	layout = "2006-01-02"
 )
 
-func Vizualize(reports []service_models.GeneralBondReportPosition, filename string, typeOfBonds string) error {
+func Vizualize(logger *slog.Logger, reports []service_models.GeneralBondReportPosition, filename string, typeOfBonds string) (err error) {
+	const op = "visualization.Vizualize"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not vizualize reports", err)
+	}()
 
 	const (
 		width        = 1200 // Увеличим ширину для лучшего отображения
@@ -192,8 +206,21 @@ func Vizualize(reports []service_models.GeneralBondReportPosition, filename stri
 
 }
 
-func GenerateTablePNG(reports []service_models.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
-	defer func() { err = e.WrapIfErr("can't generate table in png", err) }()
+func GenerateTablePNG(logger *slog.Logger, reports []service_models.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
+	const op = "visualization.GenerateTablePNG"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not generate table png", err)
+	}()
+
 	const (
 		width        = 1200 // Увеличим ширину для лучшего отображения
 		heightPerRow = 40

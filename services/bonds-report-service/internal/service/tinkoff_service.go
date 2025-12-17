@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"bonds-report-service/clients/tinkoffApi"
@@ -22,8 +23,20 @@ var ErrEmptyQuery = errors.New("query could not be empty")
 var ErrEmptyUid = errors.New("uid could not be empty string")
 var ErrEmptyPositionUid = errors.New("positionUid could not be empty string")
 
-func (c *Client) TinkoffGetPortfolio(ctx context.Context, account tinkoffApi.Account) (tinkoffApi.Portfolio, error) {
+func (c *Client) TinkoffGetPortfolio(ctx context.Context, account tinkoffApi.Account) (_ tinkoffApi.Portfolio, err error) {
 	const op = "service.TinkoffGetPortfolio"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
 	portfolioRequest := tinkoffApi.PortfolioRequest{
 		AccountID:     account.Id,
 		AccountStatus: account.Status,
@@ -51,8 +64,20 @@ func (c *Client) TinkoffGetPortfolio(ctx context.Context, account tinkoffApi.Acc
 	return portfolio, nil
 }
 
-func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fromDate time.Time) ([]tinkoffApi.Operation, error) {
+func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fromDate time.Time) (_ []tinkoffApi.Operation, err error) {
 	const op = "service.TinkoffGetPortfolio"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
 	now := time.Now().UTC()
 	if accountId == "" {
 		return nil, fmt.Errorf("%s: empty account ID", op)
@@ -71,8 +96,21 @@ func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fro
 	return tinkoffOperations, nil
 }
 
-func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string) (tinkoffApi.BondIdentIdentifiers, error) {
+func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string) (_ tinkoffApi.BondIdentIdentifiers, err error) {
 	const op = "service.TinkoffGetBondActions"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
+
 	if instrumentUid == "" {
 		return tinkoffApi.BondIdentIdentifiers{}, ErrEmptyInstrumentUid
 	}
@@ -83,8 +121,20 @@ func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string
 	return bondActions, nil
 }
 
-func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (tinkoffApi.Future, error) {
+func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (_ tinkoffApi.Future, err error) {
 	const op = "service.TinkoffGetFutureBy"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
 	if figi == "" {
 		return tinkoffApi.Future{}, ErrEmptyFigi
 	}
@@ -95,8 +145,20 @@ func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (tinkoffAp
 	return future, nil
 }
 
-func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (tinkoffApi.Bond, error) {
+func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (_ tinkoffApi.Bond, err error) {
 	const op = "service.TinkoffGetBondByUid"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
 	if uid == "" {
 		return tinkoffApi.Bond{}, ErrEmptyUid
 	}
@@ -107,8 +169,20 @@ func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (tinkoffAp
 	return bond, nil
 }
 
-func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (tinkoffApi.Currency, error) {
+func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ tinkoffApi.Currency, err error) {
 	const op = "service.TinkoffGetCurrencyBy"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
 	if figi == "" {
 		return tinkoffApi.Currency{}, ErrEmptyFigi
 	}
@@ -119,8 +193,21 @@ func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (tinkoff
 	return currency, nil
 }
 
-func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUid string) (tinkoffApi.BaseShareFutureValuteResponse, error) {
+func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUid string) (_ tinkoffApi.BaseShareFutureValuteResponse, err error) {
 	const op = "service.TinkoffGetBaseShareFutureValute"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
+
 	if positionUid == "" {
 		return tinkoffApi.BaseShareFutureValuteResponse{}, ErrEmptyPositionUid
 	}
@@ -148,8 +235,21 @@ func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUi
 	return resp, nil
 }
 
-func (c *Client) TinkoffFindBy(ctx context.Context, query string) ([]tinkoffApi.InstrumentShort, error) {
+func (c *Client) TinkoffFindBy(ctx context.Context, query string) (_ []tinkoffApi.InstrumentShort, err error) {
 	const op = "service.TinkoffFindBy"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
+
 	if query == "" {
 		return nil, ErrEmptyQuery
 	}
@@ -160,8 +260,21 @@ func (c *Client) TinkoffFindBy(ctx context.Context, query string) ([]tinkoffApi.
 	return resp, nil
 }
 
-func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (tinkoffApi.LastPriceResponse, error) {
+func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (_ tinkoffApi.LastPriceResponse, err error) {
 	const op = "service.TinkoffGetLastPriceInPersentageToNominal"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+
+	}()
+
 	if instrumentUid == "" {
 		return tinkoffApi.LastPriceResponse{}, ErrEmptyInstrumentUid
 	}
