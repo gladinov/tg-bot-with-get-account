@@ -2,72 +2,71 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os/signal"
 	"syscall"
 	"time"
 	"tinkoffApi/internal/configs"
-	"tinkoffApi/internal/hanlders"
+	"tinkoffApi/internal/handlers"
 	redisClient "tinkoffApi/internal/repository/redis"
 	"tinkoffApi/internal/service"
 	"tinkoffApi/lib/cryptoToken"
+	loggeradapter "tinkoffApi/lib/logger/loggerAdapter"
 
+	sl "github.com/gladinov/mylogger"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func main() {
 	// for local run
-	//app.MustInitialize()
-	//rootPath := app.MustGetRoot()
+	// app.MustInitialize()
+	// rootPath := app.MustGetRoot()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
 
-	zapConfig := zap.NewDevelopmentConfig()
-	zapConfig.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.DateTime)
-	zapConfig.EncoderConfig.TimeKey = "time"
-	l, err := zapConfig.Build()
-	logger := l.Sugar()
-	defer func() {
-		err := logger.Sync()
-		if err != nil {
-			log.Print(err.Error())
-		}
-	}()
-	if err != nil {
-		log.Fatalf("logger creating error %v", err)
-	}
+	confs := configs.MustInitConfigs()
 
-	cnfgs := configs.MustInitConfigs()
+	logg := sl.NewLogger(confs.Config.Env)
 
-	analyticsService := service.NewAnalyticsServiceClient(cnfgs.TinkoffApiConfig, logger)
-	portfolioService := service.NewPortfolioServiceClient(cnfgs.TinkoffApiConfig, logger)
-	instrumentService := service.NewInstrumentServiceClient(cnfgs.TinkoffApiConfig, logger)
+	logg.Info("start")
+	logg.Info("initialize logger adapter")
+	loggAdapter := loggeradapter.NewLoggerAdapter(logg)
 
+	logg.Info("initialize analyticsService")
+	analyticsService := service.NewAnalyticsServiceClient(confs.TinkoffApiConfig, loggAdapter)
+	logg.Info("initialize portfolioService")
+	portfolioService := service.NewPortfolioServiceClient(confs.TinkoffApiConfig, loggAdapter)
+	logg.Info("initialize instrumentService")
+	instrumentService := service.NewInstrumentServiceClient(confs.TinkoffApiConfig, loggAdapter)
+
+	logg.Info("initialize serviceClient")
 	serviceClient := service.NewService(
 		analyticsService,
 		portfolioService,
 		instrumentService)
 
-	tokenCrypter := cryptoToken.NewTokenCrypter(cnfgs.Config.Key)
+	logg.Info("initialize tokenCrypter")
+	tokenCrypter := cryptoToken.NewTokenCrypter(confs.Config.Key)
 
-	redis, err := redisClient.NewClient(ctx, cnfgs.Config)
+	logg.Info("initialize redis", slog.String("adress", confs.Config.RedisHTTPServer.GetAddress()))
+	redis, err := redisClient.NewClient(ctx, confs.Config)
 	if err != nil {
-		logger.Fatalf("haven't connect with redis")
+		logg.Error("haven't connect with redis", slog.String("error", err.Error()))
 	}
 
-	handlrs := hanlders.NewHandlers(serviceClient, tokenCrypter, redis)
+	logg.Info("initialize handlers")
+	handlrs := handlers.NewHandlers(logg, serviceClient, tokenCrypter, redis)
 
+	logg.Info("initialize router echo")
 	e := echo.New()
 
 	e.Use(middleware.CORS())
-	e.Use(middleware.Logger())
+	e.Use(handlrs.LoggerMiddleWare)
 	e.Use(handlrs.AuthCheckTokenMiddleWare)
 
-	e.GET("/tinkoff/checktoken", handlrs.CheckToken)
+	e.GET("/tinkoff/checktoken", handlrs.CheckToken, handlrs.AuthCheckTokenInHeadersMiddleWare)
 	e.GET("/tinkoff/accounts", handlrs.GetAccounts)
 	e.POST("/tinkoff/portfolio", handlrs.GetPortfolio)
 	e.POST("/tinkoff/operations", handlrs.GetOperations)
@@ -86,9 +85,10 @@ func main() {
 		defer cancel()
 
 		if err := e.Shutdown(shutdownCtx); err != nil {
-			logger.Error("Failed to shutdown server:", err)
+			logg.Error("Failed to shutdown server:", slog.String("error", err.Error()))
 		}
 	}()
-	e.Start(cnfgs.Config.GetAddress())
-
+	address := confs.Config.GetTinkoffAppAddress()
+	logg.Info("run tinkoffApiApp", slog.String("address", address))
+	e.Start(address)
 }

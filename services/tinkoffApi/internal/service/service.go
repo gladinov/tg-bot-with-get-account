@@ -14,18 +14,15 @@ import (
 type InstrumentsServiceClient struct {
 	Logg   investgo.Logger
 	config *investgo.Config
-	Client *investgo.Client
 }
 
 type PortfolioServiceClient struct {
 	Logg   investgo.Logger
 	config *investgo.Config
-	Client *investgo.Client
 }
 type AnalyticsServiceClient struct {
 	Logg   investgo.Logger
 	config *investgo.Config
-	Client *investgo.Client
 }
 
 func NewInstrumentServiceClient(config *investgo.Config, logg investgo.Logger) InstrumentService {
@@ -52,7 +49,8 @@ func NewAnalyticsServiceClient(config *investgo.Config, logg investgo.Logger) An
 func NewService(
 	analyticsService AnalyticsService,
 	portfolioService PortfolioService,
-	instrumentService InstrumentService) *Service {
+	instrumentService InstrumentService,
+) *Service {
 	return &Service{
 		AnalyticsService:  analyticsService,
 		PortfolioService:  portfolioService,
@@ -60,31 +58,30 @@ func NewService(
 	}
 }
 
-func (c *InstrumentsServiceClient) GetClient(ctx context.Context) (err error) {
+func (c *InstrumentsServiceClient) GetClient(ctx context.Context) (_ *investgo.Client, err error) {
 	const op = "sevrice.InstrumentsServiceClient.GetClient"
 	token, err := valuefromcontext.GetToken(ctx)
 	if err != nil {
-		return fmt.Errorf("%s:%w", op, err)
+		return nil, fmt.Errorf("%s:%w", op, err)
 	}
 
 	newConfig := *c.config
 	newConfig.Token = token
 
 	client, err := investgo.NewClient(ctx, newConfig, c.Logg)
-
 	if err != nil {
-		return fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
+		return nil, fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
 	}
-	c.Client = client
-	return nil
+
+	return client, nil
 }
 
-func (c *AnalyticsServiceClient) GetClient(ctx context.Context) (err error) {
+func (c *AnalyticsServiceClient) GetClient(ctx context.Context) (_ *investgo.Client, err error) {
 	const op = "sevrice.AnalyticsServiceClient.GetClient"
 
 	token, err := valuefromcontext.GetToken(ctx)
 	if err != nil {
-		return fmt.Errorf("%s:%w", op, err)
+		return nil, fmt.Errorf("%s:%w", op, err)
 	}
 
 	newConfig := *c.config
@@ -92,36 +89,34 @@ func (c *AnalyticsServiceClient) GetClient(ctx context.Context) (err error) {
 
 	client, err := investgo.NewClient(ctx, newConfig, c.Logg)
 	if err != nil {
-		return fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
+		return nil, fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
 	}
-	c.Client = client
-	return nil
+
+	return client, nil
 }
 
-func (c *PortfolioServiceClient) GetClient(ctx context.Context) (err error) {
+func (c *PortfolioServiceClient) GetClient(ctx context.Context) (_ *investgo.Client, err error) {
 	const op = "sevrice.PortfolioServiceClient.GetClient"
 
 	token, err := valuefromcontext.GetToken(ctx)
 	if err != nil {
-		return fmt.Errorf("%s:%w", op, err)
+		return nil, fmt.Errorf("%s:%w", op, err)
 	}
 
 	newConfig := *c.config
 	newConfig.Token = token
 
 	client, err := investgo.NewClient(ctx, newConfig, c.Logg)
-
 	if err != nil {
-		return fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
-
+		return nil, fmt.Errorf("op:%s, err: can't connect with tinkoffApi client", op)
 	}
-	c.Client = client
-	return nil
+
+	return client, nil
 }
 
-func (c *PortfolioServiceClient) GetAccounts() (map[string]Account, error) {
+func (c *PortfolioServiceClient) GetAccounts(client *investgo.Client) (map[string]Account, error) {
 	const op = "sevrice.GetAccounts"
-	usersService := c.Client.NewUsersServiceClient()
+	usersService := client.NewUsersServiceClient()
 	accounts := make(map[string]Account)
 	status := pb.AccountStatus_ACCOUNT_STATUS_ALL
 	accsResp, err := usersService.GetAccounts(&status)
@@ -145,7 +140,7 @@ func (c *PortfolioServiceClient) GetAccounts() (map[string]Account, error) {
 	return accounts, nil
 }
 
-func (c *PortfolioServiceClient) GetPortfolio(request PortfolioRequest) (_ Portfolio, err error) {
+func (c *PortfolioServiceClient) GetPortfolio(client *investgo.Client, request PortfolioRequest) (_ Portfolio, err error) {
 	const op = "service.GetPortfolio"
 	accountID := request.AccountID
 	accountStatus := request.AccountStatus
@@ -161,13 +156,12 @@ func (c *PortfolioServiceClient) GetPortfolio(request PortfolioRequest) (_ Portf
 	if accountID == "" {
 		return Portfolio{}, ErrEmptyAccountIdInRequest
 	}
-	operationsService := c.Client.NewOperationsServiceClient()
+	operationsService := client.NewOperationsServiceClient()
 
 	portfolioResp, err := operationsService.GetPortfolio(accountID,
 		pb.PortfolioRequest_RUB)
 	if err != nil {
 		return Portfolio{}, fmt.Errorf("op: %s, error: can't get portifolio positions from tinkoff Api", op)
-
 	}
 	portfolio.Positions = ConvertPbToPortfolioPositions(portfolioResp.GetPositions())
 	portfolio.TotalAmount = ConvertPbToMoneyValue(portfolioResp.GetTotalAmountPortfolio())
@@ -222,14 +216,13 @@ func ConvertPbToQuatation(pbQuatation *pb.Quotation) Quotation {
 	}
 }
 
-func (c *PortfolioServiceClient) GetOperations(request OperationsRequest) (_ []Operation, err error) {
+func (c *PortfolioServiceClient) GetOperations(client *investgo.Client, request OperationsRequest) (_ []Operation, err error) {
 	const op = "tinkoffApi.GetOperations"
 	defer func() { err = e.WrapIfErr(op+": can't get operations from tinkoff API", err) }()
 
 	accountID := request.AccountID
 	if request.AccountID == "" {
 		return nil, fmt.Errorf("op: %s, error: empty account ID", op)
-
 	}
 	date := request.Date.UTC()
 	now := time.Now().UTC()
@@ -239,7 +232,7 @@ func (c *PortfolioServiceClient) GetOperations(request OperationsRequest) (_ []O
 	}
 	allOperations := make([]*pb.OperationItem, 0)
 
-	operationsService := c.Client.NewOperationsServiceClient()
+	operationsService := client.NewOperationsServiceClient()
 	operationsResp, err := operationsService.GetOperationsByCursor(&investgo.GetOperationsByCursorRequest{
 		AccountId: accountID,
 		From:      date,
@@ -275,7 +268,7 @@ func (c *PortfolioServiceClient) GetOperations(request OperationsRequest) (_ []O
 	return resp, nil
 }
 
-func (c *PortfolioServiceClient) MakeSafeGetOperationsRequest(request OperationsRequest) ([]Operation, error) {
+func (c *PortfolioServiceClient) MakeSafeGetOperationsRequest(client *investgo.Client, request OperationsRequest) ([]Operation, error) {
 	var lastErr error
 
 	// Пробуем с разными сдвигами времени
@@ -286,7 +279,7 @@ func (c *PortfolioServiceClient) MakeSafeGetOperationsRequest(request Operations
 		-3 * time.Minute,
 	} {
 		adjustedRequest := adjustRequestTime(request, offset)
-		operations, err := c.GetOperations(adjustedRequest)
+		operations, err := c.GetOperations(client, adjustedRequest)
 		if err == nil {
 			return operations, nil
 		}
@@ -340,13 +333,12 @@ func convertOperationsPbToOperaions(operations []*pb.OperationItem) []Operation 
 	return transformOperations
 }
 
-func (c *AnalyticsServiceClient) GetAllAssetUids() (map[string]string, error) {
+func (c *AnalyticsServiceClient) GetAllAssetUids(client *investgo.Client) (map[string]string, error) {
 	const op = "service.GetAllAssetUids"
-	instrumentService := c.Client.NewInstrumentsServiceClient()
+	instrumentService := client.NewInstrumentsServiceClient()
 	AssetsResponse, err := instrumentService.GetAssets()
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, error: could not get assets uid", op)
-
 	}
 	assetUidInstrumentUidMap := make(map[string]string)
 	for _, v := range AssetsResponse.AssetsResponse.Assets {
@@ -360,11 +352,11 @@ func (c *AnalyticsServiceClient) GetAllAssetUids() (map[string]string, error) {
 	return assetUidInstrumentUidMap, nil
 }
 
-func (c *InstrumentsServiceClient) GetFutureBy(figi string) (Future, error) {
+func (c *InstrumentsServiceClient) GetFutureBy(client *investgo.Client, figi string) (Future, error) {
 	if figi == "" {
 		return Future{}, ErrEmptyFigi
 	}
-	instrumentService := c.Client.NewInstrumentsServiceClient()
+	instrumentService := client.NewInstrumentsServiceClient()
 	futuresResponse, err := instrumentService.FutureByFigi(figi)
 	if err != nil {
 		return Future{}, e.WrapIfErr("can't get futures by figi", err)
@@ -383,12 +375,12 @@ func convertFuturePbToFuture(futurePb *pb.Future) Future {
 	}
 }
 
-func (c *InstrumentsServiceClient) GetBondByUid(uid string) (Bond, error) {
+func (c *InstrumentsServiceClient) GetBondByUid(client *investgo.Client, uid string) (Bond, error) {
 	const op = "service.GetBondByUid"
 	if uid == "" {
 		return Bond{}, fmt.Errorf("op:%s, error: incorrect uid: can't be empty string", op)
 	}
-	instrumentService := c.Client.NewInstrumentsServiceClient()
+	instrumentService := client.NewInstrumentsServiceClient()
 	bondResponse, err := instrumentService.BondByUid(uid)
 	if err != nil {
 		return Bond{}, fmt.Errorf("op:%s, error: can't get share by figi", op)
@@ -405,12 +397,12 @@ func convertBondPbToBond(bondPb *pb.Bond) Bond {
 	}
 }
 
-func (c *InstrumentsServiceClient) GetCurrencyBy(figi string) (Currency, error) {
+func (c *InstrumentsServiceClient) GetCurrencyBy(client *investgo.Client, figi string) (Currency, error) {
 	const op = "service.GetCurrencyBy"
 	if figi == "" {
 		return Currency{}, ErrEmptyFigi
 	}
-	instrumentService := c.Client.NewInstrumentsServiceClient()
+	instrumentService := client.NewInstrumentsServiceClient()
 	currencyResponse, err := instrumentService.CurrencyByFigi(figi)
 	if err != nil {
 		return Currency{}, fmt.Errorf("op:%s, error: can't get curency by figi", op)
@@ -426,13 +418,13 @@ func convertCurrencyPbToCurrency(currencyPb *pb.Currency) Currency {
 	}
 }
 
-func (c *InstrumentsServiceClient) FindBy(query string) ([]InstrumentShort, error) {
+func (c *InstrumentsServiceClient) FindBy(client *investgo.Client, query string) ([]InstrumentShort, error) {
 	const op = "service.FindBy"
 	if query == "" {
 		return nil, ErrEmptyQuery
 	}
-	client := c.Client.NewInstrumentsServiceClient()
-	findInstr, err := client.FindInstrument(query)
+	instrumentServiceClient := client.NewInstrumentsServiceClient()
+	findInstr, err := instrumentServiceClient.FindInstrument(query)
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, error: could not find instrument by query", op)
 	}
@@ -452,13 +444,13 @@ func convertInstrumentShortPbToInstrumentShort(instrumentShortPb []*pb.Instrumen
 	return instrumentShorts
 }
 
-func (c *AnalyticsServiceClient) GetBondsActions(instrumentUid string) (BondIdentIdentifiers, error) {
+func (c *AnalyticsServiceClient) GetBondsActions(client *investgo.Client, instrumentUid string) (BondIdentIdentifiers, error) {
 	const op = "service.GetBondActions"
 	if instrumentUid == "" {
 		return BondIdentIdentifiers{}, ErrEmptyInstrumentUid
 	}
 	var res BondIdentIdentifiers
-	instrumentService := c.Client.NewInstrumentsServiceClient()
+	instrumentService := client.NewInstrumentsServiceClient()
 	bondUid, err := instrumentService.BondByUid(instrumentUid)
 	if err != nil {
 		return BondIdentIdentifiers{}, fmt.Errorf("op: %s, error: could not get bond actions", op)
@@ -475,13 +467,12 @@ func (c *AnalyticsServiceClient) GetBondsActions(instrumentUid string) (BondIden
 	return res, nil
 }
 
-func (c *AnalyticsServiceClient) GetLastPriceInPersentageToNominal(instrumentUid string) (LastPriceResponse, error) {
+func (c *AnalyticsServiceClient) GetLastPriceInPersentageToNominal(client *investgo.Client, instrumentUid string) (LastPriceResponse, error) {
 	const op = "tinkoffApi.GetLastPriceInPercentageToNominal"
 	if instrumentUid == "" {
 		return LastPriceResponse{}, fmt.Errorf("%s: %w", op, ErrEmptyInstrumentUid)
-
 	}
-	marketDataClient := c.Client.NewMarketDataServiceClient()
+	marketDataClient := client.NewMarketDataServiceClient()
 	lastPriceAnswer, err := marketDataClient.GetLastPrices([]string{instrumentUid})
 	if err != nil {
 		return LastPriceResponse{}, fmt.Errorf("%s: %w", op, err)
@@ -505,12 +496,12 @@ func (c *AnalyticsServiceClient) GetLastPriceInPersentageToNominal(instrumentUid
 	return resp, nil
 }
 
-func (c *InstrumentsServiceClient) GetShareCurrencyBy(figi string) (ShareCurrencyByResponse, error) {
+func (c *InstrumentsServiceClient) GetShareCurrencyBy(client *investgo.Client, figi string) (ShareCurrencyByResponse, error) {
 	const op = "service.GetShareCurrencyBy"
 	if figi == "" {
 		return ShareCurrencyByResponse{}, ErrEmptyFigi
 	}
-	instrumentService := c.Client.NewInstrumentsServiceClient()
+	instrumentService := client.NewInstrumentsServiceClient()
 	shareResponse, err := instrumentService.ShareByFigi(figi)
 	if err != nil {
 		return ShareCurrencyByResponse{}, fmt.Errorf("op: %s, error: can't get share by figi", op)

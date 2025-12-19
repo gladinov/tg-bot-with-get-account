@@ -17,13 +17,16 @@ type Configs struct {
 }
 
 type Config struct {
+	Env               string          `env:"ENV" env-required:"true"`
+	RootPath          string          `env:"ROOT_PATH" env-required:"true"`
+	ConfigPath        string          `env:"CONFIG_PATH" env-required:"true"`
 	Key               string          `env:"KEY" env-required:"true"`
 	TinkoffApiAppPort string          `env:"TINKOFF_API_PORT" env-required:"true"`
 	TinkoffApiAppHost string          `yaml:"TinkoffApiAppHost"`
 	RedisHTTPServer   RedisHTTPServer `yaml:"redisHTTP"`
 }
 
-func (c *Config) GetAddress() string {
+func (c *Config) GetTinkoffAppAddress() string {
 	return getAddress(c.TinkoffApiAppHost, c.TinkoffApiAppPort)
 }
 
@@ -31,7 +34,7 @@ type RedisHTTPServer struct {
 	Host     string `env:"REDIS_HOST" env-required:"true"`
 	Port     string `env:"REDIS_PORT" env-required:"true"`
 	Password string `env:"REDIS_PASSWORD" env-required:"true"`
-	//User        string
+	// User        string
 	DB          int           `yaml:"db"`
 	MaxRetries  int           `yaml:"max_retries"`
 	DialTimeout time.Duration `yaml:"dial_timeout"`
@@ -107,10 +110,12 @@ func InjectEnvs() (Envs, error) {
 		return Envs{}, errors.New("TINKOFF_CONFIG_PATH environment variable is required")
 	}
 
-	envs := Envs{RootPath: rootPath,
+	envs := Envs{
+		RootPath:          rootPath,
 		ConfigPath:        configPath,
-		TinkoffConfigPath: tinkoffConfigPath}
-	
+		TinkoffConfigPath: tinkoffConfigPath,
+	}
+
 	return envs, nil
 }
 
