@@ -3,47 +3,56 @@ package handlers
 import (
 	"cbr/internal/service"
 	"cbr/lib/models"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
 
+var (
+	errInvalidRequestBody error = errors.New("invalid request body")
+	errGetData            error = errors.New("could not get data")
+)
+
 type Handlers struct {
-	service service.CurrencyService
 	logger  *slog.Logger
+	service service.CurrencyService
 }
 
-func NewHandlers(srvc service.CurrencyService, logger *slog.Logger) *Handlers {
-	return &Handlers{service: srvc,
-		logger: logger}
+func NewHandlers(logger *slog.Logger, srvc service.CurrencyService) *Handlers {
+	return &Handlers{
+		logger:  logger,
+		service: srvc,
+	}
 }
 
 func (h *Handlers) GetAllCurrencies(c echo.Context) error {
 	const op = "handlers.GetAllCurrencies"
+
+	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	logg := h.logger.With(
-		slog.String("function", op),
+		slog.String("op", op),
 	)
-	logg.Info("start " + op)
+	logg.Debug("start")
 
 	var currencyRequest CurrencyRequest
 
-	logg.Debug("bind input requst")
-
 	err := c.Bind(&currencyRequest)
 	if err != nil {
-		logg.Error("echo.Bind error", slog.String("error", err.Error()))
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		return echo.NewHTTPError(http.StatusBadRequest, errInvalidRequestBody)
 	}
-	logg.Debug("service.GetAllCurrencies")
 	currencies, err := h.service.GetAllCurrencies(currencyRequest.Date)
 	if err != nil {
-		logg.Error("service.GetAllCurrencies error", slog.String("error", err.Error()))
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "could not get currencies"})
+		return echo.NewHTTPError(http.StatusInternalServerError, errGetData)
 	}
-	logg.Info("end " + op)
+
 	requestID := c.Request().Header.Get(models.RequestIDHeader)
-	logg.Debug(requestID)
 	c.Response().Header().Set(models.RequestIDHeader, requestID)
 	return c.JSON(http.StatusOK, currencies)
 }

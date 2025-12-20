@@ -1,56 +1,73 @@
 package configs
 
 import (
-	"errors"
+	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 
-	"gopkg.in/yaml.v3"
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
-	Env        string `yaml:"env"`
-	CbrHost    string `yaml:"cbrHost"`
-	CbrAppHost string `yaml:"cbr_app_host"`
-	CbrAppPort int    `yaml:"cbr_app_port"`
+	Env        string  `env:"ENV" env-required:"true"`
+	RootPath   string  `env:"ROOT_PATH" env-required:"true"`
+	ConfigPath string  `env:"CONFIG_PATH" env-required:"true"`
+	CbrHost    string  `yaml:"cbrHost"`
+	Clients    Clients `yaml:"clients"`
 }
 
-func (c *Config) GetCbrAppServer() string {
-	cbrPortStr := strconv.Itoa(c.CbrAppPort)
-	return c.CbrAppHost + cbrPortStr
+type Clients struct {
+	CbrAppApiClient CbrAppApiClient
 }
 
-func MustInitConfig(rootPath string, configPath string) Config {
-	var config Config
-	Path := filepath.Join(rootPath, configPath)
-	file, err := os.ReadFile(Path)
+type CbrAppApiClient struct {
+	Host string `yaml:"cbr_app_host"`
+	Port string `env:"CBR_PORT" env-required:"true"`
+}
+
+func (c *CbrAppApiClient) GetCbrAppServer() string {
+	return getAddress(c.Host, c.Port)
+}
+
+func MustInitConfig() Config {
+	const op = "configs.MustInitConfig"
+	envs, err := InjectEnvs()
 	if err != nil {
 		panic(err)
 	}
-	err = yaml.Unmarshal(file, &config)
-	if err != nil {
-		panic(err)
-	}
-	configWithEnvs, err := InjectEnvs(config)
-	if err != nil {
-		panic(err)
+
+	configPath := filepath.Join(envs.RootPath, envs.ConfigPath)
+
+	var cfg Config
+	if err = cleanenv.ReadConfig(configPath, &cfg); err != nil {
+		log.Fatalf("%s:cannot read config:%s", op, err)
 	}
 
-	return configWithEnvs
+	return cfg
 }
 
-func InjectEnvs(config Config) (Config, error) {
-	cbrPort := os.Getenv("CBR_PORT")
-	if cbrPort == "" {
-		return Config{}, errors.New("CBR_PORT environment variable is required")
+type Envs struct {
+	RootPath   string
+	ConfigPath string
+}
+
+func InjectEnvs() (Envs, error) {
+	rootPath := os.Getenv("ROOT_PATH")
+	if rootPath == "" {
+		panic("ROOT_PATH environment variable is required")
 	}
 
-	cbrPortFromConf, err := strconv.Atoi(cbrPort)
-	if err != nil {
-		return Config{}, errors.New("CBR_PORT environment variable bad format")
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		panic("CONFIG_PATH environment variable is required")
 	}
-	config.CbrAppPort = cbrPortFromConf
+	var envs Envs
+	envs.RootPath = rootPath
+	envs.ConfigPath = configPath
 
-	return config, nil
+	return envs, nil
+}
+
+func getAddress(host string, port string) string {
+	return host + ":" + port
 }
