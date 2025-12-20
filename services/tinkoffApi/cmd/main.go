@@ -30,7 +30,10 @@ func main() {
 
 	logg := sl.NewLogger(confs.Config.Env)
 
-	logg.Info("start")
+	logg.Info("start app",
+		slog.String("env", confs.Config.Env),
+		slog.String("cbr_app_host", confs.Config.TinkoffApiAppHost),
+		slog.String("cbr_app_port", confs.Config.TinkoffApiAppPort))
 	logg.Info("initialize logger adapter")
 	loggAdapter := loggeradapter.NewLoggerAdapter(logg)
 
