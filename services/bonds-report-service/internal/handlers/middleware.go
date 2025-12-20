@@ -48,12 +48,13 @@ func LoggerMiddleware(logger *slog.Logger) gin.HandlerFunc {
 		)
 		t1 := time.Now()
 		c.Next()
-		duration := time.Since(t1).Milliseconds()
-		entry.Info("request completed",
-			slog.Int("status", resp.Status()),
-			slog.Int64("bytes", int64(resp.Size())),
-			slog.Int64("duration", duration),
-		)
-
+		defer func() {
+			duration := time.Since(t1)
+			entry.Info("request completed",
+				slog.Int("status", resp.Status()),
+				slog.Int64("bytes", int64(resp.Size())),
+				slog.Duration("duration", duration),
+			)
+		}()
 	}
 }

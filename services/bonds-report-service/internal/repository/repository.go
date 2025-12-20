@@ -61,17 +61,17 @@ const (
 
 func MustInitNewStorage(ctx context.Context, config config.Config, logg *slog.Logger) Storage {
 	const op = "repository.MustInitNewStorage"
-	logg.Info(fmt.Sprintf("start %s", op))
+	logg.Debug(fmt.Sprintf("start %s", op))
 	switch config.DbType {
 	case postreSQL:
 		serviceStorage, err := postgreSQL.NewStorage(logg, config)
 		if err != nil {
-			logg.Error("failed to create PostgreSQL storage", "err", err)
+			logg.Debug("failed to create PostgreSQL storage", "err", err)
 			panic(err)
 		}
 		err = serviceStorage.InitDB(ctx)
 		if err != nil {
-			logg.Error("failed to init PostgreSQL database", "err", err)
+			logg.Debug("failed to init PostgreSQL database", "err", err)
 			panic(err)
 		}
 		logg.Info("PostgreSQL storage initialized successfully")
@@ -80,25 +80,25 @@ func MustInitNewStorage(ctx context.Context, config config.Config, logg *slog.Lo
 	case SQLite:
 		serviceStorageAbsolutPath, err := pathwd.PathFromWD(config.RootPath, config.ServiceStorageSQLLitePath)
 		if err != nil {
-			logg.Error("failed to resolve SQLite storage path", "err", err)
+			logg.Debug("failed to resolve SQLite storage path", "err", err)
 			panic(err)
 		}
 
 		serviceStorage, err := servicet_sqlite.New(serviceStorageAbsolutPath)
 		if err != nil {
-			logg.Error("failed to create SQLite storage", "err", err)
+			logg.Debug("failed to create SQLite storage", "err", err)
 			panic(err)
 		}
 
 		if err := serviceStorage.Init(ctx); err != nil {
-			logg.Error("failed to init SQLite database", "err", err)
+			logg.Debug("failed to init SQLite database", "err", err)
 			panic(err)
 		}
 		logg.Info("SQLite storage initialized successfully", "path", serviceStorageAbsolutPath)
 		return serviceStorage
 	default:
 		err := errors.New("possible init only SQLite or PostgreSQL databases")
-		logg.Error("unsupported db type", "db_type", config.DbType, "err", err)
+		logg.Debug("unsupported db type", "db_type", config.DbType, "err", err)
 		panic(err)
 	}
 }
