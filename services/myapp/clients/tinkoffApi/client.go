@@ -3,36 +3,40 @@ package tinkoffApi
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
 
 	"main.go/internal/models"
-	"main.go/lib/valuefromcontext"
 )
 
 type Client struct {
+	logger *slog.Logger
 	host   string
 	client *http.Client
 }
 
-func NewClient(host string) *Client {
+func NewClient(logger *slog.Logger, host string) *Client {
 	return &Client{
-		host: host,
+		logger: logger,
+		host:   host,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 	}
 }
 
-func (c *Client) CheckToken(ctx context.Context) error {
-	const op = "tinkoffApi.GetAccounts"
+func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
+	const op = "tinkoffApi.CheckToken"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
 	Path := path.Join("tinkoff", "checktoken")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
+
 	u := url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -44,15 +48,23 @@ func (c *Client) CheckToken(ctx context.Context) error {
 		return fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	req.Header.Set(models.HeaderChatID, chatID)
+	req.Header.Set(models.HeaderEncryptedToken, tokenInBase64)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("op:%s, err in client.Do", op)
 	}
 
-	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
 
+	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+			slog.Int("code", resp.StatusCode),
+			slog.String("body", string(body)),
+		)
+	}()
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("%s:unexpected responce status code", op)
 	}

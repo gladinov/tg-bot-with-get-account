@@ -2,25 +2,22 @@ package telegram
 
 import (
 	"errors"
+	"log/slog"
 
-	"github.com/redis/go-redis/v9"
 	bondreportservice "main.go/clients/bondReportService"
 	"main.go/clients/telegram"
 	"main.go/clients/tinkoffApi"
 	"main.go/internal/app/events"
-	"main.go/lib/cryptoToken"
+	tokenauth "main.go/internal/tokenAuth"
 	"main.go/lib/e"
-
-	storage "main.go/internal/repository"
 )
 
 type Processor struct {
-	tokenCrypter      *cryptoToken.TokenCrypter
+	logger            *slog.Logger
 	tg                *telegram.Client
 	tinkoffApi        *tinkoffApi.Client
 	bondReportService *bondreportservice.Client
-	redis             *redis.Client
-	storage           storage.Storage
+	tokenAuthService  *tokenauth.TokenAuthService
 }
 
 type Meta struct {
@@ -32,19 +29,18 @@ var ErrUnknownEventType = errors.New("unknown event type")
 var ErrUnknownMetaType = errors.New("unknown meta type")
 
 func NewProccesor(
-	tokenCrypter *cryptoToken.TokenCrypter,
+	logger *slog.Logger,
 	client *telegram.Client,
 	tinkoffApiClient *tinkoffApi.Client,
 	bondReportServiceClient *bondreportservice.Client,
-	redisClient *redis.Client,
-	storage storage.Storage) *Processor {
+	tokenAuthService *tokenauth.TokenAuthService,
+) *Processor {
 	return &Processor{
-		tokenCrypter:      tokenCrypter,
+		logger:            logger,
 		tg:                client,
 		tinkoffApi:        tinkoffApiClient,
 		bondReportService: bondReportServiceClient,
-		redis:             redisClient,
-		storage:           storage,
+		tokenAuthService:  tokenAuthService,
 	}
 }
 

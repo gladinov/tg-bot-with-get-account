@@ -5,12 +5,12 @@ go 1.24.0
 toolchain go1.24.9
 
 require (
+	github.com/gladinov/mylogger v0.0.3
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/redis/go-redis/v9 v9.16.0
-	github.com/russianinvestments/invest-api-go-sdk v1.28.1
 	golang.org/x/image v0.29.0
 )
 

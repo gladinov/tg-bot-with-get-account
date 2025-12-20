@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	Env                string          `env:"ENV" env-required:"true"`
 	RootPath           string          `env:"ROOT_PATH" env-required:"true"`
 	ConfigPath         string          `env:"CONFIG_PATH" env-required:"true"`
 	Key                string          `env:"KEY" env-required:"true"`
@@ -91,6 +92,10 @@ func (p *PostgresHost) GetStringHost() (string, error) {
 		p.Port,
 		p.SslMode)
 	return host, nil
+}
+
+func (p *PostgresHost) GetAdress() string {
+	return getAddress(p.Host, p.Port)
 }
 
 func (p *PostgresHost) GetHostToGoMigrate() (string, error) {

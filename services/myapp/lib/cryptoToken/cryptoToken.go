@@ -27,15 +27,17 @@ func (e *EncryptedToken) ToBase64() (string, error) {
 }
 
 type TokenCrypter struct {
-	Key string
+	KeyInBase64 string
 }
 
-func NewTokenCrypter(key string) *TokenCrypter {
-	return &TokenCrypter{Key: key}
+func NewTokenCrypter(keyInBase64 string) *TokenCrypter {
+	return &TokenCrypter{
+		KeyInBase64: keyInBase64}
 }
 
-func EncryptToken(plaintext string, keyBase64 string) (*EncryptedToken, error) {
-	key, err := base64.StdEncoding.DecodeString(keyBase64)
+func (t *TokenCrypter) EncryptToken(plaintext string) (*EncryptedToken, error) {
+	const op = "cryptoToken.EncryptToken"
+	key, err := base64.StdEncoding.DecodeString(t.KeyInBase64)
 	if err != nil {
 		return nil, err
 	}
@@ -62,19 +64,4 @@ func EncryptToken(plaintext string, keyBase64 string) (*EncryptedToken, error) {
 		Ciphertext: base64.StdEncoding.EncodeToString(ciphertext[:len(ciphertext)-gcm.Overhead()]),
 		Tag:        base64.StdEncoding.EncodeToString(ciphertext[len(ciphertext)-gcm.Overhead():]),
 	}, nil
-}
-
-func NewAES(keyB64 string) (cipher.Block, error) {
-	// decode base64 key
-	key, err := base64.StdEncoding.DecodeString(keyB64)
-	if err != nil {
-		return nil, err
-	}
-
-	// must be exactly 32 bytes
-	if len(key) != 32 {
-		return nil, fmt.Errorf("invalid key size: %d bytes (expected 32)", len(key))
-	}
-
-	return aes.NewCipher(key)
 }
