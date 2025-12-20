@@ -10,8 +10,11 @@ import (
 )
 
 type Config struct {
-	MoexHost string `yaml:"moexHost"`
-	Clients  Clients
+	Env        string  `env:"ENV" env-required:"true"`
+	RootPath   string  `env:"ROOT_PATH" env-required:"true"`
+	ConfigPath string  `env:"CONFIG_PATH" env-required:"true"`
+	MoexHost   string  `yaml:"moexHost"`
+	Clients    Clients `yaml:"clients"`
 }
 
 type Clients struct {

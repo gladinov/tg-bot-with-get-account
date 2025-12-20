@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"main/lib/e"
 	"net/http"
 	"net/url"
@@ -22,14 +23,18 @@ type Service interface {
 }
 
 type SpecificationService struct {
+	logger *slog.Logger
 	host   string
-	client http.Client
+	client *http.Client
 }
 
-func NewSpecificationService(host string) Service {
+func NewSpecificationService(logger *slog.Logger, host string) Service {
 	return &SpecificationService{
+		logger: logger,
 		host:   host,
-		client: http.Client{},
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
@@ -68,7 +73,6 @@ func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (val
 			return Values{}, err
 		}
 		if data.History != nil {
-
 			if len(data.History.Data) != 0 {
 				break
 			}
