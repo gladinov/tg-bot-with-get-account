@@ -14,8 +14,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
-github.com/gladinov/mylogger v0.0.3 h1:9gsQRBm/Q9TGZq5FkzkN2o82J6HejBuDNZ28OxIdSRY=
-github.com/gladinov/mylogger v0.0.3/go.mod h1:PvdZfBCcRVtxVdsipxydDuUIoU2oQZRy4aSYcwPnwLw=
+github.com/gladinov/mylogger v0.1.0 h1:3gpZ2iDhm94NVkuxjtbFuPB1ncZlC89KXDHdXnwQGy4=
+github.com/gladinov/mylogger v0.1.0/go.mod h1:PvdZfBCcRVtxVdsipxydDuUIoU2oQZRy4aSYcwPnwLw=
 github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
 github.com/golang/protobuf v1.5.3 h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg=

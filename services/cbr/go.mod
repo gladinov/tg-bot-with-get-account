@@ -5,16 +5,16 @@ go 1.24.0
 toolchain go1.24.11
 
 require (
-	github.com/gladinov/mylogger v0.0.3
+	github.com/gladinov/mylogger v0.1.0
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/text v0.30.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )
 
