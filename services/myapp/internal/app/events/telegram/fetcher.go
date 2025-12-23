@@ -1,19 +1,23 @@
 package telegram
 
 import (
+	"log/slog"
+
 	"main.go/clients/telegram"
 	"main.go/internal/app/events"
 	"main.go/lib/e"
 )
 
 type Fetcher struct {
+	logger *slog.Logger
 	tg     *telegram.Client
 	offset int
 }
 
-func NewFetcher(client *telegram.Client) *Fetcher {
+func NewFetcher(logger *slog.Logger, client *telegram.Client) *Fetcher {
 	return &Fetcher{
-		tg: client,
+		logger: logger,
+		tg:     client,
 	}
 }
 

@@ -6,17 +6,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
 	"strconv"
+	"time"
 
 	bondreportservice "main.go/clients/bondReportService"
 	"main.go/lib/e"
 )
 
 type Client struct {
+	logger   *slog.Logger
 	host     string
 	basePath string
 	client   http.Client
@@ -29,8 +32,9 @@ const (
 	sendMediaGroupMethod = "sendMediaGroup"
 )
 
-func New(host string, token string) *Client {
+func New(logger *slog.Logger, host string, token string) *Client {
 	return &Client{
+		logger:   logger,
 		host:     host,
 		basePath: newBasePath(token),
 		client:   http.Client{},
@@ -43,6 +47,9 @@ func newBasePath(token string) string {
 
 func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
 	defer func() { err = e.WrapIfErr("can`t get updates", err) }()
+
+	const op = "telegram.Updates"
+
 	q := url.Values{}
 	q.Add("offset", strconv.Itoa(offset))
 	q.Add("limit", strconv.Itoa(limit))
@@ -63,6 +70,8 @@ func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
 }
 
 func (c *Client) SendMessage(chatID int, text string) error {
+	const op = "telegram.SendMessage"
+
 	q := url.Values{}
 	q.Add("chat_id", strconv.Itoa(chatID))
 	q.Add("text", text)
@@ -77,6 +86,8 @@ func (c *Client) SendMessage(chatID int, text string) error {
 
 func (c *Client) doRequest(method string, query url.Values) (data []byte, err error) {
 	defer func() { err = e.WrapIfErr("can`t do request", err) }()
+
+	const op = "telegram.doRequest"
 
 	u := url.URL{
 		Scheme: "https",
@@ -108,6 +119,17 @@ func (c *Client) doRequest(method string, query url.Values) (data []byte, err er
 }
 
 func (c *Client) SendImageFromBuffer(chatID int, imageData []byte, caption string) error {
+	const op = "telegram.SendImageFromBuffer"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -132,6 +154,17 @@ func (c *Client) SendImageFromBuffer(chatID int, imageData []byte, caption strin
 }
 
 func (c *Client) SendMediaGroupFromBuffer(chatID int, images []*bondreportservice.ImageData) error {
+	const op = "telegram.SendMediaGroupFromBuffer"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	if len(images) == 0 {
 		return errors.New("no images to send")
 	}
@@ -189,6 +222,17 @@ func (c *Client) SendMediaGroupFromBuffer(chatID int, images []*bondreportservic
 
 func (c *Client) doMultipartRequest(method string, body *bytes.Buffer, contentType string) (data []byte, err error) {
 	defer func() { err = e.WrapIfErr("can't do multipart request", err) }()
+
+	const op = "telegram.doMultipartRequest"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
 
 	u := url.URL{
 		Scheme: "https",

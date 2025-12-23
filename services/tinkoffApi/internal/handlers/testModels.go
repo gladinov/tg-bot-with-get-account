@@ -1,4 +1,4 @@
-package hanlders
+package handlers
 
 import (
 	"time"
@@ -186,6 +186,7 @@ var operationRequest = service.OperationsRequest{
 	AccountID: "2007907898",
 	Date:      time.Date(2025, time.October, 21, 0, 0, 0, 0, time.UTC),
 }
+
 var operationBadRequest = service.OperationsRequest{
 	AccountID: "",
 	Date:      time.Date(2025, time.October, 21, 0, 0, 0, 0, time.UTC),
@@ -261,7 +262,9 @@ var happyPathBondsActions = service.BondIdentIdentifiers{
 
 var happyPathLastPrice = service.LastPriceResponse{
 	LastPrice: service.Quotation{
-		Units: 101, Nano: 290000000}}
+		Units: 101, Nano: 290000000,
+	},
+}
 
 var happyPathLastPriceInBytes = `{
     "lastPrice": {
@@ -278,10 +281,11 @@ var happpyPathFindByInBytes = `[
     }
 ]`
 
-var happpyPathFindBy = []service.InstrumentShort{service.InstrumentShort{
+var happpyPathFindBy = []service.InstrumentShort{{
 	InstrumentType: "share",
 	Uid:            "76721c1c-52a9-4b45-987e-d075f651f1b1",
-	Figi:           "BBG000RJL816"}}
+	Figi:           "BBG000RJL816",
+}}
 
 var happpyPathBondByInBytes = `{
     "aciValue": {

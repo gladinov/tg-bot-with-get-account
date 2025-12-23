@@ -9,6 +9,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      ENV: ${ENV}
       LOCAL_BOT_TOKEN: ${LOCAL_BOT_TOKEN}
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/config.yaml"
@@ -107,6 +108,7 @@ services:
       postgres-service-db:
         condition: service_healthy
     environment:
+      ENV: ${ENV}
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/config.yaml"
       SBER_CONFIG_PATH: "/configs/sber.yaml"
@@ -157,6 +159,7 @@ services:
     container_name: cbr_app
     restart: unless-stopped
     environment:
+      ENV: ${ENV}
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/local.yaml"
       CBR_PORT: "${CBR_PORT}"
@@ -175,6 +178,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      ENV: ${ENV}
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/local.yaml"
       TINKOFF_CONFIG_PATH: "/configs/tinkoffApiConfig.yaml"
@@ -196,6 +200,7 @@ services:
     container_name: moex_app
     restart: unless-stopped
     environment:
+      ENV: ${ENV}
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/local.yaml"
       MOEX_API_PORT: ${MOEX_API_PORT}

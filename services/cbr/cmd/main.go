@@ -3,56 +3,49 @@ package main
 import (
 	"cbr/internal/configs"
 	"cbr/internal/handlers"
-	loggerhandler "cbr/internal/handlers/logger"
 	"cbr/internal/service"
-	"cbr/lib/logger/sl"
 	"context"
 	"log/slog"
-	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
+
+	sl "github.com/gladinov/mylogger"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	//for local
-	//app.MustInitialize()
-	//rootPath := app.MustGetRoot()
-	rootPath := os.Getenv("ROOT_PATH")
-	if rootPath == "" {
-		panic("ROOT_PATH environment variable is required")
-	}
-
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		panic("CONFIG_PATH environment variable is required")
-	}
-
-	cnfgs := configs.MustInitConfig(rootPath, configPath)
-
-	logg := sl.NewLogger(cnfgs.Env)
-
-	logg.Info("start app",
-		slog.String("env", cnfgs.Env),
-		slog.String("host", cnfgs.CbrHost),
-		slog.String("cbr_app_host", cnfgs.CbrAppHost),
-		slog.String("cbr_app_port", strconv.Itoa(cnfgs.CbrAppPort)))
-
+	// for local
+	// app.MustInitialize()
+	// rootPath := app.MustGetRoot()
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
 
-	router := echo.New()
-	transport := service.NewTransport(cnfgs.CbrHost, logg)
-	client := service.NewClient(transport, logg)
-	srvc := service.NewService(client, logg)
-	handlers := handlers.NewHandlers(srvc, logg)
+	conf := configs.MustInitConfig()
 
+	logg := sl.NewLogger(conf.Env)
+
+	logg.Info("start app",
+		slog.String("env", conf.Env),
+		slog.String("host", conf.CbrHost),
+		slog.String("cbr_app_host", conf.Clients.CbrAppApiClient.Host),
+		slog.String("cbr_app_port", conf.Clients.CbrAppApiClient.Port))
+
+	logg.Info("initialize service.Transport")
+	transport := service.NewTransport(logg, conf.CbrHost)
+	logg.Info("initialize service client")
+	client := service.NewClient(logg, transport)
+	logg.Info("initialize service")
+	service := service.NewService(logg, client)
+	logg.Info("initialize handlers")
+	handlers := handlers.NewHandlers(logg, service)
+
+	logg.Info("initialize router echo")
+	router := echo.New()
 	router.Use(middleware.CORS())
-	router.Use(loggerhandler.LoggerMiddleware(logg))
+	router.Use(handlers.LoggerMiddleWare)
 
 	router.POST("/cbr/currencies", handlers.GetAllCurrencies)
 
@@ -60,7 +53,8 @@ func main() {
 		<-ctx.Done()
 		_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-
 	}()
-	router.Start(cnfgs.GetCbrAppServer())
+	address := conf.Clients.CbrAppApiClient.GetCbrAppServer()
+	logg.Info("run CBR App", slog.String("address", address))
+	router.Start(address)
 }

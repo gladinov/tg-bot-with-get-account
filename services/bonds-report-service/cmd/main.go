@@ -10,54 +10,75 @@ import (
 	"bonds-report-service/internal/repository"
 	"bonds-report-service/internal/service"
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/gin-gonic/gin"
+	sl "github.com/gladinov/mylogger"
 )
 
 func main() {
-	// for local run in terminal
-	//app.MustInitialize()
-	//rootPath := app.MustGetRoot()
-
-	// docker run
 	conf := config.MustInitConfig()
+
+	logg := sl.NewLogger(conf.Env)
+
+	logg.Info("start app",
+		slog.String("env", conf.Env),
+		slog.String("bond-report-service_app_host", conf.Clients.BondReportService.Host),
+		slog.String("bond-report-service_app_port", conf.Clients.BondReportService.Port))
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	repo := repository.MustInitNewStorage(ctx, conf)
+	repo := repository.MustInitNewStorage(ctx, conf, logg)
 
-	tinkoffClient := tinkoffApi.NewClient(conf.Clients.TinkoffClient.GetTinkoffApiAddress())
+	logg.Info("initialize Tinkoff client", slog.String("addres", conf.Clients.TinkoffClient.GetTinkoffApiAddress()))
+	tinkoffClient := tinkoffApi.NewClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
 
-	moexClient := moex.NewClient(conf.Clients.MoexClient.GetMoexAppAddress())
+	logg.Info("initialize Moex client", slog.String("addres", conf.Clients.MoexClient.GetMoexAppAddress()))
+	moexClient := moex.NewClient(logg, conf.Clients.MoexClient.GetMoexAppAddress())
 
-	cbrClient := cbr.New(conf.Clients.CBRClient.GetCBRAppAddress())
+	logg.Info("initialize CBR client", slog.String("addres", conf.Clients.CBRClient.GetCBRAppAddress()))
+	cbrClient := cbr.New(logg, conf.Clients.CBRClient.GetCBRAppAddress())
 
+	logg.Info("initialize Sber client", slog.String("addres", conf.SberConfigPath))
 	sberClient, err := sber.NewClient(conf.RootPath, conf.SberConfigPath)
 	if err != nil {
-		log.Fatalf("could not create sber client: %s", err.Error())
+		logg.Error("could not create sber client", slog.String("error", err.Error()))
+		return
 	}
 
-	serviceClient := service.New(tinkoffClient, moexClient, cbrClient, sberClient, repo)
+	logg.Info("initialize Service client")
+	serviceClient := service.New(
+		logg,
+		tinkoffClient,
+		moexClient,
+		cbrClient,
+		sberClient,
+		repo)
 
-	handl := handlers.NewHandlers(serviceClient)
+	logg.Info("initialize Handlers")
+	handl := handlers.NewHandlers(logg, serviceClient)
 
-	router := gin.Default()
+	logg.Info("initialize router gin")
+	router := gin.New()
+	router.Use(gin.Recovery())
 
-	router.Use(gin.Logger())
+	router.Use(handlers.LoggerMiddleware(logg))
+	router.Use(handlers.AuthMiddleware(logg))
 
-	router.GET("/bondReportService/accounts", handlers.AuthMiddleware(), handl.GetAccountsList)
-	router.GET("/bondReportService/getBondReportsByFifo", handlers.AuthMiddleware(), handl.GetBondReportsByFifo)
-	router.GET("/bondReportService/getUSD", handlers.AuthMiddleware(), handl.GetUSD)
-	router.GET("/bondReportService/getBondReports", handlers.AuthMiddleware(), handl.GetBondReports)
-	router.GET("/bondReportService/getPortfolioStructure", handlers.AuthMiddleware(), handl.GetPortfolioStructure)
-	router.GET("/bondReportService/getUnionPortfolioStructure", handlers.AuthMiddleware(), handl.GetUnionPortfolioStructure)
-	router.GET("/bondReportService/getUnionPortfolioStructureWithSber", handlers.AuthMiddleware(), handl.GetUnionPortfolioStructureWithSber)
+	router.GET("/bondReportService/accounts", handl.GetAccountsList)
+	router.GET("/bondReportService/getBondReportsByFifo", handl.GetBondReportsByFifo)
+	router.GET("/bondReportService/getUSD", handl.GetUSD)
+	router.GET("/bondReportService/getBondReports", handl.GetBondReports)
+	router.GET("/bondReportService/getPortfolioStructure", handl.GetPortfolioStructure)
+	router.GET("/bondReportService/getUnionPortfolioStructure", handl.GetUnionPortfolioStructure)
+	router.GET("/bondReportService/getUnionPortfolioStructureWithSber", handl.GetUnionPortfolioStructureWithSber)
 
-	router.Run(conf.Clients.BondReportService.GetBondReportServiceAppAddress())
+	address := conf.Clients.BondReportService.GetBondReportServiceAppAddress()
+	logg.Info("run bond-report-service", slog.String("address", address))
+	router.Run(address)
 
 }

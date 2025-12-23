@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
+	sl "github.com/gladinov/mylogger"
 	bondreportservice "main.go/clients/bondReportService"
 	tgClient "main.go/clients/telegram"
 	tinkoffapi "main.go/clients/tinkoffApi"
@@ -14,8 +16,8 @@ import (
 	"main.go/internal/config"
 	storage "main.go/internal/repository"
 	"main.go/internal/repository/redis"
+	tokenauth "main.go/internal/tokenAuth"
 	"main.go/lib/cryptoToken"
-	loggAdapter "main.go/logger"
 )
 
 const (
@@ -25,38 +27,40 @@ const (
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	logger := loggAdapter.SetupLogger()
-	// for local run in terminal
-	//logger := loggAdapter.SetupLogger()
-	//app.MustInitialize()
-	//rootPath := app.MustGetRoot()
 
-	// docker run
+	conf := config.MustInitConfig()
 
-	cnfg := config.MustInitConfig()
+	logg := sl.NewLogger(conf.Env)
 
-	//// //  for local
-	//envPath := filepath.Join(rootPath, ".env")
-	//err := godotenv.Load(envPath)
-	//if err != nil {
-	//	logger.Printf("Error loading .env file. Erorr: %v", err.Error())
-	//}
-	//
+	logg.Info("start app",
+		slog.String("env", conf.Env),
+		slog.String("cbr_app_host", conf.ClientsHosts.BondReportServiceHost),
+		slog.String("cbr_app_port", conf.ClientsHosts.BondReportServicePort))
 
-	redis, err := redis.NewClient(ctx, cnfg)
+	logg.Info("initialize Redis client", slog.String("addres", conf.RedisHTTPServer.GetAddress()))
+	redis, err := redis.NewClient(ctx, conf)
 	if err != nil {
-		logger.Fatalf("haven't connect with redis")
+		logg.Error("haven't connect with redis", slog.String("err", err.Error()))
+		return
 	}
+	logg.Info("initialize TokenCrypter client")
 
-	tokenCrypter := cryptoToken.NewTokenCrypter(cnfg.Key)
+	tokenCrypter := cryptoToken.NewTokenCrypter(conf.Key)
 
-	telegrammClient := tgClient.New(cnfg.ClientsHosts.TelegramHost, cnfg.Token)
+	logg.Info("initialize Telegram client", slog.String("addres", conf.ClientsHosts.TelegramHost))
+	telegrammClient := tgClient.New(logg, conf.ClientsHosts.TelegramHost, conf.Token)
 
-	tinkoffApiClient := tinkoffapi.NewClient(cnfg.ClientsHosts.GetTinkoffApiAddress())
+	logg.Info("initialize Tinkoff client", slog.String("addres", conf.ClientsHosts.GetTinkoffApiAddress()))
+	tinkoffApiClient := tinkoffapi.NewClient(logg, conf.ClientsHosts.GetTinkoffApiAddress())
 
-	userStorage, err := storage.NewStorage(ctx, cnfg)
+	logg.Info("initialize User storage",
+		slog.String("dbType", conf.DbType),
+		slog.String("address", conf.PostgresHost.GetAdress()),
+	)
+	userStorage, err := storage.NewStorage(ctx, conf)
 	if err != nil {
-		logger.Fatalf("can't create user_storage: %s", err.Error())
+		logg.Error("can't create user_storage", slog.String("err", err.Error()))
+		return
 	}
 	defer func() {
 		if userStorage != nil {
@@ -64,24 +68,34 @@ func main() {
 		}
 	}()
 
-	bondReportServiceClient := bondreportservice.New(cnfg.ClientsHosts.GetBondReportAddress())
+	logg.Info("initialize bondReportService client", slog.String("addres", conf.ClientsHosts.GetBondReportAddress()))
+	bondReportServiceClient := bondreportservice.New(logg, conf.ClientsHosts.GetBondReportAddress())
 
+	logg.Info("initialize TokenAuthService")
+	tokenAuthService := tokenauth.NewTokenAuthService(
+		logg,
+		redis,
+		userStorage,
+		tinkoffApiClient,
+		tokenCrypter)
+
+	logg.Info("initialize Processor")
 	processor := telegram.NewProccesor(
-		tokenCrypter,
+		logg,
 		telegrammClient,
 		tinkoffApiClient,
 		bondReportServiceClient,
-		redis,
-		userStorage,
+		tokenAuthService,
 	)
 
-	fetcher := telegram.NewFetcher(telegrammClient)
+	logg.Info("initialize Fetcher")
+	fetcher := telegram.NewFetcher(logg, telegrammClient)
 
-	logger.Printf("service started")
-
-	consumer := event_consumer.New(fetcher, processor, batchSize)
+	logg.Info("service started")
+	consumer := event_consumer.New(logg, fetcher, processor, batchSize)
 
 	if err := consumer.Start(); err != nil {
-		logger.Fatalf("service is stopped")
+		logg.Error("service is stopped")
+		return
 	}
 }

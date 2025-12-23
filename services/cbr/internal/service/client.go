@@ -30,21 +30,23 @@ type Client struct {
 }
 
 type Transport struct {
+	logger *slog.Logger
 	host   string
 	client http.Client
-	logger *slog.Logger
 }
 
-func NewTransport(host string, logger *slog.Logger) *Transport {
-	return &Transport{host: host,
+func NewTransport(logger *slog.Logger, host string) *Transport {
+	return &Transport{
+		logger: logger,
+		host:   host,
 		client: http.Client{},
-		logger: logger}
+	}
 }
 
-func NewClient(transport HTTPTransport, logger *slog.Logger) *Client {
+func NewClient(logger *slog.Logger, transport HTTPTransport) *Client {
 	return &Client{
-		transport: transport,
 		logger:    logger,
+		transport: transport,
 	}
 }
 

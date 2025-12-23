@@ -13,13 +13,15 @@ type CurrencyService interface {
 }
 
 type Service struct {
-	Client HTTPClient
 	Logger *slog.Logger
+	Client HTTPClient
 }
 
-func NewService(client HTTPClient, logger *slog.Logger) *Service {
-	return &Service{Client: client,
-		Logger: logger}
+func NewService(logger *slog.Logger, client HTTPClient) *Service {
+	return &Service{
+		Logger: logger,
+		Client: client,
+	}
 }
 
 func (s *Service) GetAllCurrencies(date time.Time) (CurrenciesResponce, error) {

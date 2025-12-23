@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"log/slog"
 	"math"
 	"time"
 
@@ -15,7 +16,9 @@ const (
 	daysInYear = 365
 )
 
-func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions) (service_models.Report, error) {
+func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions) (_ service_models.Report, err error) {
+	const op = "service.CreateBondReport"
+
 	var resultReports service_models.Report
 	for i := range reportPostions.CurrentPositions {
 		position := reportPostions.CurrentPositions[i]
@@ -40,7 +43,20 @@ func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions)
 }
 
 func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.ReportPositions, totalAmount float64) (_ service_models.GeneralBondReportPosition, err error) {
-	defer func() { err = e.WrapIfErr("can't create general bond report", err) }()
+	const op = "service.CreateGeneralBondReport"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't create general bond report", err)
+	}()
+
 	currentPostions := resultBondPosition.CurrentPositions
 	var BondReporPosition service_models.GeneralBondReportPosition
 
@@ -168,7 +184,21 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 	return BondReporPosition, nil
 }
 
-func (c *Client) createBondReportByCurrency(position service_models.PositionByFIFO) (service_models.BondReport, error) {
+func (c *Client) createBondReportByCurrency(position service_models.PositionByFIFO) (_ service_models.BondReport, err error) {
+	const op = "service.createBondReportByCurrency"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't create bond report by currency", err)
+	}()
+
 	var bondReport service_models.BondReport
 	moexBuyDateData, err := c.MoexApi.GetSpecifications(position.Ticker, position.BuyDate)
 	if err != nil {
@@ -226,13 +256,13 @@ func (c *Client) createBondReportByCurrency(position service_models.PositionByFI
 		bondReport.YieldToOfferOnPurchase = RoundFloat(yieldToOfferOnPurchase, 2)
 	}
 
-	profitInPercentage, err := getProfit(position)
+	profitInPercentage, err := getProfit(logg, position)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
 	bondReport.Profit = profitInPercentage
 
-	annualizedReturn, err := getAnnualizedReturnInPercentage(position)
+	annualizedReturn, err := getAnnualizedReturnInPercentage(logg, position)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
@@ -241,24 +271,51 @@ func (c *Client) createBondReportByCurrency(position service_models.PositionByFI
 	return bondReport, nil
 }
 
-func getProfit(sharePosition service_models.PositionByFIFO) (float64, error) {
+func getProfit(logger *slog.Logger, sharePosition service_models.PositionByFIFO) (_ float64, err error) {
+	const op = "service.getProfit"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get prorfit ", err)
+	}()
 	profitWithoutTax := getSecurityIncomeWithoutTax(sharePosition)
 	totalTax := getTotalTaxFromPosition(sharePosition, profitWithoutTax)
 	profit := getSecurityIncome(profitWithoutTax, totalTax)
 	profitInPercentage, err := getProfitInPercentage(profit, sharePosition.BuyPrice, sharePosition.Quantity)
 	if err != nil {
-		return profitInPercentage, errors.New("service: GetProfit" + err.Error())
+		return profitInPercentage, err
 	}
 	return profitInPercentage, nil
 }
 
-func getAnnualizedReturnInPercentage(p service_models.PositionByFIFO) (float64, error) {
+func getAnnualizedReturnInPercentage(logger *slog.Logger, p service_models.PositionByFIFO) (_ float64, err error) {
+	const op = "service.getAnnualizedReturnInPercentage"
+
+	start := time.Now()
+	logg := logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't get Annualized Return In Percentage", err)
+	}()
+
 	var totalReturn float64
 	profitWithoutTax := getSecurityIncomeWithoutTax(p)
 	totalTax := getTotalTaxFromPosition(p, profitWithoutTax)
 	profit := getSecurityIncome(profitWithoutTax, totalTax)
 	buyDate := p.BuyDate
-	// Костыль. Надо переписать когда-нибудь, так как для закрытх позиций данная функция работать не будет
+	// Костыль. Надо переписать , так как для закрытх позиций данная функция работать не будет
 	sellDate := time.Now()
 	timeDurationInDays := sellDate.Sub(buyDate).Hours() / float64(hoursInDay)
 	// Если покупка и продажа были совершены в один день, то берем минимум один день

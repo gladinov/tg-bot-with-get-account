@@ -5,27 +5,40 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 
 	"main.go/internal/models"
 	"main.go/lib/valuefromcontext"
 )
 
 type Client struct {
+	logger *slog.Logger
 	host   string
 	client http.Client
 }
 
-func New(host string) *Client {
+func New(logger *slog.Logger, host string) *Client {
 	return &Client{
+		logger: logger,
 		host:   host,
 		client: http.Client{}}
 }
 
 func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, error) {
 	const op = "bondreportservice.GetAccountsList"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return AccountListResponce{}, fmt.Errorf("%s: %w", op, err)
@@ -72,6 +85,15 @@ func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, erro
 
 func (c *Client) GetUsd(ctx context.Context) (UsdResponce, error) {
 	const op = "bondreportservice.GetUsd"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return UsdResponce{}, fmt.Errorf("%s:%w", op, err)
@@ -122,6 +144,15 @@ func (c *Client) GetUsd(ctx context.Context) (UsdResponce, error) {
 
 func (c *Client) GetBondReportsByFifo(ctx context.Context) error {
 	const op = "bondreportservice.GetBondReportsByFifo"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return fmt.Errorf("%s:%w", op, err)
@@ -164,6 +195,15 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context) error {
 
 func (c *Client) GetBondReports(ctx context.Context) (BondReportsResponce, error) {
 	const op = "bondreportservice.GetBondReports"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return BondReportsResponce{}, fmt.Errorf("%s:%w", op, err)
@@ -209,6 +249,15 @@ func (c *Client) GetBondReports(ctx context.Context) (BondReportsResponce, error
 
 func (c *Client) GetPortfolioStructure(ctx context.Context) (PortfolioStructureForEachAccountResponce, error) {
 	const op = "bondreportservice.GetPortfolioStructure"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return PortfolioStructureForEachAccountResponce{}, fmt.Errorf("%s:%w", op, err)
@@ -256,6 +305,16 @@ func (c *Client) GetPortfolioStructure(ctx context.Context) (PortfolioStructureF
 
 func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolioStructureResponce, error) {
 	const op = "bondreportservice.GetUnionPortfolioStructure"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return UnionPortfolioStructureResponce{}, fmt.Errorf("%s:%w", op, err)
@@ -303,6 +362,16 @@ func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolio
 
 func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionPortfolioStructureWithSberResponce, error) {
 	const op = "bondreportservice.GetUnionPortfolioStructureWithSber"
+
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+		)
+	}()
+
 	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
 	if err != nil {
 		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s:%w", op, err)

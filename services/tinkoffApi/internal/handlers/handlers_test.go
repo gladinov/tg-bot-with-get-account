@@ -1,4 +1,4 @@
-package hanlders
+package handlers
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 	"tinkoffApi/internal/service"
 	"tinkoffApi/internal/service/mocks"
 	testhelpfunc "tinkoffApi/lib/testHelpFunc"
-
 	"tinkoffApi/pkg/app"
 
 	"github.com/labstack/echo/v4"
@@ -59,7 +58,7 @@ func TestAuth(t *testing.T) {
 			tokenPrefix: "",
 			wantHeader:  true,
 			want:        "",
-			wantErr:     errHeaderRequierd,
+			wantErr:     errHeaderRequired,
 		},
 		{
 			name:        "Err: Don't install auth header",
@@ -67,7 +66,7 @@ func TestAuth(t *testing.T) {
 			tokenPrefix: "",
 			wantHeader:  false,
 			want:        "",
-			wantErr:     errHeaderRequierd,
+			wantErr:     errHeaderRequired,
 		},
 	}
 	for _, tc := range cases {
@@ -125,7 +124,6 @@ func TestGetAccounts(t *testing.T) {
 				ps.On("GetClient", mock.Anything, mock.AnythingOfType("string")).
 					Once().
 					Return(errors.New("op:sevrice.AnalyticsServiceClient.GetClient, err: can't connect with tinkoffApi client"))
-
 			},
 			expectedBody: `{"error": "incorrect token"}`,
 		},
@@ -169,7 +167,6 @@ func TestGetAccounts(t *testing.T) {
 			portfolioServiceMock.AssertExpectations(t)
 		})
 	}
-
 }
 
 func TestGetPortfolio(t *testing.T) {
@@ -296,7 +293,6 @@ func TestGetPortfolio(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestGetOperations(t *testing.T) {
@@ -560,7 +556,6 @@ func TestGetBondsActions(t *testing.T) {
 			request:        service.BondsActionsReq{InstrumentUid: "070d82ad-e9e0-41e4-8eca-cbe9f5830db2"},
 			expectedStatus: http.StatusUnauthorized,
 			setupMocks: func(as *mocks.AnalyticsService, token string, instrumentUid string) {
-
 			},
 			expectedBody:  `{"error": "incorrect token"}`,
 			assertNoCalls: true,
@@ -571,7 +566,6 @@ func TestGetBondsActions(t *testing.T) {
 			request:        `{"invalid json"}`,
 			expectedStatus: http.StatusBadRequest,
 			setupMocks: func(as *mocks.AnalyticsService, token string, instrumentUid string) {
-
 			},
 			expectedBody:  `{"error": "Invalid request"}`,
 			assertNoCalls: true,
@@ -771,7 +765,6 @@ func TestGetLastPriceInPersentageToNominal(t *testing.T) {
 			} else {
 				analyticMock.AssertExpectations(t)
 			}
-
 		})
 	}
 }
@@ -895,7 +888,6 @@ func TestFindBy(t *testing.T) {
 			} else {
 				analyticMock.AssertExpectations(t)
 			}
-
 		})
 	}
 }
@@ -1019,7 +1011,6 @@ func TestGetBondByUid(t *testing.T) {
 			} else {
 				analyticMock.AssertExpectations(t)
 			}
-
 		})
 	}
 }
@@ -1143,7 +1134,6 @@ func TestGetCurrencyBy(t *testing.T) {
 			} else {
 				analyticMock.AssertExpectations(t)
 			}
-
 		})
 	}
 }
@@ -1267,7 +1257,6 @@ func TestGetShareCurrencyBy(t *testing.T) {
 			} else {
 				analyticMock.AssertExpectations(t)
 			}
-
 		})
 	}
 }
@@ -1391,7 +1380,6 @@ func TestGetFutureBy(t *testing.T) {
 			} else {
 				analyticMock.AssertExpectations(t)
 			}
-
 		})
 	}
 }

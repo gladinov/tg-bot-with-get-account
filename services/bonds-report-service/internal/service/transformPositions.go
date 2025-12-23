@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"bonds-report-service/clients/tinkoffApi"
@@ -17,7 +18,20 @@ const (
 )
 
 func (c *Client) TransformPositions(ctx context.Context, portffolioPositions []tinkoffApi.PortfolioPositions) (_ []service_models.PortfolioPosition, err error) {
-	defer func() { err = e.WrapIfErr("transPositions err ", err) }()
+	const op = "service.TransformPositions"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("transPositions err ", err)
+	}()
+
 	portfolio := make([]service_models.PortfolioPosition, 0)
 	for _, v := range portffolioPositions {
 		assetUid, err := c.GetUidByInstrUid(ctx, v.InstrumentUid)
@@ -38,7 +52,20 @@ func (c *Client) TransformPositions(ctx context.Context, portffolioPositions []t
 }
 
 func (c *Client) GetUidByInstrUid(ctx context.Context, instrumentUid string) (asset_uid string, err error) {
-	defer func() { err = e.WrapIfErr("can't get uid", err) }()
+	const op = "service.GetUidByInstrUid"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("could not get uid by instrument uid ", err)
+	}()
+
 	date, err := c.Storage.IsUpdatedUids(context.Background())
 	if err != nil && !errors.Is(err, service_models.ErrEmptyUids) {
 		return "", err
@@ -68,7 +95,20 @@ func (c *Client) GetUidByInstrUid(ctx context.Context, instrumentUid string) (as
 }
 
 func (c *Client) updateAndGetUid(ctx context.Context, instrumentUid string) (asset_uid string, err error) {
-	defer func() { err = e.WrapIfErr("can't update uids", err) }()
+	const op = "service.updateAndGetUid"
+
+	start := time.Now()
+	logg := c.logger.With(
+		slog.String("op", op))
+	logg.Debug("start")
+	defer func() {
+		logg.Info("fineshed",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("error", err),
+		)
+		err = e.WrapIfErr("can't update uids", err)
+	}()
+
 	allAssetUids, err := c.Tinkoffapi.GetAllAssetUids(ctx)
 	if err != nil {
 		return "", err

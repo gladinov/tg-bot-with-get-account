@@ -8,6 +8,7 @@ import (
 var ErrEmptyUids = errors.New("no uids")
 var ErrNoCurrency = errors.New("no currency")
 var ErrNoOpperations = errors.New("no operations")
+var ErrEmptyReport = errors.New("no elements in report")
 
 const (
 	RubBonds      = "bondsInRub"

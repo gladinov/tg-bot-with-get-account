@@ -3,19 +3,14 @@ package telegram
 import (
 	"context"
 	"errors"
-	"fmt"
-	"time"
-
-	"log"
+	"log/slog"
 
 	"strconv"
 	"strings"
 
-	"github.com/redis/go-redis/v9"
 	"main.go/internal/models"
-	"main.go/lib/cryptoToken"
+	tokenauth "main.go/internal/tokenAuth"
 	"main.go/lib/e"
-	"main.go/lib/valuefromcontext"
 )
 
 const (
@@ -60,11 +55,27 @@ func ContainsInConstantCommands(text string) bool {
 var ErrIncorrectToken = errors.New("incorrect token")
 
 func (p *Processor) doCmd(text string, chatID int, username string) error {
+	const op = "telegram.doCmd"
+
+	logg := p.logger.With(
+		slog.String("op", op),
+		slog.String("username", username),
+		slog.Int("chatID", chatID),
+	)
+	logg.Debug("start")
+	defer func() {
+		logg.Info("finished")
+	}()
+
 	text = strings.TrimSpace(text)
+
 	if ContainsInConstantCommands(text) {
-		log.Printf("got new command '%s' from '%s' in chat: %v", text, username, chatID)
+		logg.Info("got new command",
+			slog.String("msg", text),
+		)
+
 	} else {
-		log.Printf("got new other command from '%s' in chat: %v", username, chatID)
+		logg.Info("got new other command")
 	}
 
 	chatIDStr := strconv.Itoa(chatID)
@@ -76,16 +87,16 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		return p.sendHello(chatID)
 	}
 
-	tokenStatus, err := p.auth(ctx, text, username)
+	tokenStatus, err := p.tokenAuthService.Auth(ctx, text, username)
 
 	switch {
-	case err != nil && !errors.Is(err, ErrIncorrectToken):
+	case err != nil && !errors.Is(err, tokenauth.ErrIncorrectToken):
 		return err
-	case errors.Is(err, ErrIncorrectToken):
+	case errors.Is(err, tokenauth.ErrIncorrectToken):
 		return p.tg.SendMessage(chatID, msgNoToken)
 	case err == nil:
 		switch tokenStatus {
-		case TokenInserted:
+		case tokenauth.TokenInserted:
 			return p.tg.SendMessage(chatID, msgTrueToken)
 		}
 	}
@@ -210,113 +221,4 @@ func (p *Processor) sendHelp(chatID int) error {
 
 func (p *Processor) sendHello(chatID int) error {
 	return p.tg.SendMessage(chatID, msgHello)
-}
-
-func (p *Processor) checkUserToken(ctx context.Context) (res bool, err error) {
-	const op = "processor:checkUserToken"
-
-	isExists, err := p.storage.IsExistsToken(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	return isExists, nil
-}
-
-func (p *Processor) tokenToBase64(token string) (string, error) {
-	const op = "telegram.tokenToBase64"
-	encryptedToken, err := cryptoToken.EncryptToken(token, p.tokenCrypter.Key)
-	if err != nil {
-		return "", e.WrapIfErr("could not encrypt token", err)
-	}
-	tokenInBase64, err := encryptedToken.ToBase64()
-	if err != nil {
-		return "", fmt.Errorf("%s:%w", op, err)
-	}
-	return tokenInBase64, nil
-}
-
-func (p *Processor) auth(ctx context.Context, text string, username string) (TokenStatus, error) {
-	const op = "telegram.auth"
-	chatIDStr, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return TokenError, fmt.Errorf("%s:%w", op, err)
-	}
-
-	haveTokenInRedisErr := p.redis.Get(ctx, chatIDStr).Err()
-	if haveTokenInRedisErr != nil && haveTokenInRedisErr != redis.Nil {
-		return TokenError, fmt.Errorf("%s:%w", op, err)
-	}
-	if haveTokenInRedisErr == nil {
-		return TokenFound, nil
-	}
-
-	haveToken, err := p.checkUserToken(ctx)
-	if err != nil {
-		return TokenError, fmt.Errorf("%s:%w", op, err)
-	}
-
-	switch haveToken {
-	case true:
-		tokenInBase64, err := p.storage.PickToken(ctx)
-		if err != nil {
-			return TokenError, fmt.Errorf("%s:%w", op, err)
-		}
-
-		err = p.redis.Set(ctx, chatIDStr, tokenInBase64, time.Until(time.Date(2030, time.December, 31, 0, 0, 0, 0, time.UTC))).Err()
-		if err != nil {
-			return TokenError, fmt.Errorf("%s:%w", op, err)
-		}
-		return TokenInserted, nil
-
-	case false:
-		err := p.isToken(ctx, text)
-		if err != nil {
-			return TokenError, ErrIncorrectToken
-		}
-		tokenInBase64, err := p.tokenToBase64(text)
-		if err != nil {
-			return TokenError, fmt.Errorf("%s:%w", op, err)
-		}
-		err = p.storage.Save(ctx, username, tokenInBase64)
-		if err != nil {
-			return TokenError, fmt.Errorf("%s:%w", op, err)
-		}
-		err = p.redis.Set(ctx, chatIDStr, tokenInBase64, time.Until(time.Date(2030, time.December, 31, 0, 0, 0, 0, time.UTC))).Err()
-		if err != nil {
-			return TokenError, fmt.Errorf("%s:%w", op, err)
-		}
-		return TokenInserted, nil
-	}
-	return TokenFound, nil
-}
-
-func (p *Processor) isToken(ctx context.Context, text string) error {
-	const op = "telegram.isToken"
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return fmt.Errorf("%s:%w", op, err)
-	}
-	if len(text) == 88 { // TODO:модифицировать проверку
-		tokenInBase64, err := p.tokenToBase64(text)
-		if err != nil {
-			return fmt.Errorf("%s:%w", op, err)
-		}
-		err = p.redis.Set(ctx, chatID, tokenInBase64, time.Until(time.Date(2030, time.December, 31, 0, 0, 0, 0, time.UTC))).Err()
-		if err != nil {
-			return fmt.Errorf("%s:%w", op, err)
-		}
-		err = p.tinkoffApi.CheckToken(ctx)
-		if err != nil {
-			err := p.redis.Del(ctx, chatID).Err()
-			if err != nil {
-				return fmt.Errorf("%s:%w", op, err)
-			}
-			return fmt.Errorf("%s:%w", op, err)
-		}
-
-		return nil
-	}
-
-	return errors.New("is not token")
 }
