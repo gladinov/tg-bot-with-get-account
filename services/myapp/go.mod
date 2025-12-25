@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.9
 
 require (
-	github.com/gladinov/mylogger v0.1.0
+	github.com/gladinov/mylogger v0.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.6

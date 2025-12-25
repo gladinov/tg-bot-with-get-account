@@ -7,12 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	sl "github.com/gladinov/mylogger"
+	"github.com/gladinov/mylogger"
 	bondreportservice "main.go/clients/bondReportService"
 	tgClient "main.go/clients/telegram"
 	tinkoffapi "main.go/clients/tinkoffApi"
 	event_consumer "main.go/internal/app/consumer/event-consumer"
 	"main.go/internal/app/events/telegram"
+	traceidgenerator "main.go/internal/app/traceIDGenerator"
 	"main.go/internal/config"
 	storage "main.go/internal/repository"
 	"main.go/internal/repository/redis"
@@ -30,12 +31,13 @@ func main() {
 
 	conf := config.MustInitConfig()
 
-	logg := sl.NewLogger(conf.Env)
+	traceidgenerator.Must()
+
+	logg := mylogger.NewLogger(conf.Env)
 
 	logg.Info("start app",
 		slog.String("env", conf.Env),
-		slog.String("cbr_app_host", conf.ClientsHosts.BondReportServiceHost),
-		slog.String("cbr_app_port", conf.ClientsHosts.BondReportServicePort))
+	)
 
 	logg.Info("initialize Redis client", slog.String("addres", conf.RedisHTTPServer.GetAddress()))
 	redis, err := redis.NewClient(ctx, conf)
@@ -43,8 +45,8 @@ func main() {
 		logg.Error("haven't connect with redis", slog.String("err", err.Error()))
 		return
 	}
-	logg.Info("initialize TokenCrypter client")
 
+	logg.Info("initialize TokenCrypter client")
 	tokenCrypter := cryptoToken.NewTokenCrypter(conf.Key)
 
 	logg.Info("initialize Telegram client", slog.String("addres", conf.ClientsHosts.TelegramHost))

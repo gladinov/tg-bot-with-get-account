@@ -25,7 +25,8 @@ func New(logger *slog.Logger, host string) *Client {
 	return &Client{
 		logger: logger,
 		host:   host,
-		client: http.Client{}}
+		client: http.Client{},
+	}
 }
 
 func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, error) {
@@ -33,9 +34,9 @@ func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, erro
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -80,7 +81,6 @@ func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, erro
 		return AccountListResponce{}, fmt.Errorf("%s: %w", op, err)
 	}
 	return accountResponce, nil
-
 }
 
 func (c *Client) GetUsd(ctx context.Context) (UsdResponce, error) {
@@ -88,9 +88,9 @@ func (c *Client) GetUsd(ctx context.Context) (UsdResponce, error) {
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -147,9 +147,9 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context) error {
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -190,7 +190,6 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context) error {
 		return fmt.Errorf("%s:"+statusErr["error"], op)
 	}
 	return nil
-
 }
 
 func (c *Client) GetBondReports(ctx context.Context) (BondReportsResponce, error) {
@@ -198,9 +197,9 @@ func (c *Client) GetBondReports(ctx context.Context) (BondReportsResponce, error
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -252,9 +251,9 @@ func (c *Client) GetPortfolioStructure(ctx context.Context) (PortfolioStructureF
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -300,7 +299,6 @@ func (c *Client) GetPortfolioStructure(ctx context.Context) (PortfolioStructureF
 		return PortfolioStructureForEachAccountResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
 	return bondReportResponce, nil
-
 }
 
 func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolioStructureResponce, error) {
@@ -308,9 +306,9 @@ func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolio
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -357,7 +355,6 @@ func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolio
 		return UnionPortfolioStructureResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
 	return bondReportResponce, nil
-
 }
 
 func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionPortfolioStructureWithSberResponce, error) {
@@ -365,9 +362,9 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionP
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -414,5 +411,4 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionP
 		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
 	return bondReportResponce, nil
-
 }

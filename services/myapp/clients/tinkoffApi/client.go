@@ -34,7 +34,7 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	Path := path.Join("tinkoff", "checktoken")
 
 	u := url.URL{
@@ -59,7 +59,7 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 
 	defer func() { _ = resp.Body.Close() }()
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 			slog.Int("code", resp.StatusCode),
 			slog.String("body", string(body)),
