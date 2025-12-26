@@ -12,6 +12,7 @@ import (
 
 	httpheaders "github.com/gladinov/contracts/http"
 	"github.com/gladinov/contracts/trace"
+	traceidgenerator "main.go/internal/app/traceIDGenerator"
 )
 
 type Client struct {
@@ -55,8 +56,12 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 	case true:
 		req.Header.Set(httpheaders.HeaderTraceID, traceID)
 	case false:
+		logg.Warn("traceID is empty")
+		traceID, err = traceidgenerator.New()
+		if err != nil {
+			logg.Warn("could not generate traceID uuid", slog.Any("error", err))
+		}
 	}
-	// req.Header.Set()
 
 	resp, err := c.client.Do(req)
 	if err != nil {
