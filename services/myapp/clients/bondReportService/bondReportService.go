@@ -11,7 +11,9 @@ import (
 	"path"
 	"time"
 
-	"main.go/internal/models"
+	httpheaders "github.com/gladinov/contracts/http"
+	trace "github.com/gladinov/contracts/trace"
+	traceidgenerator "main.go/internal/app/traceIDGenerator"
 	"main.go/lib/valuefromcontext"
 )
 
@@ -40,10 +42,7 @@ func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, erro
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return AccountListResponce{}, fmt.Errorf("%s: %w", op, err)
-	}
+
 	pth := path.Join("bondReportService", "accounts")
 	u := url.URL{
 		Scheme: "http",
@@ -54,9 +53,13 @@ func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, erro
 	if err != nil {
 		return AccountListResponce{}, fmt.Errorf("%s: %w", op, err)
 	}
-	req.Header.Set(models.HeaderChatID, chatID)
 
-	resp, err := c.client.Do(req)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return AccountListResponce{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return AccountListResponce{}, fmt.Errorf("%s: %w", op, err)
 	}
@@ -94,10 +97,7 @@ func (c *Client) GetUsd(ctx context.Context) (UsdResponce, error) {
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return UsdResponce{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	pth := path.Join("bondReportService", "getUSD")
 
 	u := url.URL{
@@ -111,9 +111,12 @@ func (c *Client) GetUsd(ctx context.Context) (UsdResponce, error) {
 		return UsdResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
 
-	req.Header.Set(models.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return UsdResponce{}, fmt.Errorf("%s: %w", op, err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return UsdResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -153,10 +156,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context) error {
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return fmt.Errorf("%s:%w", op, err)
-	}
+
 	pth := path.Join("bondReportService", "getBondReportsByFifo")
 	u := url.URL{
 		Scheme: "http",
@@ -168,9 +168,12 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%s:%w", op, err)
 	}
-	req.Header.Set(models.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return fmt.Errorf("%s:%w", op, err)
 	}
@@ -203,10 +206,7 @@ func (c *Client) GetBondReports(ctx context.Context) (BondReportsResponce, error
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return BondReportsResponce{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	pth := path.Join("bondReportService", "getBondReports")
 	u := url.URL{
 		Scheme: "http",
@@ -217,9 +217,12 @@ func (c *Client) GetBondReports(ctx context.Context) (BondReportsResponce, error
 	if err != nil {
 		return BondReportsResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
-	req.Header.Set(models.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return BondReportsResponce{}, fmt.Errorf("%s: %w", op, err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return BondReportsResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -257,10 +260,7 @@ func (c *Client) GetPortfolioStructure(ctx context.Context) (PortfolioStructureF
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return PortfolioStructureForEachAccountResponce{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	pth := path.Join("bondReportService", "getPortfolioStructure")
 	u := url.URL{
 		Scheme: "http",
@@ -272,9 +272,12 @@ func (c *Client) GetPortfolioStructure(ctx context.Context) (PortfolioStructureF
 	if err != nil {
 		return PortfolioStructureForEachAccountResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
-	req.Header.Set(models.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return PortfolioStructureForEachAccountResponce{}, fmt.Errorf("%s: %w", op, err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return PortfolioStructureForEachAccountResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -313,10 +316,6 @@ func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolio
 		)
 	}()
 
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return UnionPortfolioStructureResponce{}, fmt.Errorf("%s:%w", op, err)
-	}
 	pth := path.Join("bondReportService", "getUnionPortfolioStructure")
 	u := url.URL{
 		Scheme: "http",
@@ -328,9 +327,12 @@ func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolio
 	if err != nil {
 		return UnionPortfolioStructureResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
-	req.Header.Set(models.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return UnionPortfolioStructureResponce{}, fmt.Errorf("%s: %w", op, err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return UnionPortfolioStructureResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -369,10 +371,6 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionP
 		)
 	}()
 
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s:%w", op, err)
-	}
 	pth := path.Join("bondReportService", "getUnionPortfolioStructureWithSber")
 	u := url.URL{
 		Scheme: "http",
@@ -384,9 +382,12 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionP
 	if err != nil {
 		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
-	req.Header.Set(models.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s: %w", op, err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -411,4 +412,31 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionP
 		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
 	return bondReportResponce, nil
+}
+
+func (c *Client) setHeaders(ctx context.Context, req *http.Request) (*http.Request, error) {
+	const op = "bondreportservice.SetHeaders"
+
+	logg := c.logger.With(slog.String("op", op))
+	logg.DebugContext(ctx, "start")
+	defer func() {
+		logg.InfoContext(ctx, "finished")
+	}()
+
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set(httpheaders.HeaderChatID, chatID)
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	if !ok {
+		logg.WarnContext(ctx, "hasn't traceID in ctx")
+		traceID, err = traceidgenerator.New()
+		if err != nil {
+			logg.WarnContext(ctx, "could not get tractID", slog.Any("error", err))
+		}
+	}
+	req.Header.Set(httpheaders.HeaderTraceID, traceID)
+
+	return req, nil
 }

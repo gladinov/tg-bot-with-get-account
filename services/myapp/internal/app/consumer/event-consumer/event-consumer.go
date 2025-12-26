@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/gladinov/mylogger"
+	"github.com/gladinov/contracts/trace"
 	"main.go/internal/app/events"
 	"main.go/internal/app/events/telegram"
 	traceidgenerator "main.go/internal/app/traceIDGenerator"
@@ -77,7 +77,7 @@ func (c *Consumer) handleEvents(events []events.Event) error {
 		if err != nil {
 			return e.WrapIfErr(op, err)
 		}
-		ctx := mylogger.WithTraceID(context.Background(), traceID)
+		ctx := trace.WithTraceID(context.Background(), traceID)
 
 		eventLog := logg.With(
 			slog.Any("event_type", event.Type),

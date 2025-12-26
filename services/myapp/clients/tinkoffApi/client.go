@@ -10,7 +10,8 @@ import (
 	"path"
 	"time"
 
-	"main.go/internal/models"
+	httpheaders "github.com/gladinov/contracts/http"
+	"github.com/gladinov/contracts/trace"
 )
 
 type Client struct {
@@ -48,7 +49,14 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 		return fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	req.Header.Set(models.HeaderEncryptedToken, tokenInBase64)
+	req.Header.Set(httpheaders.HeaderEncryptedToken, tokenInBase64)
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	switch ok {
+	case true:
+		req.Header.Set(httpheaders.HeaderTraceID, traceID)
+	case false:
+	}
+	// req.Header.Set()
 
 	resp, err := c.client.Do(req)
 	if err != nil {

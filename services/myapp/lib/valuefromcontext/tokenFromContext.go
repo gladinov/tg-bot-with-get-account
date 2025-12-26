@@ -6,24 +6,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"main.go/internal/models"
+	contextkeys "github.com/gladinov/contracts/context"
 )
 
-type ctxKey struct{}
-
-var TraceIDKey = ctxKey{}
-
-func WithTraceID(ctx context.Context, traceID string) context.Context {
-	return context.WithValue(ctx, TraceIDKey, traceID)
-}
-
-func TraceIDFromContext(ctx context.Context) (string, bool) {
-	id, ok := ctx.Value(TraceIDKey).(string)
-	return id, ok
-}
-
 func GetToken(ctx context.Context) (string, error) {
-	tokenBase64, exist := ctx.Value(models.EncryptedTokenKey).(string)
+	tokenBase64, exist := ctx.Value(contextkeys.EncryptedTokenKey).(string)
 	if !exist {
 		return "", errors.New("context has not token or token not string")
 	}
@@ -31,7 +18,7 @@ func GetToken(ctx context.Context) (string, error) {
 }
 
 func GetChatIDFromCtxStr(ctx context.Context) (string, error) {
-	chatID, exist := ctx.Value(models.ChatIdKey).(string)
+	chatID, exist := ctx.Value(contextkeys.ChatIDKey).(string)
 	if !exist {
 		return "", errors.New("context has not chatId or chatId not string")
 	}

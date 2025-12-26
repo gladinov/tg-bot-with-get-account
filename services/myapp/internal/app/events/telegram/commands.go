@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"main.go/internal/models"
+	contextkeys "github.com/gladinov/contracts/context"
 	tokenauth "main.go/internal/tokenAuth"
 	"main.go/lib/e"
 )
@@ -79,7 +79,7 @@ func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username
 	}
 
 	chatIDStr := strconv.Itoa(chatID)
-	ctx = context.WithValue(ctx, models.ChatIdKey, chatIDStr)
+	ctx = context.WithValue(ctx, contextkeys.ChatIDKey, chatIDStr)
 
 	// TODO: Написать разные приветствия в зависимости от наличия токена
 	if text == StartCmd {
