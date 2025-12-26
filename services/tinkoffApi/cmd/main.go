@@ -34,6 +34,7 @@ func main() {
 		slog.String("env", confs.Config.Env),
 		slog.String("cbr_app_host", confs.Config.TinkoffApiAppHost),
 		slog.String("cbr_app_port", confs.Config.TinkoffApiAppPort))
+
 	logg.Info("initialize logger adapter")
 	loggAdapter := loggeradapter.NewLoggerAdapter(logg)
 
@@ -66,10 +67,11 @@ func main() {
 	e := echo.New()
 
 	e.Use(middleware.CORS())
+	e.Use(handlrs.ContextHeaderTraceIdMiddleWare)
 	e.Use(handlrs.LoggerMiddleWare)
-	e.Use(handlrs.AuthCheckTokenMiddleWare)
+	e.Use(handlrs.CheckTokenFromRedisByChatIDMiddleWare)
 
-	e.GET("/tinkoff/checktoken", handlrs.CheckToken, handlrs.AuthCheckTokenInHeadersMiddleWare)
+	e.GET("/tinkoff/checktoken", handlrs.CheckToken, handlrs.CheckTokenFromHeadersMiddleWare)
 	e.GET("/tinkoff/accounts", handlrs.GetAccounts)
 	e.POST("/tinkoff/portfolio", handlrs.GetPortfolio)
 	e.POST("/tinkoff/operations", handlrs.GetOperations)

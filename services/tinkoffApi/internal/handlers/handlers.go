@@ -42,12 +42,13 @@ var (
 
 func (h *Handlers) CheckToken(c echo.Context) (err error) {
 	const op = "handlers.CheckToken"
-	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.Debug("start")
+
+	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	client, err := h.service.PortfolioService.GetClient(ctx)
 	if err != nil {
@@ -55,7 +56,7 @@ func (h *Handlers) CheckToken(c echo.Context) (err error) {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 	_, err = h.service.PortfolioService.GetAccounts(client)
@@ -73,7 +74,7 @@ func (h *Handlers) GetAccounts(c echo.Context) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	client, err := h.service.PortfolioService.GetClient(ctx)
 	if err != nil {
@@ -82,7 +83,7 @@ func (h *Handlers) GetAccounts(c echo.Context) (err error) {
 
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -115,7 +116,7 @@ func (h *Handlers) GetPortfolio(c echo.Context) (err error) {
 
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -133,7 +134,7 @@ func (h *Handlers) GetOperations(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var operationReq service.OperationsRequest
 	err := c.Bind(&operationReq)
@@ -148,7 +149,7 @@ func (h *Handlers) GetOperations(c echo.Context) error {
 
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -166,7 +167,7 @@ func (h *Handlers) GetAllAssetUids(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	client, err := h.service.AnalyticsService.GetClient(ctx)
 	if err != nil {
@@ -174,7 +175,7 @@ func (h *Handlers) GetAllAssetUids(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -193,7 +194,7 @@ func (h *Handlers) GetFutureBy(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var body service.FutureReq
 	err := c.Bind(&body)
@@ -207,7 +208,7 @@ func (h *Handlers) GetFutureBy(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -226,7 +227,7 @@ func (h *Handlers) GetBondBy(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var body service.BondReq
 	err := c.Bind(&body)
@@ -240,7 +241,7 @@ func (h *Handlers) GetBondBy(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -259,7 +260,7 @@ func (h *Handlers) GetCurrencyBy(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var body service.CurrencyReq
 	err := c.Bind(&body)
@@ -273,7 +274,7 @@ func (h *Handlers) GetCurrencyBy(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -292,7 +293,7 @@ func (h *Handlers) GetShareCurrencyBy(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var body service.ShareCurrencyByRequest
 	err := c.Bind(&body)
@@ -306,7 +307,7 @@ func (h *Handlers) GetShareCurrencyBy(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -325,7 +326,7 @@ func (h *Handlers) FindBy(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var body service.FindByReq
 	err := c.Bind(&body)
@@ -339,7 +340,7 @@ func (h *Handlers) FindBy(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -358,7 +359,7 @@ func (h *Handlers) GetBondsActions(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var body service.BondsActionsReq
 	err := c.Bind(&body)
@@ -372,7 +373,7 @@ func (h *Handlers) GetBondsActions(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 
@@ -391,7 +392,7 @@ func (h *Handlers) GetLastPriceInPersentageToNominal(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var body service.LastPriceReq
 	err := c.Bind(&body)
@@ -405,7 +406,7 @@ func (h *Handlers) GetLastPriceInPersentageToNominal(c echo.Context) error {
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			h.logger.Warn("client stop failed", slog.Any("error", err))
+			logg.WarnContext(ctx, "client stop failed", slog.Any("error", err))
 		}
 	}()
 

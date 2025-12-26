@@ -6,92 +6,33 @@ import (
 	"net/http"
 	"time"
 	"tinkoffApi/lib/cryptoToken"
+	traceidgenerator "tinkoffApi/lib/traceIDGenerator"
 	"tinkoffApi/lib/valuefromcontext"
+
+	contextkeys "github.com/gladinov/contracts/context"
+	httpheaders "github.com/gladinov/contracts/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 )
 
-func (h *Handlers) AuthCheckTokenMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
+func (h *Handlers) ContextHeaderTraceIdMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
-		const op = "handlers.AuthCheckTokenMiddleWare"
-		logg := h.logger.With(slog.String("op", op))
-		logg.Debug("start", slog.String("path", c.Path()))
-
-		defer func() {
-			if err != nil {
-				logg.Error("auth middleware failed", slog.Any("error", err))
-			} else {
-				logg.Info("success finished")
-			}
-		}()
-
-		if c.Path() == "/tinkoff/checktoken" {
-			return next(c)
-		}
-
-		chatID := c.Request().Header.Get(HeaderChatID)
-		if chatID == "" {
-			err = errHeaderRequired
-			return echo.NewHTTPError(http.StatusUnauthorized, errHeaderRequired)
-		}
-		ctx := c.Request().Context()
-		tokenInBase64, err := h.redis.Get(ctx, chatID).Result()
-		switch err {
-		case nil:
-		case redis.Nil:
-			return echo.NewHTTPError(http.StatusUnauthorized, errNoTokenInRedis)
-		default:
-			return echo.NewHTTPError(http.StatusServiceUnavailable, errRedisDoNotAnswer)
-		}
-
-		encryptedToken, err := cryptoToken.GetEncryptedTokenFromBase64(tokenInBase64)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, errHeaderRequired)
-		}
-		token, err := cryptoToken.DecryptToken(&encryptedToken, h.tokenCrypter.Key)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, errInvalidAuthFormat)
-		}
-		ctx = context.WithValue(c.Request().Context(), valuefromcontext.EncryptedTokenKey, token)
-		c.SetRequest(c.Request().WithContext(ctx))
-
-		return next(c)
-	}
-}
-
-func (h *Handlers) AuthCheckTokenInHeadersMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) (err error) {
-		const op = "handlers.AuthCheckTokenInHeadersMiddleWare"
+		const op = "handlers.ContextHeaderTraceIdMiddleWare"
 		logg := h.logger.With(slog.String("op", op))
 		logg.Debug("start")
-		defer func() {
-			if err != nil {
-				logg.Warn("auth failed",
-					slog.Any("error", err),
-					slog.String("path", c.Path()),
-					slog.String("method", c.Request().Method))
-			} else {
-				logg.Debug("auth success",
-					slog.String("path", c.Path()),
-					slog.String("method", c.Request().Method))
-			}
-		}()
 
-		tokenInBase64 := c.Request().Header.Get(HeaderEncryptedToken)
-		if tokenInBase64 == "" {
-			err = errHeaderRequired
-			return echo.NewHTTPError(http.StatusUnauthorized, err)
+		traceID := c.Request().Header.Get(httpheaders.HeaderTraceID)
+		if traceID == "" {
+			logg.Warn("traceID is empty")
+			traceID, err = traceidgenerator.New()
+			if err != nil {
+				logg.Error("could not generate traceID uuid", slog.Any("error", err))
+			}
 		}
-		encryptedToken, err := cryptoToken.GetEncryptedTokenFromBase64(tokenInBase64)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, errHeaderRequired)
-		}
-		token, err := cryptoToken.DecryptToken(&encryptedToken, h.tokenCrypter.Key)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, errInvalidAuthFormat)
-		}
-		ctx := context.WithValue(c.Request().Context(), valuefromcontext.EncryptedTokenKey, token)
+
+		ctx := context.WithValue(c.Request().Context(), contextkeys.TraceIDKey, traceID)
+
 		c.SetRequest(c.Request().WithContext(ctx))
 
 		return next(c)
@@ -104,6 +45,8 @@ func (h *Handlers) LoggerMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
 			slog.String("component", "middleware/logger"),
 		)
 
+		traceID, _ := valuefromcontext.GetTraceID(c.Request().Context())
+
 		req := c.Request()
 		resp := c.Response()
 		entry := logg.With(
@@ -111,14 +54,21 @@ func (h *Handlers) LoggerMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
 			slog.String("path", req.URL.Path),
 			slog.String("remote_addr", req.RemoteAddr),
 			slog.String("user_agent", req.UserAgent()),
-			// slog.String("request_id", req.Header.Get(models.RequestIDHeader)),
+			slog.String("trace_id", traceID),
 		)
 		start := time.Now()
 
 		defer func() {
-			status := resp.Status
-			if status == 0 {
-				status = http.StatusOK
+			var status int
+
+			if err != nil {
+				if he, ok := err.(*echo.HTTPError); ok {
+					status = he.Code
+				} else {
+					status = http.StatusInternalServerError
+				}
+			} else {
+				status = resp.Status
 			}
 
 			attrs := []any{
@@ -138,5 +88,70 @@ func (h *Handlers) LoggerMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
 		err = next(c)
 
 		return err
+	}
+}
+
+func (h *Handlers) CheckTokenFromRedisByChatIDMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) (err error) {
+		const op = "handlers.CheckTokenFromRedisByChatIDMiddleWare"
+
+		if c.Path() == "/tinkoff/checktoken" {
+			return next(c)
+		}
+
+		chatID := c.Request().Header.Get(HeaderChatID)
+		if chatID == "" {
+			err = errHeaderRequired
+			return echo.NewHTTPError(http.StatusUnauthorized, errHeaderRequired)
+		}
+
+		ctx := c.Request().Context()
+		tokenInBase64, err := h.redis.Get(ctx, chatID).Result()
+		switch err {
+		case nil:
+		case redis.Nil:
+			return echo.NewHTTPError(http.StatusUnauthorized, errNoTokenInRedis)
+		default:
+			return echo.NewHTTPError(http.StatusServiceUnavailable, errRedisDoNotAnswer)
+		}
+
+		encryptedToken, err := cryptoToken.GetEncryptedTokenFromBase64(tokenInBase64)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, errHeaderRequired)
+		}
+		token, err := cryptoToken.DecryptToken(&encryptedToken, h.tokenCrypter.Key)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, errInvalidAuthFormat)
+		}
+
+		ctx = context.WithValue(c.Request().Context(), contextkeys.EncryptedTokenKey, token)
+		c.SetRequest(c.Request().WithContext(ctx))
+
+		return next(c)
+	}
+}
+
+func (h *Handlers) CheckTokenFromHeadersMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) (err error) {
+		const op = "handlers.CheckTokenFromHeadersMiddleWare"
+
+		tokenInBase64 := c.Request().Header.Get(httpheaders.HeaderEncryptedToken)
+		if tokenInBase64 == "" {
+			err = errHeaderRequired
+			return echo.NewHTTPError(http.StatusUnauthorized, err)
+		}
+		encryptedToken, err := cryptoToken.GetEncryptedTokenFromBase64(tokenInBase64)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, errHeaderRequired)
+		}
+		token, err := cryptoToken.DecryptToken(&encryptedToken, h.tokenCrypter.Key)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, errInvalidAuthFormat)
+		}
+		ctx := context.WithValue(c.Request().Context(), contextkeys.EncryptedTokenKey, token)
+
+		c.SetRequest(c.Request().WithContext(ctx))
+
+		return next(c)
 	}
 }
