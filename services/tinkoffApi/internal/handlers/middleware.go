@@ -99,7 +99,7 @@ func (h *Handlers) CheckTokenFromRedisByChatIDMiddleWare(next echo.HandlerFunc) 
 			return next(c)
 		}
 
-		chatID := c.Request().Header.Get(HeaderChatID)
+		chatID := c.Request().Header.Get(httpheaders.HeaderChatID)
 		if chatID == "" {
 			err = errHeaderRequired
 			return echo.NewHTTPError(http.StatusUnauthorized, errHeaderRequired)
