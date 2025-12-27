@@ -35,7 +35,7 @@ func (h *Handlers) GetSpecifications(c echo.Context) error {
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var req service.SpecificationsRequest
 	if err := c.Bind(&req); err != nil {
