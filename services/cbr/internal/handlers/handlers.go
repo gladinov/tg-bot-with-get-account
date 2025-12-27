@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"cbr/internal/service"
-	"cbr/lib/models"
 	"context"
 	"errors"
 	"log/slog"
@@ -39,7 +38,7 @@ func (h *Handlers) GetAllCurrencies(c echo.Context) error {
 	logg := h.logger.With(
 		slog.String("op", op),
 	)
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 
 	var currencyRequest CurrencyRequest
 
@@ -52,7 +51,5 @@ func (h *Handlers) GetAllCurrencies(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, errGetData)
 	}
 
-	requestID := c.Request().Header.Get(models.RequestIDHeader)
-	c.Response().Header().Set(models.RequestIDHeader, requestID)
 	return c.JSON(http.StatusOK, currencies)
 }

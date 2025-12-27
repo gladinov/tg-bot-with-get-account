@@ -1,11 +1,11 @@
 module cbr
 
-go 1.24.0
-
-toolchain go1.24.11
+go 1.24.11
 
 require (
-	github.com/gladinov/mylogger v0.1.0
+	github.com/gladinov/contracts v0.1.4
+	github.com/gladinov/mylogger v0.3.2
+	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/text v0.30.0
