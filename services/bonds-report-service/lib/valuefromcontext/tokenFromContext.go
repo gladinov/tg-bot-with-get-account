@@ -5,18 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+
+	contextkeys "github.com/gladinov/contracts/context"
 )
 
-type ctxKey string
-
-const EncryptedTokenKey ctxKey = "X-Encrypted-Token"
-const HeaderEncryptedToken = "X-Encrypted-Token"
-
-const ChatIdKey ctxKey = "X-ChatID"
-const HeaderChatID = "X-ChatID"
-
 func GetToken(ctx context.Context) (string, error) {
-	tokenBase64, exist := ctx.Value(EncryptedTokenKey).(string)
+	tokenBase64, exist := ctx.Value(contextkeys.EncryptedTokenKey).(string)
+	if !exist {
+		return "", errors.New("context has not token or token not string")
+	}
+	return tokenBase64, nil
+}
+
+func GetTraceID(ctx context.Context) (string, error) {
+	tokenBase64, exist := ctx.Value(contextkeys.TraceIDKey).(string)
 	if !exist {
 		return "", errors.New("context has not token or token not string")
 	}
@@ -24,7 +26,7 @@ func GetToken(ctx context.Context) (string, error) {
 }
 
 func GetChatIDFromCtxStr(ctx context.Context) (string, error) {
-	chatID, exist := ctx.Value(ChatIdKey).(string)
+	chatID, exist := ctx.Value(contextkeys.ChatIDKey).(string)
 	if !exist {
 		return "", errors.New("context has not chatId or chatId not string")
 	}

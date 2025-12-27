@@ -1,13 +1,13 @@
 package service
 
 import (
+	"bonds-report-service/internal/service/service_models"
+	"bonds-report-service/lib/e"
+	"context"
 	"errors"
 	"log/slog"
 	"math"
 	"time"
-
-	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 	daysInYear = 365
 )
 
-func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions) (_ service_models.Report, err error) {
+func (c *Client) CreateBondReport(ctx context.Context, reportPostions service_models.ReportPositions) (_ service_models.Report, err error) {
 	const op = "service.CreateBondReport"
 
 	var resultReports service_models.Report
@@ -24,13 +24,13 @@ func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions)
 		position := reportPostions.CurrentPositions[i]
 		switch position.Currency {
 		case "rub":
-			bondReport, err := c.createBondReportByCurrency(position)
+			bondReport, err := c.createBondReportByCurrency(ctx, position)
 			if err != nil {
 				return resultReports, errors.New("service: GetBondReport" + err.Error())
 			}
 			resultReports.BondsInRUB = append(resultReports.BondsInRUB, bondReport)
 		case "cny":
-			bondReport, err := c.createBondReportByCurrency(position)
+			bondReport, err := c.createBondReportByCurrency(ctx, position)
 			if err != nil {
 				return resultReports, errors.New("service: GetBondReport" + err.Error())
 			}
@@ -42,7 +42,7 @@ func (c *Client) CreateBondReport(reportPostions service_models.ReportPositions)
 	return resultReports, nil
 }
 
-func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.ReportPositions, totalAmount float64) (_ service_models.GeneralBondReportPosition, err error) {
+func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition *service_models.ReportPositions, totalAmount float64) (_ service_models.GeneralBondReportPosition, err error) {
 	const op = "service.CreateGeneralBondReport"
 
 	start := time.Now()
@@ -93,19 +93,18 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 	BondReporPosition.ProfitInPercentage = RoundFloat((profit/sumOfPosition)*100, 2)
 	BondReporPosition.PercentOfPortfolio = RoundFloat((sumOfPosition/totalAmount)*100, 2)
 
-	moexBuyDateData, err := c.MoexApi.GetSpecifications(BondReporPosition.Ticker, buyDate)
+	moexBuyDateData, err := c.MoexApi.GetSpecifications(ctx, BondReporPosition.Ticker, buyDate)
 	if err != nil {
 		return BondReporPosition, err
 	}
 	date := time.Now()
-	moexNowData, err := c.MoexApi.GetSpecifications(BondReporPosition.Ticker, date)
+	moexNowData, err := c.MoexApi.GetSpecifications(ctx, BondReporPosition.Ticker, date)
 	if err != nil {
 		return BondReporPosition, err
 	}
 
 	if moexNowData.ShortName.IsHasValue() {
 		BondReporPosition.Name = moexNowData.ShortName.Value
-
 	} else {
 		BondReporPosition.Name = currentPostions[0].Name
 	}
@@ -184,7 +183,7 @@ func (c *Client) CreateGeneralBondReport(resultBondPosition *service_models.Repo
 	return BondReporPosition, nil
 }
 
-func (c *Client) createBondReportByCurrency(position service_models.PositionByFIFO) (_ service_models.BondReport, err error) {
+func (c *Client) createBondReportByCurrency(ctx context.Context, position service_models.PositionByFIFO) (_ service_models.BondReport, err error) {
 	const op = "service.createBondReportByCurrency"
 
 	start := time.Now()
@@ -200,12 +199,12 @@ func (c *Client) createBondReportByCurrency(position service_models.PositionByFI
 	}()
 
 	var bondReport service_models.BondReport
-	moexBuyDateData, err := c.MoexApi.GetSpecifications(position.Ticker, position.BuyDate)
+	moexBuyDateData, err := c.MoexApi.GetSpecifications(ctx, position.Ticker, position.BuyDate)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
 	date := time.Now()
-	moexNowData, err := c.MoexApi.GetSpecifications(position.Ticker, date)
+	moexNowData, err := c.MoexApi.GetSpecifications(ctx, position.Ticker, date)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
@@ -330,5 +329,4 @@ func getAnnualizedReturnInPercentage(logger *slog.Logger, p service_models.Posit
 	annualizedReturnInPercentageRound := RoundFloat(annualizedReturnInPercentage, 2)
 
 	return annualizedReturnInPercentageRound, nil
-
 }

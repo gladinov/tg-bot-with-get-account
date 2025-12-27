@@ -1,6 +1,13 @@
 package service
 
 import (
+	"bonds-report-service/clients/cbr"
+	"bonds-report-service/clients/moex"
+	"bonds-report-service/clients/sber"
+	"bonds-report-service/clients/tinkoffApi"
+	"bonds-report-service/internal/service/service_models"
+	"bonds-report-service/internal/service/visualization"
+	"bonds-report-service/lib/e"
 	"context"
 	"errors"
 	"fmt"
@@ -11,15 +18,7 @@ import (
 	"strconv"
 	"time"
 
-	"bonds-report-service/clients/cbr"
-	"bonds-report-service/clients/moex"
-	"bonds-report-service/clients/sber"
-	"bonds-report-service/clients/tinkoffApi"
 	service_storage "bonds-report-service/internal/repository"
-	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
-
-	"bonds-report-service/internal/service/visualization"
 )
 
 const (
@@ -143,7 +142,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 						"ProcessOperation error", slog.Any("error", err))
 					return err
 				}
-				bondReport, err := c.CreateBondReport(*resultBondPosition)
+				bondReport, err := c.CreateBondReport(ctx, *resultBondPosition)
 				if err != nil {
 					positionLogg.Debug(
 						"CreateBondReport error", slog.Any("error", err))
@@ -220,7 +219,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 				}
 				totalAmount := portfolio.TotalAmount.ToFloat()
 
-				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, totalAmount)
+				bondReport, err := c.CreateGeneralBondReport(ctx, resultBondPosition, totalAmount)
 				if err != nil {
 					return err
 				}
@@ -395,7 +394,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 				}
 				totalAmount := portfolio.TotalAmount.ToFloat()
 
-				bondReport, err := c.CreateGeneralBondReport(resultBondPosition, totalAmount)
+				bondReport, err := c.CreateGeneralBondReport(ctx, resultBondPosition, totalAmount)
 				if err != nil {
 					return service_models.BondReportsResponce{}, err
 				}
@@ -586,7 +585,7 @@ func (c *Client) GetUsd(ctx context.Context) (_ service_models.UsdResponce, err 
 		err = e.WrapIfErr("usd get error", err)
 	}()
 
-	usd, err := c.GetCurrencyFromCB("usd", time.Now())
+	usd, err := c.GetCurrencyFromCB(ctx, "usd", time.Now())
 	if err != nil {
 		return service_models.UsdResponce{}, err
 	}
@@ -691,7 +690,6 @@ func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ ser
 		response.PortfolioStructures = append(response.PortfolioStructures, report)
 	}
 	return response, nil
-
 }
 
 func (c *Client) getPortfolioStructure(ctx context.Context, account tinkoffApi.Account) (_ string, err error) {
@@ -753,7 +751,6 @@ func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (
 	response.Report = unionPortfolioStructure
 
 	return response, nil
-
 }
 
 func (c *Client) getUnionPortfolioStructure(ctx context.Context, accounts map[string]tinkoffApi.Account) (_ string, err error) {
@@ -881,7 +878,7 @@ func (c *Client) DivideByType(ctx context.Context, positions []tinkoffApi.Portfo
 		currencyOfPos := pos.CurrentPrice.Currency
 		vunit_rate := 1.0
 		if currencyOfPos != futuresPt && currencyOfPos != rub {
-			vunit_rate, err = c.GetCurrencyFromCB(currencyOfPos, date)
+			vunit_rate, err = c.GetCurrencyFromCB(ctx, currencyOfPos, date)
 			if err != nil {
 				return portfolio, e.WrapIfErr("can't divide by type", err)
 			}

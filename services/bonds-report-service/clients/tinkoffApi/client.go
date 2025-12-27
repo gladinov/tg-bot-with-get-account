@@ -1,6 +1,7 @@
 package tinkoffApi
 
 import (
+	traceidgenerator "bonds-report-service/lib/traceIDGenerator"
 	"bonds-report-service/lib/valuefromcontext"
 	"bytes"
 	"context"
@@ -12,6 +13,9 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	httpheaders "github.com/gladinov/contracts/http"
+	"github.com/gladinov/contracts/trace"
 )
 
 type Client struct {
@@ -30,13 +34,9 @@ func NewClient(logger *slog.Logger, host string) *Client {
 	}
 }
 
-func (c *Client) GetAccounts(ctx context.Context) (map[string]Account, error) {
+func (c *Client) GetAccounts(ctx context.Context) (_ map[string]Account, err error) {
 	const op = "tinkoffApi.GetAccounts"
 	Path := path.Join("tinkoff", "accounts")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("%s:%w", op, err)
-	}
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
@@ -59,9 +59,12 @@ func (c *Client) GetAccounts(ctx context.Context) (map[string]Account, error) {
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -101,10 +104,6 @@ func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest)
 		)
 	}()
 
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return Portfolio{}, fmt.Errorf("%s:%w", op, err)
-	}
 	Path := path.Join("tinkoff", "portfolio")
 
 	u := url.URL{
@@ -124,9 +123,12 @@ func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return Portfolio{}, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return Portfolio{}, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -152,7 +154,6 @@ func (c *Client) GetPortfolio(ctx context.Context, requestBody PortfolioRequest)
 		return Portfolio{}, fmt.Errorf("op:%s, could not unmarshall json", op)
 	}
 	return data, nil
-
 }
 
 func (c *Client) GetOperations(ctx context.Context, requestBody OperationsRequest) (_ []Operation, err error) {
@@ -168,7 +169,7 @@ func (c *Client) GetOperations(ctx context.Context, requestBody OperationsReques
 	}()
 
 	Path := path.Join("tinkoff", "operations")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
+
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -189,9 +190,12 @@ func (c *Client) GetOperations(ctx context.Context, requestBody OperationsReques
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -216,7 +220,6 @@ func (c *Client) GetOperations(ctx context.Context, requestBody OperationsReques
 		return nil, fmt.Errorf("op:%s, could not unmarshall json", op)
 	}
 	return data, nil
-
 }
 
 func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error) {
@@ -232,10 +235,7 @@ func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error)
 	}()
 
 	Path := path.Join("tinkoff", "allassetsuid")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("%s:%w", op, err)
-	}
+
 	u := url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -246,9 +246,12 @@ func (c *Client) GetAllAssetUids(ctx context.Context) (map[string]string, error)
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -288,10 +291,7 @@ func (c *Client) GetFutureBy(ctx context.Context, figi string) (Future, error) {
 	}()
 
 	Path := path.Join("tinkoff", "future")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return Future{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	requestBody := FutureReq{
 		Figi: figi,
 	}
@@ -313,9 +313,12 @@ func (c *Client) GetFutureBy(ctx context.Context, figi string) (Future, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return Future{}, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return Future{}, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -355,10 +358,7 @@ func (c *Client) GetBondByUid(ctx context.Context, uid string) (Bond, error) {
 	}()
 
 	Path := path.Join("tinkoff", "bond")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return Bond{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	requestBody := BondReq{
 		Uid: uid,
 	}
@@ -380,9 +380,12 @@ func (c *Client) GetBondByUid(ctx context.Context, uid string) (Bond, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return Bond{}, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return Bond{}, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -422,10 +425,7 @@ func (c *Client) GetCurrencyBy(ctx context.Context, figi string) (Currency, erro
 	}()
 
 	Path := path.Join("tinkoff", "currency")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return Currency{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	requestBody := CurrencyReq{
 		Figi: figi,
 	}
@@ -447,9 +447,12 @@ func (c *Client) GetCurrencyBy(ctx context.Context, figi string) (Currency, erro
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return Currency{}, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return Currency{}, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -489,10 +492,7 @@ func (c *Client) FindBy(ctx context.Context, query string) ([]InstrumentShort, e
 	}()
 
 	Path := path.Join("tinkoff", "findby")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("%s:%w", op, err)
-	}
+
 	requestBody := FindByReq{
 		Query: query,
 	}
@@ -514,9 +514,12 @@ func (c *Client) FindBy(ctx context.Context, query string) ([]InstrumentShort, e
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -556,10 +559,7 @@ func (c *Client) GetBondsActions(ctx context.Context, instrumentUid string) (Bon
 	}()
 
 	Path := path.Join("tinkoff", "bondactions")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return BondIdentIdentifiers{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	requestBody := BondsActionsReq{
 		InstrumentUid: instrumentUid,
 	}
@@ -581,9 +581,12 @@ func (c *Client) GetBondsActions(ctx context.Context, instrumentUid string) (Bon
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return BondIdentIdentifiers{}, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return BondIdentIdentifiers{}, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -623,10 +626,7 @@ func (c *Client) GetLastPriceInPersentageToNominal(ctx context.Context, instrume
 	}()
 
 	Path := path.Join("tinkoff", "lastprice")
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return LastPriceResponse{}, fmt.Errorf("%s:%w", op, err)
-	}
+
 	requestBody := LastPriceReq{
 		InstrumentUid: instrumentUid,
 	}
@@ -648,9 +648,12 @@ func (c *Client) GetLastPriceInPersentageToNominal(ctx context.Context, instrume
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return LastPriceResponse{}, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return LastPriceResponse{}, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -691,10 +694,6 @@ func (c *Client) GetShareCurrencyBy(ctx context.Context, figi string) (ShareCurr
 
 	Path := path.Join("tinkoff", "share", "currency")
 
-	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
-	if err != nil {
-		return ShareCurrencyByResponse{}, fmt.Errorf("%s:%w", op, err)
-	}
 	requestBody := ShareCurrencyByRequest{
 		Figi: figi,
 	}
@@ -716,9 +715,12 @@ func (c *Client) GetShareCurrencyBy(ctx context.Context, figi string) (ShareCurr
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(valuefromcontext.HeaderChatID, chatID)
+	reqWithHeaders, err := c.setHeaders(ctx, req)
+	if err != nil {
+		return ShareCurrencyByResponse{}, fmt.Errorf("err set hearders", err)
+	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithHeaders)
 	if err != nil {
 		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, err in client.Do", op)
 	}
@@ -744,4 +746,30 @@ func (c *Client) GetShareCurrencyBy(ctx context.Context, figi string) (ShareCurr
 		return ShareCurrencyByResponse{}, fmt.Errorf("op:%s, could not unmarshall json", op)
 	}
 	return data, nil
+}
+
+func (c *Client) setHeaders(ctx context.Context, req *http.Request) (*http.Request, error) {
+	const op = "bondreportservice.SetHeaders"
+
+	logg := c.logger.With(slog.String("op", op))
+	logg.DebugContext(ctx, "start")
+	defer func() {
+		logg.InfoContext(ctx, "finished")
+	}()
+	chatID, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set(httpheaders.HeaderChatID, chatID)
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	if !ok {
+		logg.WarnContext(ctx, "hasn't traceID in ctx")
+		traceID, err = traceidgenerator.New()
+		if err != nil {
+			logg.WarnContext(ctx, "could not get tractID", slog.Any("error", err))
+		}
+	}
+	req.Header.Set(httpheaders.HeaderTraceID, traceID)
+
+	return req, nil
 }

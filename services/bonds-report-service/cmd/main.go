@@ -66,8 +66,9 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	router.Use(handlers.LoggerMiddleware(logg))
-	router.Use(handlers.AuthMiddleware(logg))
+	router.Use(handl.ContextHeaderTraceIdMiddleWare())
+	router.Use(handl.LoggerMiddleware())
+	router.Use(handl.AuthMiddleware())
 
 	router.GET("/bondReportService/accounts", handl.GetAccountsList)
 	router.GET("/bondReportService/getBondReportsByFifo", handl.GetBondReportsByFifo)
@@ -80,5 +81,4 @@ func main() {
 	address := conf.Clients.BondReportService.GetBondReportServiceAppAddress()
 	logg.Info("run bond-report-service", slog.String("address", address))
 	router.Run(address)
-
 }

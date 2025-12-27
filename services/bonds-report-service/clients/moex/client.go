@@ -1,7 +1,9 @@
 package moex
 
 import (
+	traceidgenerator "bonds-report-service/lib/traceIDGenerator"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -9,6 +11,9 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	httpheaders "github.com/gladinov/contracts/http"
+	"github.com/gladinov/contracts/trace"
 )
 
 type Client struct {
@@ -27,7 +32,7 @@ func NewClient(logger *slog.Logger, host string) *Client {
 	}
 }
 
-func (c *Client) GetSpecifications(ticker string, date time.Time) (data Values, err error) {
+func (c *Client) GetSpecifications(ctx context.Context, ticker string, date time.Time) (data Values, err error) {
 	const op = "moex.GetSpecifications"
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
@@ -64,8 +69,9 @@ func (c *Client) GetSpecifications(ticker string, date time.Time) (data Values, 
 		return Values{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	reqWithTraceID := c.setHeaders(ctx, req)
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(reqWithTraceID)
 	if err != nil {
 		logg.Debug("HTTP request failed", slog.Any("err", err))
 		return Values{}, err
@@ -86,4 +92,29 @@ func (c *Client) GetSpecifications(ticker string, date time.Time) (data Values, 
 
 	logg.Debug("successfully fetched specifications")
 	return data, nil
+}
+
+func (c *Client) setHeaders(ctx context.Context, req *http.Request) *http.Request {
+	const op = "bondreportservice.SetHeaders"
+
+	logg := c.logger.With(slog.String("op", op))
+	logg.DebugContext(ctx, "start")
+	defer func() {
+		logg.InfoContext(ctx, "finished")
+	}()
+
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	if !ok {
+		logg.WarnContext(ctx, "hasn't traceID in ctx")
+		var err error
+		traceID, err = traceidgenerator.New()
+		if err != nil {
+			logg.WarnContext(ctx, "could not get tractID", slog.Any("error", err))
+		} else {
+			logg.InfoContext(ctx, "create new traceID", slog.String("new_trace_id", traceID))
+		}
+	}
+	req.Header.Set(httpheaders.HeaderTraceID, traceID)
+
+	return req
 }
