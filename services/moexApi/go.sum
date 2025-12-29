@@ -19,8 +19,12 @@ github.com/gavv/httpexpect/v2 v2.17.0 h1:nIJqt5v5e4P7/0jODpX2gtSw+pHXUqdP28Ycjqw
 github.com/gavv/httpexpect/v2 v2.17.0/go.mod h1:E8ENFlT9MZ3Si2sfM6c6ONdwXV2noBCGkhA+lkJgkP0=
 github.com/gladinov/contracts v0.1.4 h1:6pDFCKdA7tA6w7Z0xD1KMAU5h65AWIOF30pwI8JJOOU=
 github.com/gladinov/contracts v0.1.4/go.mod h1:osI0Jhh3N8hjzUxvhqSrsBZfPRy7svmT1HqwCimrXU0=
+github.com/gladinov/contracts v0.1.5 h1:FDJotnhn+shyuZYTEPeFQj8FBaDWD5eSZiCLSg30KE8=
+github.com/gladinov/contracts v0.1.5/go.mod h1:osI0Jhh3N8hjzUxvhqSrsBZfPRy7svmT1HqwCimrXU0=
 github.com/gladinov/mylogger v0.3.2 h1:J4/nnzpFLwmPFpttao/P09mX98yx4RUwa1affnLHTXs=
 github.com/gladinov/mylogger v0.3.2/go.mod h1:ylyeJ1ESTBFEZgeoaIssmnV73nEkjQK5M3tN0yxb5/I=
+github.com/gladinov/mylogger v0.3.3 h1:k3TKy64tF7so1bZjwHH4cKZkLeHT+DSkkw+buVa0yJs=
+github.com/gladinov/mylogger v0.3.3/go.mod h1:XaGrCL5HiBg/D1q0jgbHKaH2LpEiUZNkOpILpA0G8yQ=
 github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
 github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
 github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
