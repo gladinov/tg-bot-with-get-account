@@ -42,6 +42,7 @@ func main() {
 	e := echo.New()
 
 	e.Use(middleware.CORS())
+	e.Use(handlers.ContextHeaderTraceIdMiddleWare)
 	e.Use(handlers.LoggerMiddleWare)
 
 	e.POST("/moex/specifications", handlers.GetSpecifications)
