@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/gladinov/contracts/trace"
+	"github.com/gladinov/e"
+	"github.com/gladinov/traceidgenerator"
 	"main.go/internal/app/events"
 	"main.go/internal/app/events/telegram"
-	traceidgenerator "main.go/internal/app/traceIDGenerator"
-	"main.go/lib/e"
 )
 
 type Consumer struct {

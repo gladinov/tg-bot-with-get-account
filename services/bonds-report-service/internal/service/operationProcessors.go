@@ -2,12 +2,13 @@ package service
 
 import (
 	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
 	"context"
 	"errors"
 	"log/slog"
 	"math"
 	"time"
+
+	"github.com/gladinov/e"
 )
 
 const (

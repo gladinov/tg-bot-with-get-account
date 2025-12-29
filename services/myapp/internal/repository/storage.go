@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/gladinov/rootpathfinder"
 	"main.go/internal/config"
 	"main.go/internal/repository/postgres"
 	"main.go/internal/repository/sqlite"
-	pathwd "main.go/lib/pathWD"
 )
-
-// myapp\internal\repository\postgres\postrges.go
 
 const (
 	postreSQL = "postgreSQL"
@@ -38,7 +36,7 @@ func NewStorage(ctx context.Context, config config.Config) (Storage, error) {
 
 		return storage, nil
 	case SQLite:
-		storageAbsolutPath, err := pathwd.PathFromWD(config.RootPath, config.StorageSQLLitePath)
+		storageAbsolutPath, err := rootpathfinder.PathFromWD(config.RootPath, config.StorageSQLLitePath)
 		if err != nil {
 			return nil, err
 		}

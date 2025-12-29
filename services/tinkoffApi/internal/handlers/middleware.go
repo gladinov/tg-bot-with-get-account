@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"time"
 	"tinkoffApi/lib/cryptoToken"
-	traceidgenerator "tinkoffApi/lib/traceIDGenerator"
 	"tinkoffApi/lib/valuefromcontext"
+
+	"github.com/gladinov/traceidgenerator"
 
 	contextkeys "github.com/gladinov/contracts/context"
 	httpheaders "github.com/gladinov/contracts/http"

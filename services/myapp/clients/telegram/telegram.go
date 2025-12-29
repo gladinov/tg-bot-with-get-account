@@ -15,8 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gladinov/e"
 	bondreportservice "main.go/clients/bondReportService"
-	"main.go/lib/e"
 )
 
 type Client struct {

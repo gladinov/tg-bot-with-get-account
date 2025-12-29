@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	traceidgenerator "bonds-report-service/lib/traceIDGenerator"
 	"context"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/gladinov/traceidgenerator"
 
 	"github.com/gin-gonic/gin"
 	contextkeys "github.com/gladinov/contracts/context"

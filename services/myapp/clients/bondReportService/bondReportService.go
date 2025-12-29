@@ -13,7 +13,7 @@ import (
 
 	httpheaders "github.com/gladinov/contracts/http"
 	trace "github.com/gladinov/contracts/trace"
-	traceidgenerator "main.go/internal/app/traceIDGenerator"
+
 	"main.go/lib/valuefromcontext"
 )
 
@@ -431,10 +431,6 @@ func (c *Client) setHeaders(ctx context.Context, req *http.Request) (*http.Reque
 	traceID, ok := trace.TraceIDFromContext(ctx)
 	if !ok {
 		logg.WarnContext(ctx, "hasn't traceID in ctx")
-		traceID, err = traceidgenerator.New()
-		if err != nil {
-			logg.WarnContext(ctx, "could not get tractID", slog.Any("error", err))
-		}
 	}
 	req.Header.Set(httpheaders.HeaderTraceID, traceID)
 

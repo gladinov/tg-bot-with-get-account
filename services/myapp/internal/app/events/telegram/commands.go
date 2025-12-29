@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	contextkeys "github.com/gladinov/contracts/context"
+	"github.com/gladinov/e"
 	tokenauth "main.go/internal/tokenAuth"
-	"main.go/lib/e"
 )
 
 const (

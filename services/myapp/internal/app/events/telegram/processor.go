@@ -5,12 +5,12 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/gladinov/e"
 	bondreportservice "main.go/clients/bondReportService"
 	"main.go/clients/telegram"
 	"main.go/clients/tinkoffApi"
 	"main.go/internal/app/events"
 	tokenauth "main.go/internal/tokenAuth"
-	"main.go/lib/e"
 )
 
 type Processor struct {

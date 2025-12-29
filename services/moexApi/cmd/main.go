@@ -11,16 +11,16 @@ import (
 	"time"
 
 	sl "github.com/gladinov/mylogger"
+	"github.com/gladinov/traceidgenerator"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	// app.MustInitialize()
-	// rootPath := app.MustGetRoot()
-
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
+
+	_ = traceidgenerator.Must()
 
 	conf := configs.MustLoad()
 

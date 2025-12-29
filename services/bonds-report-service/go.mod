@@ -5,8 +5,10 @@ go 1.24.11
 require (
 	github.com/fogleman/gg v1.3.0
 	github.com/gladinov/contracts v0.1.5
+	github.com/gladinov/e v0.2.0
 	github.com/gladinov/mylogger v0.3.3
-	github.com/google/uuid v1.6.0
+	github.com/gladinov/rootpathfinder v0.1.0
+	github.com/gladinov/traceidgenerator v0.1.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	golang.org/x/image v0.34.0
@@ -25,6 +27,7 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.19.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect

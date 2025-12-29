@@ -18,7 +18,6 @@ func (c *Client) TransOperations(operations []tinkoffApi.Operation) []service_mo
 		logg.Info("fineshed",
 			slog.Duration("duration", time.Since(start)),
 		)
-
 	}()
 
 	transformOperations := make([]service_models.Operation, 0)

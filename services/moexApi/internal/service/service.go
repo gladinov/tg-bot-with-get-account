@@ -5,11 +5,12 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"main/lib/e"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/gladinov/e"
 )
 
 const (

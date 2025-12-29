@@ -3,13 +3,14 @@ package service
 import (
 	"bonds-report-service/clients/cbr"
 	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
 	"context"
 	"errors"
 	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gladinov/e"
 )
 
 func (c *Client) GetCurrencyFromCB(ctx context.Context, charCode string, date time.Time) (vunit_rate float64, err error) {

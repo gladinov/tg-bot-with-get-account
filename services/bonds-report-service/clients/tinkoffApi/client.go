@@ -1,7 +1,6 @@
 package tinkoffApi
 
 import (
-	traceidgenerator "bonds-report-service/lib/traceIDGenerator"
 	"bonds-report-service/lib/valuefromcontext"
 	"bytes"
 	"context"
@@ -764,10 +763,6 @@ func (c *Client) setHeaders(ctx context.Context, req *http.Request) (*http.Reque
 	traceID, ok := trace.TraceIDFromContext(ctx)
 	if !ok {
 		logg.WarnContext(ctx, "hasn't traceID in ctx")
-		traceID, err = traceidgenerator.New()
-		if err != nil {
-			logg.WarnContext(ctx, "could not get tractID", slog.Any("error", err))
-		}
 	}
 	req.Header.Set(httpheaders.HeaderTraceID, traceID)
 

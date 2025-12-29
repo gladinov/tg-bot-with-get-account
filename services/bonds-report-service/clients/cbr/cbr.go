@@ -1,8 +1,6 @@
 package cbr
 
 import (
-	"bonds-report-service/lib/e"
-	traceidgenerator "bonds-report-service/lib/traceIDGenerator"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -13,6 +11,8 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/gladinov/e"
 
 	httpheaders "github.com/gladinov/contracts/http"
 	"github.com/gladinov/contracts/trace"
@@ -149,13 +149,6 @@ func (c *Client) setHeaders(ctx context.Context, req *http.Request) *http.Reques
 	traceID, ok := trace.TraceIDFromContext(ctx)
 	if !ok {
 		logg.WarnContext(ctx, "hasn't traceID in ctx")
-		var err error
-		traceID, err = traceidgenerator.New()
-		if err != nil {
-			logg.WarnContext(ctx, "could not get tractID", slog.Any("error", err))
-		} else {
-			logg.InfoContext(ctx, "create new traceID", slog.String("new_trace_id", traceID))
-		}
 	}
 	req.Header.Set(httpheaders.HeaderTraceID, traceID)
 

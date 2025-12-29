@@ -4,8 +4,9 @@ go 1.24.11
 
 require (
 	github.com/gladinov/contracts v0.1.5
+	github.com/gladinov/e v0.2.0
 	github.com/gladinov/mylogger v0.3.3
-	github.com/google/uuid v1.6.0
+	github.com/gladinov/traceidgenerator v0.1.0
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/stretchr/testify v1.11.1
 )
@@ -21,6 +22,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/imkira/go-interpol v1.1.0 // indirect

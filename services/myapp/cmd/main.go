@@ -8,12 +8,12 @@ import (
 	"syscall"
 
 	"github.com/gladinov/mylogger"
+	"github.com/gladinov/traceidgenerator"
 	bondreportservice "main.go/clients/bondReportService"
 	tgClient "main.go/clients/telegram"
 	tinkoffapi "main.go/clients/tinkoffApi"
 	event_consumer "main.go/internal/app/consumer/event-consumer"
 	"main.go/internal/app/events/telegram"
-	traceidgenerator "main.go/internal/app/traceIDGenerator"
 	"main.go/internal/config"
 	storage "main.go/internal/repository"
 	"main.go/internal/repository/redis"
@@ -31,7 +31,7 @@ func main() {
 
 	conf := config.MustInitConfig()
 
-	traceidgenerator.Must()
+	_ = traceidgenerator.Must()
 
 	logg := mylogger.NewLogger(conf.Env)
 

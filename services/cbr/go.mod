@@ -5,7 +5,7 @@ go 1.24.11
 require (
 	github.com/gladinov/contracts v0.1.5
 	github.com/gladinov/mylogger v0.3.3
-	github.com/google/uuid v1.6.0
+	github.com/gladinov/traceidgenerator v0.1.0
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/text v0.30.0
@@ -13,6 +13,8 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/gladinov/e v0.2.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect

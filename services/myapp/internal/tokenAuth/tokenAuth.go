@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/gladinov/e"
 	"github.com/redis/go-redis/v9"
 	"main.go/clients/tinkoffApi"
 	storage "main.go/internal/repository"
 	"main.go/lib/cryptoToken"
-	"main.go/lib/e"
 	"main.go/lib/valuefromcontext"
 )
 

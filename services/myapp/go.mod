@@ -4,7 +4,9 @@ go 1.24.11
 
 require (
 	github.com/gladinov/contracts v0.1.5
+	github.com/gladinov/e v0.2.0
 	github.com/gladinov/mylogger v0.3.3
+	github.com/gladinov/rootpathfinder v0.1.0
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.6
@@ -16,6 +18,7 @@ require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/gladinov/traceidgenerator v0.1.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

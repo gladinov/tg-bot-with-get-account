@@ -1,6 +1,7 @@
 package visualization
 
 import (
+	"bonds-report-service/internal/service/service_models"
 	"bytes"
 	"fmt"
 	"image/color"
@@ -9,8 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
+	"github.com/gladinov/e"
 
 	"github.com/fogleman/gg"
 	"golang.org/x/image/font/gofont/goregular"
@@ -203,7 +203,6 @@ func Vizualize(logger *slog.Logger, reports []service_models.GeneralBondReportPo
 	}
 
 	return dc.SavePNG(filename)
-
 }
 
 func GenerateTablePNG(logger *slog.Logger, reports []service_models.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
@@ -392,7 +391,6 @@ func GenerateTablePNG(logger *slog.Logger, reports []service_models.GeneralBondR
 	}
 
 	return pngData, nil
-
 }
 
 func EncodePNGToBuffer(dc *gg.Context) ([]byte, error) {
@@ -404,6 +402,7 @@ func EncodePNGToBuffer(dc *gg.Context) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
 func formatFloat(value float64) string {
 	return fmt.Sprintf("%.2f", value)
 }
@@ -415,6 +414,7 @@ func formatInt(value int64) string {
 func formatPercent(value float64) string {
 	return fmt.Sprintf("%.2f%%", value)
 }
+
 func formatTime(value time.Time) string {
 	return value.Format(layout)
 }

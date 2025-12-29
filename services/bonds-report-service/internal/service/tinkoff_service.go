@@ -1,27 +1,28 @@
 package service
 
 import (
+	"bonds-report-service/clients/tinkoffApi"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	"bonds-report-service/clients/tinkoffApi"
-
-	"bonds-report-service/lib/e"
+	"github.com/gladinov/e"
 )
 
-var ErrCloseAccount = errors.New("close account haven't portffolio positions")
-var ErrNoAcces = errors.New("this token no access to account")
-var ErrEmptyAccountIdInRequest = errors.New("accountId could not be empty")
-var ErrUnspecifiedAccount = errors.New("account is unspecified")
-var ErrNewNotOpenYetAccount = errors.New("accountId is not opened yet")
-var ErrEmptyInstrumentUid = errors.New("instrumentUid could not be empty string")
-var ErrEmptyFigi = errors.New("figi could not be empty string")
-var ErrEmptyQuery = errors.New("query could not be empty")
-var ErrEmptyUid = errors.New("uid could not be empty string")
-var ErrEmptyPositionUid = errors.New("positionUid could not be empty string")
+var (
+	ErrCloseAccount            = errors.New("close account haven't portffolio positions")
+	ErrNoAcces                 = errors.New("this token no access to account")
+	ErrEmptyAccountIdInRequest = errors.New("accountId could not be empty")
+	ErrUnspecifiedAccount      = errors.New("account is unspecified")
+	ErrNewNotOpenYetAccount    = errors.New("accountId is not opened yet")
+	ErrEmptyInstrumentUid      = errors.New("instrumentUid could not be empty string")
+	ErrEmptyFigi               = errors.New("figi could not be empty string")
+	ErrEmptyQuery              = errors.New("query could not be empty")
+	ErrEmptyUid                = errors.New("uid could not be empty string")
+	ErrEmptyPositionUid        = errors.New("positionUid could not be empty string")
+)
 
 func (c *Client) TinkoffGetPortfolio(ctx context.Context, account tinkoffApi.Account) (_ tinkoffApi.Portfolio, err error) {
 	const op = "service.TinkoffGetPortfolio"
@@ -35,7 +36,6 @@ func (c *Client) TinkoffGetPortfolio(ctx context.Context, account tinkoffApi.Acc
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 	portfolioRequest := tinkoffApi.PortfolioRequest{
 		AccountID:     account.Id,
@@ -76,7 +76,6 @@ func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fro
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 	now := time.Now().UTC()
 	if accountId == "" {
@@ -108,7 +107,6 @@ func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 
 	if instrumentUid == "" {
@@ -133,7 +131,6 @@ func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (_ tinkoff
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 	if figi == "" {
 		return tinkoffApi.Future{}, ErrEmptyFigi
@@ -157,7 +154,6 @@ func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (_ tinkoff
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 	if uid == "" {
 		return tinkoffApi.Bond{}, ErrEmptyUid
@@ -181,7 +177,6 @@ func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ tinko
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 	if figi == "" {
 		return tinkoffApi.Currency{}, ErrEmptyFigi
@@ -205,7 +200,6 @@ func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUi
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 
 	if positionUid == "" {
@@ -247,7 +241,6 @@ func (c *Client) TinkoffFindBy(ctx context.Context, query string) (_ []tinkoffAp
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 
 	if query == "" {
@@ -272,7 +265,6 @@ func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, i
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
-
 	}()
 
 	if instrumentUid == "" {

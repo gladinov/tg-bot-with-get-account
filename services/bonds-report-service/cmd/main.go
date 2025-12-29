@@ -17,9 +17,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sl "github.com/gladinov/mylogger"
+	"github.com/gladinov/traceidgenerator"
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 	conf := config.MustInitConfig()
 
 	logg := sl.NewLogger(conf.Env)
@@ -29,8 +32,7 @@ func main() {
 		slog.String("bond-report-service_app_host", conf.Clients.BondReportService.Host),
 		slog.String("bond-report-service_app_port", conf.Clients.BondReportService.Port))
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	_ = traceidgenerator.Must()
 
 	repo := repository.MustInitNewStorage(ctx, conf, logg)
 

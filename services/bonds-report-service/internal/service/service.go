@@ -7,7 +7,6 @@ import (
 	"bonds-report-service/clients/tinkoffApi"
 	"bonds-report-service/internal/service/service_models"
 	"bonds-report-service/internal/service/visualization"
-	"bonds-report-service/lib/e"
 	"context"
 	"errors"
 	"fmt"
@@ -17,6 +16,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/gladinov/e"
 
 	service_storage "bonds-report-service/internal/repository"
 )

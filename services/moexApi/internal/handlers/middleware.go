@@ -3,10 +3,11 @@ package handlers
 import (
 	"context"
 	"log/slog"
-	traceidgenerator "main/lib/traceIDGenerator"
 	"main/lib/valuefromcontext"
 	"net/http"
 	"time"
+
+	"github.com/gladinov/traceidgenerator"
 
 	contextkeys "github.com/gladinov/contracts/context"
 	httpheaders "github.com/gladinov/contracts/http"

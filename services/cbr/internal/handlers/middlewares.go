@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	traceidgenerator "cbr/lib/traceIDGenerator"
 	"cbr/lib/valuefromcontext"
 	"context"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/gladinov/traceidgenerator"
 
 	contextkeys "github.com/gladinov/contracts/context"
 	httpheaders "github.com/gladinov/contracts/http"
