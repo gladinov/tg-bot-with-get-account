@@ -3,9 +3,10 @@ package handlers
 import (
 	"context"
 	"log/slog"
-	"main/lib/valuefromcontext"
 	"net/http"
 	"time"
+
+	"github.com/gladinov/valuefromcontext"
 
 	"github.com/gladinov/traceidgenerator"
 

@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"bonds-report-service/internal/service"
-	"bonds-report-service/lib/valuefromcontext"
 	"context"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/gladinov/valuefromcontext"
 
 	"github.com/gin-gonic/gin"
 )

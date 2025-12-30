@@ -14,7 +14,7 @@ import (
 	httpheaders "github.com/gladinov/contracts/http"
 	trace "github.com/gladinov/contracts/trace"
 
-	"main.go/lib/valuefromcontext"
+	"github.com/gladinov/valuefromcontext"
 )
 
 type Client struct {

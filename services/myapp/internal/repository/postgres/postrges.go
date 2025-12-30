@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gladinov/valuefromcontext"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"main.go/internal/config"
-	"main.go/lib/valuefromcontext"
 )
 
 const (
@@ -51,8 +51,8 @@ func (s *Storage) Save(ctx context.Context, user_name string, token string) erro
 		return fmt.Errorf("%s:%w", op, err)
 	}
 	return nil
-
 }
+
 func (s *Storage) PickToken(ctx context.Context) (string, error) {
 	const op = "postgres.PickToken"
 	chatId, err := valuefromcontext.GetChatIDFromCtxInt(ctx)
@@ -67,8 +67,8 @@ func (s *Storage) PickToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("%s:%w", op, err)
 	}
 	return token, nil
-
 }
+
 func (s *Storage) IsExistsToken(ctx context.Context) (bool, error) {
 	const op = "postgres.IsExistsToken"
 	chatId, err := valuefromcontext.GetChatIDFromCtxInt(ctx)

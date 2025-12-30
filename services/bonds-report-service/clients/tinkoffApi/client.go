@@ -1,7 +1,6 @@
 package tinkoffApi
 
 import (
-	"bonds-report-service/lib/valuefromcontext"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -12,6 +11,8 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/gladinov/valuefromcontext"
 
 	httpheaders "github.com/gladinov/contracts/http"
 	"github.com/gladinov/contracts/trace"

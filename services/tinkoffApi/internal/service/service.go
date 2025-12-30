@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"tinkoffApi/lib/valuefromcontext"
+
+	"github.com/gladinov/valuefromcontext"
 
 	"github.com/gladinov/e"
 

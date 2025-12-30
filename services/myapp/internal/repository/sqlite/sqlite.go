@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gladinov/valuefromcontext"
 	storagemodels "main.go/internal/repository/models"
-	"main.go/lib/valuefromcontext"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -60,7 +60,6 @@ func (s *Storage) PickToken(ctx context.Context) (string, error) {
 	}
 	if err != nil {
 		return "", fmt.Errorf("can't pick token: %w", err)
-
 	}
 
 	return token, nil

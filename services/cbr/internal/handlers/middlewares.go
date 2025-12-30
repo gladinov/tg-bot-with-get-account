@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"cbr/lib/valuefromcontext"
 	"context"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/gladinov/valuefromcontext"
 
 	"github.com/gladinov/traceidgenerator"
 

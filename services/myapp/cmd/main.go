@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/gladinov/cryptotoken"
 	"github.com/gladinov/mylogger"
 	"github.com/gladinov/traceidgenerator"
 	bondreportservice "main.go/clients/bondReportService"
@@ -18,7 +19,6 @@ import (
 	storage "main.go/internal/repository"
 	"main.go/internal/repository/redis"
 	tokenauth "main.go/internal/tokenAuth"
-	"main.go/lib/cryptoToken"
 )
 
 const (
@@ -47,7 +47,7 @@ func main() {
 	}
 
 	logg.Info("initialize TokenCrypter client")
-	tokenCrypter := cryptoToken.NewTokenCrypter(conf.Key)
+	tokenCrypter := cryptotoken.NewTokenCrypter(conf.Key)
 
 	logg.Info("initialize Telegram client", slog.String("addres", conf.ClientsHosts.TelegramHost))
 	telegrammClient := tgClient.New(logg, conf.ClientsHosts.TelegramHost, conf.Token)

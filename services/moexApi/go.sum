@@ -25,6 +25,8 @@ github.com/gladinov/mylogger v0.3.3 h1:k3TKy64tF7so1bZjwHH4cKZkLeHT+DSkkw+buVa0y
 github.com/gladinov/mylogger v0.3.3/go.mod h1:XaGrCL5HiBg/D1q0jgbHKaH2LpEiUZNkOpILpA0G8yQ=
 github.com/gladinov/traceidgenerator v0.1.0 h1:qfgyM2rcccNl7+HWyoIwdJRRh2wynqWkFppInjv0CHY=
 github.com/gladinov/traceidgenerator v0.1.0/go.mod h1:OesXJDWczurrEhM2swNVBJAI70qKdvRADZPw9kNXft8=
+github.com/gladinov/valuefromcontext v0.2.0 h1:Ws5nuFouVTKLePbqVFUxb92AIWoflOpUpE9AohP6ZBw=
+github.com/gladinov/valuefromcontext v0.2.0/go.mod h1:/Jpgm7KmP+FyofLFyA9Xsv4rKbmnhQTw9NJk8+2sBWU=
 github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
 github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
 github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=

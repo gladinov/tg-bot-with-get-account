@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"time"
 	"tinkoffApi/internal/service"
-	"tinkoffApi/lib/cryptoToken"
+
+	"github.com/gladinov/cryptotoken"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -16,11 +17,11 @@ import (
 type Handlers struct {
 	logger       *slog.Logger
 	service      *service.Service
-	tokenCrypter *cryptoToken.TokenCrypter
+	tokenCrypter *cryptotoken.TokenCrypter
 	redis        *redis.Client
 }
 
-func NewHandlers(logger *slog.Logger, service *service.Service, tokenCrypter *cryptoToken.TokenCrypter, redis *redis.Client) *Handlers {
+func NewHandlers(logger *slog.Logger, service *service.Service, tokenCrypter *cryptotoken.TokenCrypter, redis *redis.Client) *Handlers {
 	return &Handlers{
 		logger:       logger,
 		service:      service,

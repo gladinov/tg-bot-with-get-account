@@ -16,12 +16,16 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/r
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/gladinov/contracts v0.1.5 h1:FDJotnhn+shyuZYTEPeFQj8FBaDWD5eSZiCLSg30KE8=
 github.com/gladinov/contracts v0.1.5/go.mod h1:osI0Jhh3N8hjzUxvhqSrsBZfPRy7svmT1HqwCimrXU0=
+github.com/gladinov/cryptotoken v0.1.0 h1:xIAZbEEtyhl9/jcGFePatFqZBjUf0XE3DB6lgiApAzY=
+github.com/gladinov/cryptotoken v0.1.0/go.mod h1:Oan0aRJ+6F+1l2WxxeRRK/eYi3O2YsFi0OCiYt2aDbo=
 github.com/gladinov/e v0.2.0 h1:Pj+07ONXvY3IQKdb5GTJnQOjSgdbdCaj0hymXMyLJco=
 github.com/gladinov/e v0.2.0/go.mod h1:zUYiA483O3aEBrYxd3S2F9Qd7pMFXrq9nGxfwncJuTw=
 github.com/gladinov/mylogger v0.3.3 h1:k3TKy64tF7so1bZjwHH4cKZkLeHT+DSkkw+buVa0yJs=
 github.com/gladinov/mylogger v0.3.3/go.mod h1:XaGrCL5HiBg/D1q0jgbHKaH2LpEiUZNkOpILpA0G8yQ=
 github.com/gladinov/traceidgenerator v0.1.0 h1:qfgyM2rcccNl7+HWyoIwdJRRh2wynqWkFppInjv0CHY=
 github.com/gladinov/traceidgenerator v0.1.0/go.mod h1:OesXJDWczurrEhM2swNVBJAI70qKdvRADZPw9kNXft8=
+github.com/gladinov/valuefromcontext v0.2.0 h1:Ws5nuFouVTKLePbqVFUxb92AIWoflOpUpE9AohP6ZBw=
+github.com/gladinov/valuefromcontext v0.2.0/go.mod h1:/Jpgm7KmP+FyofLFyA9Xsv4rKbmnhQTw9NJk8+2sBWU=
 github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
 github.com/golang/protobuf v1.5.3 h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg=

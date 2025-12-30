@@ -10,8 +10,9 @@ import (
 	"tinkoffApi/internal/handlers"
 	redisClient "tinkoffApi/internal/repository/redis"
 	"tinkoffApi/internal/service"
-	"tinkoffApi/lib/cryptoToken"
 	loggeradapter "tinkoffApi/lib/logger/loggerAdapter"
+
+	"github.com/gladinov/cryptotoken"
 
 	sl "github.com/gladinov/mylogger"
 	"github.com/gladinov/traceidgenerator"
@@ -51,7 +52,7 @@ func main() {
 		instrumentService)
 
 	logg.Info("initialize tokenCrypter")
-	tokenCrypter := cryptoToken.NewTokenCrypter(confs.Config.Key)
+	tokenCrypter := cryptotoken.NewTokenCrypter(confs.Config.Key)
 
 	logg.Info("initialize redis", slog.String("adress", confs.Config.RedisHTTPServer.GetAddress()))
 	redis, err := redisClient.NewClient(ctx, confs.Config)

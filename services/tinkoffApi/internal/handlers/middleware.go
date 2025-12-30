@@ -5,8 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-	"tinkoffApi/lib/cryptoToken"
-	"tinkoffApi/lib/valuefromcontext"
+
+	"github.com/gladinov/cryptotoken"
+
+	"github.com/gladinov/valuefromcontext"
 
 	"github.com/gladinov/traceidgenerator"
 
@@ -116,11 +118,11 @@ func (h *Handlers) CheckTokenFromRedisByChatIDMiddleWare(next echo.HandlerFunc) 
 			return echo.NewHTTPError(http.StatusServiceUnavailable, errRedisDoNotAnswer)
 		}
 
-		encryptedToken, err := cryptoToken.GetEncryptedTokenFromBase64(tokenInBase64)
+		encryptedToken, err := cryptotoken.GetEncryptedTokenFromBase64(tokenInBase64)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, errHeaderRequired)
 		}
-		token, err := cryptoToken.DecryptToken(&encryptedToken, h.tokenCrypter.Key)
+		token, err := cryptotoken.DecryptToken(&encryptedToken, h.tokenCrypter.KeyInBase64)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, errInvalidAuthFormat)
 		}
@@ -141,11 +143,11 @@ func (h *Handlers) CheckTokenFromHeadersMiddleWare(next echo.HandlerFunc) echo.H
 			err = errHeaderRequired
 			return echo.NewHTTPError(http.StatusUnauthorized, err)
 		}
-		encryptedToken, err := cryptoToken.GetEncryptedTokenFromBase64(tokenInBase64)
+		encryptedToken, err := cryptotoken.GetEncryptedTokenFromBase64(tokenInBase64)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, errHeaderRequired)
 		}
-		token, err := cryptoToken.DecryptToken(&encryptedToken, h.tokenCrypter.Key)
+		token, err := cryptotoken.DecryptToken(&encryptedToken, h.tokenCrypter.KeyInBase64)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, errInvalidAuthFormat)
 		}

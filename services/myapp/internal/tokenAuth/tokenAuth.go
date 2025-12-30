@@ -7,12 +7,12 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/gladinov/cryptotoken"
 	"github.com/gladinov/e"
+	"github.com/gladinov/valuefromcontext"
 	"github.com/redis/go-redis/v9"
 	"main.go/clients/tinkoffApi"
 	storage "main.go/internal/repository"
-	"main.go/lib/cryptoToken"
-	"main.go/lib/valuefromcontext"
 )
 
 type TokenStatus int
@@ -30,14 +30,14 @@ type TokenAuthService struct {
 	redis        *redis.Client
 	storage      storage.Storage
 	tinkoffApi   *tinkoffApi.Client
-	tokenCrypter *cryptoToken.TokenCrypter
+	tokenCrypter *cryptotoken.TokenCrypter
 }
 
 func NewTokenAuthService(logger *slog.Logger,
 	redis *redis.Client,
 	storage storage.Storage,
 	tinkoffApi *tinkoffApi.Client,
-	tokenCrypter *cryptoToken.TokenCrypter,
+	tokenCrypter *cryptotoken.TokenCrypter,
 ) *TokenAuthService {
 	return &TokenAuthService{
 		logger:       logger,

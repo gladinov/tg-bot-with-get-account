@@ -31,6 +31,8 @@ github.com/gladinov/rootpathfinder v0.1.0 h1:qAKJriN7J76K0ugt/ZPyHl0Nd1gkSUq+KEx
 github.com/gladinov/rootpathfinder v0.1.0/go.mod h1:MXAZnUHzgj556F8Hy0eU9xpVB340UIhDUDsVsC0lOpU=
 github.com/gladinov/traceidgenerator v0.1.0 h1:qfgyM2rcccNl7+HWyoIwdJRRh2wynqWkFppInjv0CHY=
 github.com/gladinov/traceidgenerator v0.1.0/go.mod h1:OesXJDWczurrEhM2swNVBJAI70qKdvRADZPw9kNXft8=
+github.com/gladinov/valuefromcontext v0.2.0 h1:Ws5nuFouVTKLePbqVFUxb92AIWoflOpUpE9AohP6ZBw=
+github.com/gladinov/valuefromcontext v0.2.0/go.mod h1:/Jpgm7KmP+FyofLFyA9Xsv4rKbmnhQTw9NJk8+2sBWU=
 github.com/go-playground/assert/v2 v2.2.0 h1:JvknZsQTYeFEAhQwI4qEt9cyV5ONwRHC+lYKSsYSR8s=
 github.com/go-playground/assert/v2 v2.2.0/go.mod h1:VDjEfimB/XKnb+ZQfWdccd7VUvScMdVu0Titje2rxJ4=
 github.com/go-playground/locales v0.14.1 h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=
