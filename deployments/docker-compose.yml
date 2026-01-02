@@ -1,12 +1,23 @@
+x-logging: &logging
+  logging:
+    driver: "fluentd"
+    options:
+      fluentd-address: "fluentd:24224"
+      tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
+
 services:
   myapp:
     build: ../services/myapp
+    <<: *logging
     container_name: myapp
     restart: unless-stopped
     depends_on:
       postgres-user-db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      fluentd:
         condition: service_healthy
     environment:
       ENV: ${ENV}
@@ -78,10 +89,13 @@ services:
 
   migrator:
     build: ../tools/migrator
+    <<: *logging
     container_name: migrator
     restart: no
     depends_on:
       postgres-user-db:
+        condition: service_healthy
+      fluentd:
         condition: service_healthy
     environment:
       ROOT_PATH: "/usr/local/src"
@@ -102,10 +116,13 @@ services:
 
   bond-report-service:
     build: ../services/bonds-report-service
+    <<: *logging
     restart: unless-stopped
     container_name: bond-report-service-app
     depends_on:
       postgres-service-db:
+        condition: service_healthy
+      fluentd:
         condition: service_healthy
     environment:
       ENV: ${ENV}
@@ -156,8 +173,12 @@ services:
 
   cbr_app:
     build: ../services/cbr
+    <<: *logging
     container_name: cbr_app
     restart: unless-stopped
+    depends_on:
+      fluentd:
+        condition: service_healthy
     environment:
       ENV: ${ENV}
       ROOT_PATH: "/usr/local/src"
@@ -172,10 +193,13 @@ services:
 
   tinkoffapi_app:
     build: ../services/tinkoffApi
+    <<: *logging
     container_name: tinkoffapi_app
     restart: unless-stopped
     depends_on:
       redis:
+        condition: service_healthy
+      fluentd:
         condition: service_healthy
     environment:
       ENV: ${ENV}
@@ -197,8 +221,12 @@ services:
 
   moex_app:
     build: ../services/moexApi
+    <<: *logging
     container_name: moex_app
     restart: unless-stopped
+    depends_on:
+      fluentd:
+        condition: service_healthy
     environment:
       ENV: ${ENV}
       ROOT_PATH: "/usr/local/src"
@@ -211,6 +239,86 @@ services:
     networks:
       - myapp_network
 
+
+  opensearch-node1: 
+    image: opensearchproject/opensearch:latest
+    container_name: opensearch-node1
+    restart: always
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node1
+      - discovery.seed_hosts-opensearch-node1,opensearch-node2
+      - cluster.initial_cluster_manager_nodes=opensearch-node1,opensearch-node2
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xms512m
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      - plugins.security.disabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - myapp_network
+
+
+  opensearch-node2: 
+    image: opensearchproject/opensearch:latest
+    container_name: opensearch-node2
+    restart: always
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node2
+      - discovery.seed_hosts-opensearch-node1,opensearch-node2
+      - cluster.initial_cluster_manager_nodes=opensearch-node1,opensearch-node2
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xms512m
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      - plugins.security.disabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - myapp_network
+
+  opensearch-dashboards:
+    build:
+      context: ./setup/opensearch-dashboards/
+    container_name: opensearch-dashboards
+    restart: always
+    ports: 
+      - "127.0.0.1:5601:5601"  
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch-node1:9200","http://opensearch-node2:9200"]'  
+    networks:
+      - myapp_network
+
+
+  fluentd:
+    build:
+      context: ./setup/fluentd/
+    container_name: fluentd
+    restart: always
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+      - "9880:9880" 
+    volumes:
+      - ./setup/fluentd/fluentd.conf:/fluentd/etc/fluent.conf
+    networks:
+      - myapp_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep green"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+ 
 
 networks:
   myapp_network:
