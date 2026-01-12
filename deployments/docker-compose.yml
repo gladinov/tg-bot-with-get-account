@@ -240,17 +240,75 @@ services:
       - myapp_network
 
 
-  opensearch-node1: 
-    image: opensearchproject/opensearch:latest
-    container_name: opensearch-node1
+  # opensearch-node1: 
+  #   image: opensearchproject/opensearch:2.15.0
+  #   container_name: opensearch-node1
+  #   restart: always
+  #   environment:
+  #     - cluster.name=opensearch-cluster
+  #     - node.name=opensearch-node1
+  #     - discovery.seed_hosts=opensearch-node1,opensearch-node2
+  #     - cluster.initial_cluster_manager_nodes=opensearch-node1,opensearch-node2
+  #     - bootstrap.memory_lock=false
+  #     - OPENSEARCH_JAVA_OPTS=-Xms512m -Xms1024m
+  #     - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+  #     - plugins.security.disabled=true
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #     nofile:
+  #       soft: 262144
+  #       hard: 262144
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 12
+  #     start_period: 30s
+  #   networks:
+  #     - myapp_network
+
+
+  # opensearch-node2: 
+  #   image: opensearchproject/opensearch:2.15.0
+  #   container_name: opensearch-node2
+  #   restart: always
+  #   environment:
+  #     - cluster.name=opensearch-cluster
+  #     - node.name=opensearch-node2
+  #     - discovery.seed_hosts=opensearch-node1,opensearch-node2
+  #     - cluster.initial_cluster_manager_nodes=opensearch-node1,opensearch-node2
+  #     - bootstrap.memory_lock=false
+  #     - OPENSEARCH_JAVA_OPTS=-Xms512m -Xms1024m
+  #     - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+  #     - plugins.security.disabled=true
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #     nofile:
+  #       soft: 262144
+  #       hard: 262144
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 12
+  #     start_period: 30s
+  #   networks:
+  #     - myapp_network
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    container_name: opensearch
     restart: always
     environment:
       - cluster.name=opensearch-cluster
       - node.name=opensearch-node1
-      - discovery.seed_hosts-opensearch-node1,opensearch-node2
-      - cluster.initial_cluster_manager_nodes=opensearch-node1,opensearch-node2
-      - bootstrap.memory_lock=true
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xms512m
+      - discovery.type=single-node         # ← ключевое изменение для одного узла
+      - bootstrap.memory_lock=false
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx1024m
       - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
       - plugins.security.disabled=true
     ulimits:
@@ -260,30 +318,15 @@ services:
       nofile:
         soft: 262144
         hard: 262144
-    networks:
-      - myapp_network
-
-
-  opensearch-node2: 
-    image: opensearchproject/opensearch:latest
-    container_name: opensearch-node2
-    restart: always
-    environment:
-      - cluster.name=opensearch-cluster
-      - node.name=opensearch-node2
-      - discovery.seed_hosts-opensearch-node1,opensearch-node2
-      - cluster.initial_cluster_manager_nodes=opensearch-node1,opensearch-node2
-      - bootstrap.memory_lock=true
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xms512m
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
-      - plugins.security.disabled=true
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 262144
-        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    ports:
+      - "9200:9200"
+      - "9600:9600" # для Performance Analyzer, если нужен
     networks:
       - myapp_network
 
@@ -295,7 +338,7 @@ services:
     ports: 
       - "127.0.0.1:5601:5601"  
     environment:
-      OPENSEARCH_HOSTS: '["http://opensearch-node1:9200","http://opensearch-node2:9200"]'  
+      OPENSEARCH_HOSTS: '["http://opensearch-node1:9200"]'  
     networks:
       - myapp_network
 
@@ -304,6 +347,9 @@ services:
     build:
       context: ./setup/fluentd/
     container_name: fluentd
+    depends_on:
+      opensearch:
+        condition: service_healthy
     restart: always
     ports:
       - "24224:24224"
@@ -314,11 +360,12 @@ services:
     networks:
       - myapp_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep green"]
+      test: ["CMD", "curl", "-f", "http://localhost:9880/health"]
       interval: 10s
-      retries: 5
       timeout: 5s
- 
+      retries: 5
+      start_period: 30s
+    
 
 networks:
   myapp_network:
