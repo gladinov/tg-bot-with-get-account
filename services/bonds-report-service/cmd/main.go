@@ -35,6 +35,7 @@ func main() {
 	_ = traceidgenerator.Must()
 
 	repo := repository.MustInitNewStorage(ctx, conf, logg)
+	// TODO: close db
 
 	logg.Info("initialize Tinkoff client", slog.String("addres", conf.Clients.TinkoffClient.GetTinkoffApiAddress()))
 	tinkoffClient := tinkoffApi.NewClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())

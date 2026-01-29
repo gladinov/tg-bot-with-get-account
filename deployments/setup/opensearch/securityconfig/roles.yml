@@ -1,0 +1,13 @@
+admin:
+  cluster_permissions:
+    - "all"
+  index_permissions:
+    - index_patterns:
+        - "*"
+      allowed_actions:
+        - "all"
+  tenant_permissions:
+    - tenant_patterns:
+        - "Global"
+      allowed_actions:
+        - "all"

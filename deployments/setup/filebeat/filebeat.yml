@@ -1,0 +1,23 @@
+filebeat.inputs:
+  - type: container
+    paths:
+      - /var/lib/docker/containers/*/*.log
+
+processors:
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+
+  - drop_event:
+      when:
+        not:
+          equals:
+            docker.container.labels.logging: "true"
+
+output.elasticsearch:
+  hosts: ["https://opensearch-node1:9200"]
+  username: admin
+  password: 02newzXze7bqsw9eqA
+  ssl.verification_mode: none
+
+setup.ilm.enabled: false
+setup.template.enabled: false
