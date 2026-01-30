@@ -1,8 +1,6 @@
-package service
+package models
 
-const (
-	layout = "02/01/2006"
-)
+const RequestIDHeader = "X-request_id"
 
 type Currency struct {
 	NumCode   string `xml:"NumCode" json:"numCode,omitempty"`
@@ -464,7 +462,8 @@ var HappyPathCurrenciesInBytes = `{
     ]
 }`
 
-var HappyPathCurrencies = CurrenciesResponce{Date: "06.11.2025",
+var HappyPathCurrencies = CurrenciesResponce{
+	Date: "06.11.2025",
 	Currencies: []Currency{
 		{NumCode: "036", CharCode: "AUD", Nominal: "1", Name: "Австралийский доллар", Value: "52,7076", VunitRate: "52,7076"},
 		{NumCode: "944", CharCode: "AZN", Nominal: "1", Name: "Азербайджанский манат", Value: "47,7579", VunitRate: "47,7579"},
@@ -537,14 +536,16 @@ var xmlDataInBytes = []byte(`
 </ValCurs>
 `)
 
-var xmlData = CurrenciesResponce{Date: "03.03.1995",
-	Currencies: []Currency{Currency{
+var xmlData = CurrenciesResponce{
+	Date: "03.03.1995",
+	Currencies: []Currency{{
 		NumCode:   "036",
 		CharCode:  "AUD",
 		Nominal:   "1",
 		Name:      "Австралийский доллар",
 		Value:     "3334,8200",
 		VunitRate: "3334,82",
-	}}}
+	}},
+}
 
 var xmlDataInBytesErr = []byte(``)

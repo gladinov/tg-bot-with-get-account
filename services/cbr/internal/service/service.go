@@ -1,50 +1,47 @@
 package service
 
 import (
-	timezone "cbr/lib/timeZone"
-	"fmt"
+	"cbr/internal/clients/cbr"
+	"cbr/internal/models"
+	"cbr/internal/utils"
+	"context"
 	"log/slog"
 	"time"
+
+	"github.com/gladinov/e"
 )
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=CurrencyService
 type CurrencyService interface {
-	GetAllCurrencies(date time.Time) (CurrenciesResponce, error)
+	GetAllCurrencies(ctx context.Context, date time.Time) (models.CurrenciesResponce, error)
 }
 
 type Service struct {
-	Logger *slog.Logger
-	Client HTTPClient
+	Logger       *slog.Logger
+	Client       cbr.HTTPClient
+	TimeLocation *time.Location
 }
 
-func NewService(logger *slog.Logger, client HTTPClient) *Service {
+func NewService(logger *slog.Logger, client cbr.HTTPClient, timeLocation *time.Location) CurrencyService {
 	return &Service{
-		Logger: logger,
-		Client: client,
+		Logger:       logger,
+		Client:       client,
+		TimeLocation: timeLocation,
 	}
 }
 
-func (s *Service) GetAllCurrencies(date time.Time) (CurrenciesResponce, error) {
+func (s *Service) GetAllCurrencies(ctx context.Context, date time.Time) (models.CurrenciesResponce, error) {
 	const op = "service.GetAllCurrencies"
-	location, err := timezone.GetMoscowLocation()
-	if err != nil {
-		return CurrenciesResponce{}, fmt.Errorf("op: %s, error: failed to load Moscow location", op)
-	}
+	location := s.TimeLocation
 	now := time.Now().In(location)
-	startDate := timezone.GetStartSingleExchangeRateRubble(location)
+	startDate := utils.GetStartSingleExchangeRateRubble(location)
 
-	formatDate := normalizeDate(date, now, startDate)
+	formatDate := utils.NormalizeDate(date, now, startDate)
 
-	return s.Client.GetAllCurrencies(formatDate)
-}
-
-func normalizeDate(date, now, startDate time.Time) string {
-	switch {
-	case date.After(now):
-		return now.Format(layout)
-	case date.Before(startDate):
-		return startDate.Format(layout)
-	default:
-		return date.Format(layout)
+	currResp, err := s.Client.GetAllCurrencies(ctx, formatDate)
+	if err != nil {
+		return models.CurrenciesResponce{}, e.WrapIfErr("failed to get all currencies from client", err)
 	}
+
+	return currResp, nil
 }

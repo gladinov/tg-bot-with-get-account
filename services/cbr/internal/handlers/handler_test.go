@@ -1,101 +1,97 @@
+//go:build unit
+
 package handlers
 
 import (
 	"bytes"
-	"cbr/internal/service"
+	"cbr/internal/models"
 	"cbr/internal/service/mocks"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGetAllCurrencies(t *testing.T) {
-
-	cases := []struct {
-		name           string
-		request        any
-		setupMock      func(*mocks.CurrencyService)
-		expectedStatus int
-		expectedBody   string
-		assertNoCalls  bool
-	}{
-		{
-			name:    "Succses",
-			request: CurrencyRequest{Date: time.Date(2025, time.November, 10, 0, 0, 0, 0, time.UTC)},
-			setupMock: func(mockCurrencyService *mocks.CurrencyService) {
-				mockCurrencyService.On("GetAllCurrencies", mock.AnythingOfType("time.Time")).Once().
-					Return(service.HappyPathCurrencies, nil)
-			},
-			expectedStatus: http.StatusOK,
-			expectedBody:   service.HappyPathCurrenciesInBytes,
-			assertNoCalls:  false,
-		},
-		{
-			name:           "Err: Invalid Request",
-			request:        `{"invalid json"}`,
-			setupMock:      func(mockCurrencyService *mocks.CurrencyService) {},
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error": "Invalid request"}`,
-			assertNoCalls:  true,
-		},
-		{
-			name:    "Err: GetAllCurencies err",
-			request: CurrencyRequest{Date: time.Date(2025, time.November, 10, 0, 0, 0, 0, time.UTC)},
-			setupMock: func(mockCurrencyService *mocks.CurrencyService) {
-				mockCurrencyService.On("GetAllCurrencies", mock.AnythingOfType("time.Time")).Once().
-					Return(service.CurrenciesResponce{}, errors.New("op: service.GetAllCurrencies, error: failed to load Moscow location"))
-			},
-			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   `{"error": "could not get currencies"}`,
-			assertNoCalls:  false,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-
-			var jsonData []byte
-			switch body := tc.request.(type) {
-			case []byte:
-				jsonData = body
-			case CurrencyRequest:
-				jsonData, _ = json.Marshal(body)
-
-			case string:
-				jsonData = []byte(body)
-			}
-			mockService := mocks.NewCurrencyService(t)
-			tc.setupMock(mockService)
-			ctx, rec := createTestContext(http.MethodPost, "/cbr/currencies", jsonData)
-
-			hndlrs := NewHandlers(mockService)
-			err := hndlrs.GetAllCurrencies(ctx)
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedStatus, rec.Code)
-			if tc.expectedBody != "" {
-				require.JSONEq(t, tc.expectedBody, rec.Body.String())
-			}
-			if tc.assertNoCalls {
-				mockService.AssertNotCalled(t, "GetAllCurrencies")
-
-			} else {
-				mockService.AssertExpectations(t)
-			}
-		})
-	}
-}
-
-func createTestContext(method, path string, body []byte) (echo.Context, *httptest.ResponseRecorder) {
-	req := httptest.NewRequest(method, path, bytes.NewReader(body))
-
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	mockService := mocks.NewCurrencyService(t)
+	h := NewHandlers(logger, mockService)
 	e := echo.New()
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	return e.NewContext(req, rec), rec
+	e.HTTPErrorHandler = HTTPErrorHandler(logger)
+
+	t.Run("sucsess", func(t *testing.T) {
+		expectedStatus := http.StatusOK
+		expectedBody := models.CurrenciesResponce{}
+		inputBody := map[string]any{"date": "2025-11-16T15:12:46.3365285+03:00"}
+
+		bodyBytes, _ := json.Marshal(inputBody)
+		req := httptest.NewRequest(http.MethodPost, "/cbr/currencies", bytes.NewReader(bodyBytes))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+
+		mockService.On("GetAllCurrencies", mock.Anything, mock.AnythingOfType("time.Time")).
+			Return(expectedBody, nil).Once()
+
+		e.POST("/cbr/currencies", h.GetAllCurrencies)
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, expectedStatus, rec.Code)
+
+		var respBody models.CurrenciesResponce
+		err := json.Unmarshal(rec.Body.Bytes(), &respBody)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBody, respBody)
+
+		mockService.AssertExpectations(t)
+	})
+	t.Run("invalid request", func(t *testing.T) {
+		expectedBody := errInvalidRequestBody.Error()
+		expectedStatus := http.StatusBadRequest
+		inputBody := map[string]any{"date": 12}
+
+		bodyBytes, _ := json.Marshal(inputBody)
+		req := httptest.NewRequest(http.MethodPost, "/cbr/currencies", bytes.NewReader(bodyBytes))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+
+		e.POST("/cbr/currencies", h.GetAllCurrencies)
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, expectedStatus, rec.Code)
+
+		var respBody map[string]string
+		err := json.Unmarshal(rec.Body.Bytes(), &respBody)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBody, respBody["error"])
+	})
+	t.Run("GetAllCurrencies err", func(t *testing.T) {
+		expectedBody := errGetData.Error()
+		expectedStatus := http.StatusInternalServerError
+		inputBody := map[string]any{"date": "2025-11-16T15:12:46.3365285+03:00"}
+
+		bodyBytes, _ := json.Marshal(inputBody)
+		req := httptest.NewRequest(http.MethodPost, "/cbr/currencies", bytes.NewReader(bodyBytes))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+
+		mockService.On("GetAllCurrencies", mock.Anything, mock.AnythingOfType("time.Time")).
+			Return(models.CurrenciesResponce{}, errors.New("failed to get all currencies from client")).Once()
+
+		e.POST("/cbr/currencies", h.GetAllCurrencies)
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, expectedStatus, rec.Code)
+
+		var respBody map[string]string
+		err := json.Unmarshal(rec.Body.Bytes(), &respBody)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBody, respBody["error"])
+	})
 }
