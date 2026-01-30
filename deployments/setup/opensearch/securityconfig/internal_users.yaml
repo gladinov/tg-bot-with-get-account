@@ -1,4 +1,0 @@
-admin:
-  hash: "$2y$12$arGfdup6y8mzFANGvyAlPuUq9w9ALUc.P9BJ90tGxTHokAzlIyOlu" 
-  roles:
-    - admin
