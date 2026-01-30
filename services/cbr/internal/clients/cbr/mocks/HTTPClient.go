@@ -3,7 +3,8 @@
 package mocks
 
 import (
-	service "cbr/internal/service"
+	models "cbr/internal/models"
+	context "context"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -13,27 +14,27 @@ type HTTPClient struct {
 	mock.Mock
 }
 
-// GetAllCurrencies provides a mock function with given fields: formatDate
-func (_m *HTTPClient) GetAllCurrencies(formatDate string) (service.CurrenciesResponce, error) {
-	ret := _m.Called(formatDate)
+// GetAllCurrencies provides a mock function with given fields: ctx, formatDate
+func (_m *HTTPClient) GetAllCurrencies(ctx context.Context, formatDate string) (models.CurrenciesResponce, error) {
+	ret := _m.Called(ctx, formatDate)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAllCurrencies")
 	}
 
-	var r0 service.CurrenciesResponce
+	var r0 models.CurrenciesResponce
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (service.CurrenciesResponce, error)); ok {
-		return rf(formatDate)
+	if rf, ok := ret.Get(0).(func(context.Context, string) (models.CurrenciesResponce, error)); ok {
+		return rf(ctx, formatDate)
 	}
-	if rf, ok := ret.Get(0).(func(string) service.CurrenciesResponce); ok {
-		r0 = rf(formatDate)
+	if rf, ok := ret.Get(0).(func(context.Context, string) models.CurrenciesResponce); ok {
+		r0 = rf(ctx, formatDate)
 	} else {
-		r0 = ret.Get(0).(service.CurrenciesResponce)
+		r0 = ret.Get(0).(models.CurrenciesResponce)
 	}
 
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(formatDate)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, formatDate)
 	} else {
 		r1 = ret.Error(1)
 	}

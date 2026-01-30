@@ -35,18 +35,14 @@ func (h *Handlers) GetAllCurrencies(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	logg := h.logger.With(
-		slog.String("op", op),
-	)
-	logg.DebugContext(ctx, "start")
-
 	var currencyRequest CurrencyRequest
 
 	err := c.Bind(&currencyRequest)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errInvalidRequestBody)
 	}
-	currencies, err := h.service.GetAllCurrencies(currencyRequest.Date)
+
+	currencies, err := h.service.GetAllCurrencies(ctx, currencyRequest.Date)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, errGetData)
 	}
