@@ -1,0 +1,42 @@
+services:
+  bond-report-service:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - postgres-service-db
+    environment:
+      ROOT_PATH: "/usr/local/src"
+      POSTGRES_HOST: postgres-service-db
+      POSTGRES_PASSWORD: ${BOND_REPORT_SERVICE_DB_PASSWORD}
+      POSTGRES_DB: ${BOND_REPORT_SERVICE_POSTGRES_DB}
+      POSTGRES_USER: ${BOND_REPORT_SERVICE_POSTGRES_USER}
+    volumes:
+      - ./configs/config.yaml:/usr/local/src/configs/config.yaml:ro
+      - ./configs/sber.yaml:/usr/local/src/configs/sber.yaml:ro
+    ports:
+      - "8084:8084"
+    networks:
+      - myapp_network
+
+  postgres-service-db:
+    image: postgres:latest
+    container_name: service_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${BOND_REPORT_SERVICE_DB_PASSWORD}
+      POSTGRES_DB: ${BOND_REPORT_SERVICE_POSTGRES_DB}
+      POSTGRES_USER: ${BOND_REPORT_SERVICE_POSTGRES_USER}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - myapp_network
+
+
+networks:
+  myapp_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

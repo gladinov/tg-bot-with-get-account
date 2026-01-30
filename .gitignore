@@ -1,5 +1,11 @@
-.env
-/myapp/data/sqlite/storage.db
-/myapp/data/sqlite/service_storage.db
-/myapp/archive
-/myapp/mybot.exe
+deployments/env/.env
+deployments/env/prod.env
+/services/myapp/data/sqlite/storage.db
+/services/myapp/data/sqlite/service_storage.db
+/services/myapp/archive
+tinkoff_commands.yaml
+services/tinkoffApi/secrets/tokens.env
+services/myapp/tokens.env
+.idea
+/services/tinkoffApi/secrets/tokens.env
+/services/tinkoffApi/secrets/.env

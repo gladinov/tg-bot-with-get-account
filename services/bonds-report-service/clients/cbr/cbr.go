@@ -1,0 +1,156 @@
+package cbr
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"path"
+	"time"
+
+	"github.com/gladinov/e"
+
+	httpheaders "github.com/gladinov/contracts/http"
+	"github.com/gladinov/contracts/trace"
+)
+
+const (
+	layout = "02/01/2006"
+)
+
+type Client struct {
+	logger *slog.Logger
+	host   string
+	client http.Client
+}
+
+func New(logger *slog.Logger, host string) *Client {
+	return &Client{
+		logger: logger,
+		host:   host,
+		client: http.Client{},
+	}
+}
+
+func (c *Client) GetAllCurrencies(ctx context.Context, date time.Time) (res CurrenciesResponce, err error) {
+	const op = "cbr.GetAllCurrencies"
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start", slog.Time("date", date))
+
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("err", err),
+		)
+		err = e.WrapIfErr(op, err)
+	}()
+
+	request := CurrencyRequest{Date: date}
+	Path := path.Join("cbr", "currencies")
+	params := url.Values{}
+
+	requestBody, err := json.Marshal(request)
+	if err != nil {
+		logg.Debug("failed to marshal request", slog.Any("err", err))
+		return CurrenciesResponce{}, err
+	}
+	formatRequestBody := bytes.NewBuffer(requestBody)
+
+	httpResponse, err := c.doRequest(ctx, Path, params, formatRequestBody)
+	if err != nil {
+		logg.Debug("http request failed", slog.Any("err", err))
+		return CurrenciesResponce{}, err
+	}
+
+	switch httpResponse.StatusCode {
+	case http.StatusBadRequest:
+		err = fmt.Errorf("op:%s, statusCode:%v, error: Invalid request", op, httpResponse.StatusCode)
+		logg.Debug("bad request", slog.Any("err", err))
+		return CurrenciesResponce{}, err
+	case http.StatusInternalServerError:
+		err = fmt.Errorf("op:%s, statusCode:%v, error: could not get currencies from cbr", op, httpResponse.StatusCode)
+		logg.Debug("internal server error", slog.Any("err", err))
+		return CurrenciesResponce{}, err
+	}
+
+	err = json.Unmarshal(httpResponse.Body, &res)
+	if err != nil {
+		logg.Debug("failed to unmarshal response", slog.Any("err", err))
+		return CurrenciesResponce{}, err
+	}
+
+	logg.Debug("successfully fetched currencies", slog.Int("count", len(res.Currencies)))
+	return res, nil
+}
+
+func (c *Client) doRequest(ctx context.Context, Path string, query url.Values, requestBody io.Reader) (resp HTTPResponse, err error) {
+	const op = "cbr.doRequest"
+	start := time.Now()
+	logg := c.logger.With(slog.String("op", op))
+	logg.Debug("start", slog.String("path", Path))
+
+	defer func() {
+		logg.Info("finished",
+			slog.Duration("duration", time.Since(start)),
+			slog.Any("err", err),
+		)
+		err = e.WrapIfErr("could not do request", err)
+	}()
+
+	u := url.URL{
+		Scheme: "http",
+		Host:   c.host,
+		Path:   Path,
+	}
+	req, err := http.NewRequest(http.MethodPost, u.String(), requestBody)
+	if err != nil {
+		logg.Debug("failed to create http request", slog.Any("err", err))
+		return HTTPResponse{}, err
+	}
+	req.URL.RawQuery = query.Encode()
+	req.Header.Set("Content-Type", "application/json")
+	reqWithTraceID := c.setHeaders(ctx, req)
+
+	response, err := c.client.Do(reqWithTraceID)
+	if err != nil {
+		logg.Debug("http client error", slog.Any("err", err))
+		return HTTPResponse{}, err
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		logg.Debug("failed to read response body", slog.Any("err", err))
+		return HTTPResponse{}, err
+	}
+
+	resp = HTTPResponse{
+		StatusCode: response.StatusCode,
+		Body:       body,
+	}
+	logg.Debug("http request successful", slog.Int("statusCode", resp.StatusCode))
+	return resp, nil
+}
+
+func (c *Client) setHeaders(ctx context.Context, req *http.Request) *http.Request {
+	const op = "bondreportservice.SetHeaders"
+
+	logg := c.logger.With(slog.String("op", op))
+	logg.DebugContext(ctx, "start")
+	defer func() {
+		logg.InfoContext(ctx, "finished")
+	}()
+
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	if !ok {
+		logg.WarnContext(ctx, "hasn't traceID in ctx")
+	}
+	req.Header.Set(httpheaders.HeaderTraceID, traceID)
+
+	return req
+}

@@ -1,0 +1,7 @@
+# .gitattributes
+* text=auto
+*.go text
+*.md text
+*.json text
+*.yaml text
+*.yml text

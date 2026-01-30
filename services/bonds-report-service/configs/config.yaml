@@ -1,0 +1,12 @@
+dbType: "postgreSQL" # "postgreSQL" , "SQLite"
+serviceStorageSQLLitePath: "/data/sqlite/service_storage.db"
+postgresHost:
+  sslmode: "disable"
+clients:
+  tinkoffClient:
+  cbrClient:
+  moexClient:
+  bondReportService:
+    bondReportServiceHost: "0.0.0.0"
+
+

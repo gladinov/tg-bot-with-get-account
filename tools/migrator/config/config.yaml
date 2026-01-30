@@ -1,0 +1,2 @@
+postgresHost:
+  sslmode: "disable"
