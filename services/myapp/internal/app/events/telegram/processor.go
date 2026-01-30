@@ -1,15 +1,16 @@
 package telegram
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 
+	"github.com/gladinov/e"
 	bondreportservice "main.go/clients/bondReportService"
 	"main.go/clients/telegram"
 	"main.go/clients/tinkoffApi"
 	"main.go/internal/app/events"
 	tokenauth "main.go/internal/tokenAuth"
-	"main.go/lib/e"
 )
 
 type Processor struct {
@@ -25,8 +26,10 @@ type Meta struct {
 	Username string
 }
 
-var ErrUnknownEventType = errors.New("unknown event type")
-var ErrUnknownMetaType = errors.New("unknown meta type")
+var (
+	ErrUnknownEventType = errors.New("unknown event type")
+	ErrUnknownMetaType  = errors.New("unknown meta type")
+)
 
 func NewProccesor(
 	logger *slog.Logger,
@@ -44,27 +47,26 @@ func NewProccesor(
 	}
 }
 
-func (p *Processor) Process(event events.Event) error {
+func (p *Processor) Process(ctx context.Context, event events.Event) error {
 	switch event.Type {
 	case events.Message:
-		return p.processMessage(event)
+		return p.processMessage(ctx, event)
 	default:
 		return e.Wrap("can't process message", ErrUnknownEventType)
 	}
 }
 
-func (p *Processor) processMessage(event events.Event) error {
+func (p *Processor) processMessage(ctx context.Context, event events.Event) error {
 	meta, err := meta(event)
 	if err != nil {
 		return e.Wrap("can't process message", err)
 	}
 
-	if err := p.doCmd(event.Text, meta.ChatID, meta.Username); err != nil {
+	if err := p.doCmd(ctx, event.Text, meta.ChatID, meta.Username); err != nil {
 		return e.Wrap("can't process message", err)
 	}
 
 	return nil
-
 }
 
 func meta(event events.Event) (Meta, error) {

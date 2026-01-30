@@ -1,14 +1,14 @@
 package service
 
 import (
+	"bonds-report-service/clients/tinkoffApi"
+	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
 	"log/slog"
 	"time"
 
-	"bonds-report-service/clients/tinkoffApi"
-	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
+	"github.com/gladinov/e"
 )
 
 var ErrEmptyUidAfterUpdate = errors.New("asset uid by this instrument uid is not exist")
@@ -91,7 +91,6 @@ func (c *Client) GetUidByInstrUid(ctx context.Context, instrumentUid string) (as
 		return "", err
 	}
 	return assetUid, nil
-
 }
 
 func (c *Client) updateAndGetUid(ctx context.Context, instrumentUid string) (asset_uid string, err error) {

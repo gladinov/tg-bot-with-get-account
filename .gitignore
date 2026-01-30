@@ -1,4 +1,5 @@
 deployments/env/.env
+deployments/env/prod.env
 /services/myapp/data/sqlite/storage.db
 /services/myapp/data/sqlite/service_storage.db
 /services/myapp/archive

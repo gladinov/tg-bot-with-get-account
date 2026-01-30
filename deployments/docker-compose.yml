@@ -1,3 +1,4 @@
+
 services:
   myapp:
     build: ../services/myapp
@@ -56,6 +57,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    
 
   redis:
     image: redis/redis-stack:latest
@@ -211,6 +213,7 @@ services:
     networks:
       - myapp_network
 
+  
 
 networks:
   myapp_network:

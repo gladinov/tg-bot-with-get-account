@@ -11,17 +11,17 @@ import (
 	"time"
 
 	sl "github.com/gladinov/mylogger"
+	"github.com/gladinov/traceidgenerator"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	// for local
-	// app.MustInitialize()
-	// rootPath := app.MustGetRoot()
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
+
+	_ = traceidgenerator.Must()
 
 	conf := configs.MustInitConfig()
 
@@ -45,6 +45,7 @@ func main() {
 	logg.Info("initialize router echo")
 	router := echo.New()
 	router.Use(middleware.CORS())
+	router.Use(handlers.ContextHeaderTraceIdMiddleWare)
 	router.Use(handlers.LoggerMiddleWare)
 
 	router.POST("/cbr/currencies", handlers.GetAllCurrencies)

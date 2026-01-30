@@ -3,9 +3,9 @@ package telegram
 import (
 	"log/slog"
 
+	"github.com/gladinov/e"
 	"main.go/clients/telegram"
 	"main.go/internal/app/events"
-	"main.go/lib/e"
 )
 
 type Fetcher struct {
@@ -26,7 +26,6 @@ func (f *Fetcher) Fetch(limit int) ([]events.Event, error) {
 	updates, err := f.tg.Updates(f.offset, limit)
 	if err != nil {
 		return nil, e.Wrap("can't get events", err)
-
 	}
 
 	if len(updates) == 0 {

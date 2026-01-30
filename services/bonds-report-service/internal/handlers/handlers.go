@@ -2,9 +2,12 @@ package handlers
 
 import (
 	"bonds-report-service/internal/service"
-	"bonds-report-service/lib/valuefromcontext"
+	"context"
 	"log/slog"
 	"net/http"
+	"time"
+
+	"github.com/gladinov/valuefromcontext"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +20,8 @@ type Client struct {
 func NewHandlers(logger *slog.Logger, service *service.Client) *Client {
 	return &Client{
 		logger:  logger,
-		service: service}
+		service: service,
+	}
 }
 
 func (h *Client) GetAccountsList(c *gin.Context) {
@@ -30,7 +34,7 @@ func (h *Client) GetAccountsList(c *gin.Context) {
 			slog.Any("error", err),
 			slog.String("path", c.Request.URL.Path),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get accounts"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not get accounts"})
 		return
 	}
 
@@ -39,15 +43,16 @@ func (h *Client) GetAccountsList(c *gin.Context) {
 
 func (h *Client) GetBondReportsByFifo(c *gin.Context) {
 	const op = "handlers.GetBondReportsByFifo"
-	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 	chatID, err := valuefromcontext.GetChatIDFromCtxInt(ctx)
 	if err != nil {
-		h.logger.Error("incorrect X-ChatId header",
+		h.logger.Warn("incorrect X-ChatId header",
 			slog.String("op", op),
 			slog.Any("error", err),
 			slog.String("path", c.Request.URL.Path),
 		)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "incorrect X-ChatId header"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "incorrect X-ChatId header"})
 		return
 	}
 	err = h.service.GetBondReportsByFifo(ctx, chatID)
@@ -57,7 +62,7 @@ func (h *Client) GetBondReportsByFifo(c *gin.Context) {
 			slog.Any("error", err),
 			slog.String("path", c.Request.URL.Path),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -66,7 +71,8 @@ func (h *Client) GetBondReportsByFifo(c *gin.Context) {
 
 func (h *Client) GetUSD(c *gin.Context) {
 	const op = "handlers.GetUSD"
-	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 
 	usdResponce, err := h.service.GetUsd(ctx)
 	if err != nil {
@@ -75,41 +81,44 @@ func (h *Client) GetUSD(c *gin.Context) {
 			slog.Any("error", err),
 			slog.String("path", c.Request.URL.Path),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, usdResponce)
 }
+
 func (h *Client) GetBondReports(c *gin.Context) {
 	const op = "handlers.GetBondReports"
-	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 	logg := h.logger.With(
 		slog.String("op", op),
 		slog.String("path", c.Request.URL.Path))
 
 	chatID, err := valuefromcontext.GetChatIDFromCtxInt(ctx)
 	if err != nil {
-		logg.Error(
+		logg.Warn(
 			"incorrect X-ChatId header",
 			slog.Any("error", err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "incorrect X-ChatId header"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "incorrect X-ChatId header"})
 		return
 	}
-	getBondReportsResponce, err := h.service.GetBondReports(ctx, chatID)
+	getBondReportsResponse, err := h.service.GetBondReports(ctx, chatID)
 	if err != nil {
-		logg.Error("internal server error",
+		logg.Error("GetBondReports err",
 			slog.Any("error", err),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	c.JSON(http.StatusOK, getBondReportsResponce)
-
+	c.JSON(http.StatusOK, getBondReportsResponse)
 }
+
 func (h *Client) GetPortfolioStructure(c *gin.Context) {
 	const op = "handlers.GetPortfolioStructure"
-	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 
 	portfolioStructuresResonce, err := h.service.GetPortfolioStructureForEachAccount(ctx)
 	if err != nil {
@@ -118,15 +127,16 @@ func (h *Client) GetPortfolioStructure(c *gin.Context) {
 			slog.Any("error", err),
 			slog.String("path", c.Request.URL.Path),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, portfolioStructuresResonce)
-
 }
+
 func (h *Client) GetUnionPortfolioStructure(c *gin.Context) {
 	const op = "handlers.GetUnionPortfolioStructure"
-	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 
 	portgolioStructure, err := h.service.GetUnionPortfolioStructureForEachAccount(ctx)
 	if err != nil {
@@ -135,14 +145,16 @@ func (h *Client) GetUnionPortfolioStructure(c *gin.Context) {
 			slog.Any("error", err),
 			slog.String("path", c.Request.URL.Path),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, portgolioStructure)
 }
+
 func (h *Client) GetUnionPortfolioStructureWithSber(c *gin.Context) {
 	const op = "handlers.GetUnionPortfolioStructureWithSber"
-	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 
 	portgolioStructure, err := h.service.GetUnionPortfolioStructureWithSber(ctx)
 	if err != nil {
@@ -151,7 +163,7 @@ func (h *Client) GetUnionPortfolioStructureWithSber(c *gin.Context) {
 			slog.Any("error", err),
 			slog.String("path", c.Request.URL.Path),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, portgolioStructure)

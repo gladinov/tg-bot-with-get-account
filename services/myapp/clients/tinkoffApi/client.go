@@ -10,7 +10,8 @@ import (
 	"path"
 	"time"
 
-	"main.go/internal/models"
+	httpheaders "github.com/gladinov/contracts/http"
+	"github.com/gladinov/contracts/trace"
 )
 
 type Client struct {
@@ -34,7 +35,7 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	Path := path.Join("tinkoff", "checktoken")
 
 	u := url.URL{
@@ -48,7 +49,14 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 		return fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
 
-	req.Header.Set(models.HeaderEncryptedToken, tokenInBase64)
+	req.Header.Set(httpheaders.HeaderEncryptedToken, tokenInBase64)
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	switch ok {
+	case true:
+		req.Header.Set(httpheaders.HeaderTraceID, traceID)
+	case false:
+		logg.Warn("traceID is empty")
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -59,7 +67,7 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 
 	defer func() { _ = resp.Body.Close() }()
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 			slog.Int("code", resp.StatusCode),
 			slog.String("body", string(body)),

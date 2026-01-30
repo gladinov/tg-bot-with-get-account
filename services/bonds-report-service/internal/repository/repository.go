@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"bonds-report-service/internal/repository/postgreSQL"
+	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
 	"fmt"
@@ -8,10 +10,10 @@ import (
 	"time"
 
 	config "bonds-report-service/internal/configs"
-	"bonds-report-service/internal/repository/postgreSQL"
+
 	servicet_sqlite "bonds-report-service/internal/repository/sqlite"
-	"bonds-report-service/internal/service/service_models"
-	pathwd "bonds-report-service/lib/pathWD"
+
+	"github.com/gladinov/rootpathfinder"
 )
 
 type Storage interface {
@@ -78,7 +80,7 @@ func MustInitNewStorage(ctx context.Context, config config.Config, logg *slog.Lo
 		return serviceStorage
 
 	case SQLite:
-		serviceStorageAbsolutPath, err := pathwd.PathFromWD(config.RootPath, config.ServiceStorageSQLLitePath)
+		serviceStorageAbsolutPath, err := rootpathfinder.PathFromWD(config.RootPath, config.ServiceStorageSQLLitePath)
 		if err != nil {
 			logg.Debug("failed to resolve SQLite storage path", "err", err)
 			panic(err)

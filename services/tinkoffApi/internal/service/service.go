@@ -3,9 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
-	"tinkoffApi/lib/e"
-	"tinkoffApi/lib/valuefromcontext"
+
+	"github.com/gladinov/valuefromcontext"
+
+	"github.com/gladinov/e"
 
 	"github.com/russianinvestments/invest-api-go-sdk/investgo"
 	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
@@ -284,7 +287,7 @@ func (c *PortfolioServiceClient) MakeSafeGetOperationsRequest(client *investgo.C
 			return operations, nil
 		}
 
-		if !e.IsTimeError(err) {
+		if !isTimeError(err) {
 			return nil, err
 		}
 
@@ -292,6 +295,15 @@ func (c *PortfolioServiceClient) MakeSafeGetOperationsRequest(client *investgo.C
 	}
 
 	return nil, lastErr
+}
+
+func isTimeError(inputErr error) bool {
+	if inputErr == nil {
+		return false
+	}
+
+	errorStr := inputErr.Error()
+	return strings.Contains(errorStr, "30070")
 }
 
 func adjustRequestTime(request OperationsRequest, offset time.Duration) OperationsRequest {

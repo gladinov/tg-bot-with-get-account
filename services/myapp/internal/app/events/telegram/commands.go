@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-
 	"strconv"
 	"strings"
 
-	"main.go/internal/models"
+	contextkeys "github.com/gladinov/contracts/context"
+	"github.com/gladinov/e"
 	tokenauth "main.go/internal/tokenAuth"
-	"main.go/lib/e"
 )
 
 const (
@@ -33,7 +32,8 @@ const (
 	TokenInserted
 )
 
-var constList = []string{HelpCmd,
+var constList = []string{
+	HelpCmd,
 	StartCmd,
 	AccountsCmd,
 	GetBondReport,
@@ -41,7 +41,8 @@ var constList = []string{HelpCmd,
 	GetUSD,
 	GetPortfolioStructure,
 	GetUnionPortfolioStructure,
-	GetUnionWithSber}
+	GetUnionWithSber,
+}
 
 func ContainsInConstantCommands(text string) bool {
 	for _, v := range constList {
@@ -54,7 +55,7 @@ func ContainsInConstantCommands(text string) bool {
 
 var ErrIncorrectToken = errors.New("incorrect token")
 
-func (p *Processor) doCmd(text string, chatID int, username string) error {
+func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username string) error {
 	const op = "telegram.doCmd"
 
 	logg := p.logger.With(
@@ -62,29 +63,27 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		slog.String("username", username),
 		slog.Int("chatID", chatID),
 	)
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished")
+		logg.InfoContext(ctx, "finished")
 	}()
 
 	text = strings.TrimSpace(text)
 
 	if ContainsInConstantCommands(text) {
-		logg.Info("got new command",
+		logg.InfoContext(ctx, "got new command",
 			slog.String("msg", text),
 		)
-
 	} else {
-		logg.Info("got new other command")
+		logg.InfoContext(ctx, "got new other command")
 	}
 
 	chatIDStr := strconv.Itoa(chatID)
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, models.ChatIdKey, chatIDStr)
+	ctx = context.WithValue(ctx, contextkeys.ChatIDKey, chatIDStr)
 
 	// TODO: Написать разные приветствия в зависимости от наличия токена
 	if text == StartCmd {
-		return p.sendHello(chatID)
+		return p.sendHello(ctx, chatID)
 	}
 
 	tokenStatus, err := p.tokenAuthService.Auth(ctx, text, username)
@@ -93,17 +92,17 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 	case err != nil && !errors.Is(err, tokenauth.ErrIncorrectToken):
 		return err
 	case errors.Is(err, tokenauth.ErrIncorrectToken):
-		return p.tg.SendMessage(chatID, msgNoToken)
+		return p.tg.SendMessage(ctx, chatID, msgNoToken)
 	case err == nil:
 		switch tokenStatus {
 		case tokenauth.TokenInserted:
-			return p.tg.SendMessage(chatID, msgTrueToken)
+			return p.tg.SendMessage(ctx, chatID, msgTrueToken)
 		}
 	}
 
 	switch text {
 	case HelpCmd:
-		return p.sendHelp(chatID)
+		return p.sendHelp(ctx, chatID)
 	case AccountsCmd:
 		return p.sendAccounts(ctx, chatID)
 	case GetBondReport:
@@ -119,7 +118,7 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 	case GetUnionWithSber:
 		return p.GetUnionPortfolioStructureWithSber(ctx, chatID)
 	default:
-		return p.tg.SendMessage(chatID, msgUnknownCommand)
+		return p.tg.SendMessage(ctx, chatID, msgUnknownCommand)
 	}
 }
 
@@ -129,9 +128,8 @@ func (p *Processor) getUSD(ctx context.Context, chatId int) error {
 		return e.WrapIfErr("can't get usd", err)
 	}
 	usd := strconv.FormatFloat(usdResponce.Usd, 'f', 5, 64)
-	p.tg.SendMessage(chatId, usd)
+	p.tg.SendMessage(ctx, chatId, usd)
 	return nil
-
 }
 
 func (p *Processor) sendAccounts(ctx context.Context, chatID int) error {
@@ -140,7 +138,7 @@ func (p *Processor) sendAccounts(ctx context.Context, chatID int) error {
 		return e.WrapIfErr("can't get account", err)
 	}
 	accounts := accountsResponce.Accounts
-	p.tg.SendMessage(chatID, accounts)
+	p.tg.SendMessage(ctx, chatID, accounts)
 	return nil
 }
 
@@ -149,7 +147,7 @@ func (p *Processor) getBondReports(ctx context.Context, chatID int) (err error) 
 		return e.WrapIfErr("getBondReport: can't get Bond reports", err)
 	}
 
-	p.tg.SendMessage(chatID, "Отчет по облигациям по методу FIFO успешно сохранен в базу данных")
+	p.tg.SendMessage(ctx, chatID, "Отчет по облигациям по методу FIFO успешно сохранен в базу данных")
 	return nil
 }
 
@@ -161,17 +159,16 @@ func (p *Processor) getBondRepotsWithPng(ctx context.Context, chatID int) (err e
 	reportsInByteByAccount := bondReportsResponce.Media
 	for _, reportsInByte := range reportsInByteByAccount {
 		for _, v := range reportsInByte {
-
 			switch len(v.Reports) {
 			case 0:
 				continue
 			case 1:
-				err = p.tg.SendImageFromBuffer(chatID, v.Reports[0].Data, v.Reports[0].Caption)
+				err = p.tg.SendImageFromBuffer(ctx, chatID, v.Reports[0].Data, v.Reports[0].Caption)
 				if err != nil {
 					return e.WrapIfErr("can't get bond report with png", err)
 				}
 			default:
-				err = p.tg.SendMediaGroupFromBuffer(chatID, v.Reports)
+				err = p.tg.SendMediaGroupFromBuffer(ctx, chatID, v.Reports)
 				if err != nil {
 					return e.WrapIfErr("can't get bond report with png", err)
 				}
@@ -187,38 +184,35 @@ func (p *Processor) GetPortfolioStructure(ctx context.Context, chatID int) (err 
 		return e.WrapIfErr("can't get portfolio structure", err)
 	}
 	for _, report := range portfolioStructures.PortfolioStructures {
-		p.tg.SendMessage(chatID, report)
+		p.tg.SendMessage(ctx, chatID, report)
 	}
 	return nil
 }
 
 func (p *Processor) GetUnionPortfolioStructure(ctx context.Context, chatID int) (err error) {
-
 	unionPortfolioStructureResponce, err := p.bondReportService.GetUnionPortfolioStructure(ctx)
 	if err != nil {
 		return e.WrapIfErr("processor: can't get union portfolio structure", err)
 	}
 	unionPortfolioStructure := unionPortfolioStructureResponce.Report
-	p.tg.SendMessage(chatID, unionPortfolioStructure)
+	p.tg.SendMessage(ctx, chatID, unionPortfolioStructure)
 	return nil
 }
 
 func (p *Processor) GetUnionPortfolioStructureWithSber(ctx context.Context, chatID int) (err error) {
-
 	unionPortfolioStructureResponce, err := p.bondReportService.GetUnionPortfolioStructureWithSber(ctx)
 	if err != nil {
 		return e.WrapIfErr("processor: can't get union portfolio structure", err)
 	}
 	unionPortfolioStructure := unionPortfolioStructureResponce.Report
-	p.tg.SendMessage(chatID, unionPortfolioStructure)
+	p.tg.SendMessage(ctx, chatID, unionPortfolioStructure)
 	return nil
-
 }
 
-func (p *Processor) sendHelp(chatID int) error {
-	return p.tg.SendMessage(chatID, msgHelp)
+func (p *Processor) sendHelp(ctx context.Context, chatID int) error {
+	return p.tg.SendMessage(ctx, chatID, msgHelp)
 }
 
-func (p *Processor) sendHello(chatID int) error {
-	return p.tg.SendMessage(chatID, msgHello)
+func (p *Processor) sendHello(ctx context.Context, chatID int) error {
+	return p.tg.SendMessage(ctx, chatID, msgHello)
 }

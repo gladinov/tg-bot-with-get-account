@@ -1,14 +1,14 @@
 package service
 
 import (
+	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
 	"log/slog"
 	"math"
 	"time"
 
-	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
+	"github.com/gladinov/e"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	PaymentOfCoupons                               = 23    // 23 Выплата купонов.
 	StampDuty                                      = 47    // 47	Гербовый сбор.
 	TransferOfSecuritiesFromIISToABrokerageAccount = 57    // 57   Перевод ценных бумаг с ИИС на Брокерский счет
-	EuroTransBuyCost                               = 240   //Стоимость Евротранса при переводе из другого депозитария
+	EuroTransBuyCost                               = 240   // Стоимость Евротранса при переводе из другого депозитария
 	threeYearInHours                               = 26304 // Три года в часах
 	baseTaxRate                                    = 0.13  // Налог с продажи ЦБ
 )
@@ -55,7 +55,7 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *ser
 		position.Replaced = true
 		isoCurrName := resSpecFromTinkoff.NominalCurrency
 		position.CurrencyIfReplaced = isoCurrName
-		vunit_rate, err := c.GetCurrencyFromCB(isoCurrName, date)
+		vunit_rate, err := c.GetCurrencyFromCB(ctx, isoCurrName, date)
 		if err != nil {
 			return e.WrapIfErr("getSpecificationsFromMoex err", err)
 		}
@@ -70,7 +70,6 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *ser
 	resLastPriceFromTinkoff := resp.LastPrice.ToFloat()
 	position.SellPrice = math.Round(resLastPriceFromTinkoff/100*position.Nominal*100) / 100
 	return nil
-
 }
 
 func (c *Client) ProcessOperations(ctx context.Context, operations []service_models.Operation) (_ *service_models.ReportPositions, err error) {
@@ -229,7 +228,6 @@ func (c *Client) processPartialRedemptionOfBonds(operation service_models.Operat
 		}
 	}
 	return nil
-
 }
 
 // 15	Покупка ЦБ.

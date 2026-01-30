@@ -7,12 +7,12 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/gladinov/cryptotoken"
+	"github.com/gladinov/e"
+	"github.com/gladinov/valuefromcontext"
 	"github.com/redis/go-redis/v9"
 	"main.go/clients/tinkoffApi"
 	storage "main.go/internal/repository"
-	"main.go/lib/cryptoToken"
-	"main.go/lib/e"
-	"main.go/lib/valuefromcontext"
 )
 
 type TokenStatus int
@@ -30,14 +30,15 @@ type TokenAuthService struct {
 	redis        *redis.Client
 	storage      storage.Storage
 	tinkoffApi   *tinkoffApi.Client
-	tokenCrypter *cryptoToken.TokenCrypter
+	tokenCrypter *cryptotoken.TokenCrypter
 }
 
 func NewTokenAuthService(logger *slog.Logger,
 	redis *redis.Client,
 	storage storage.Storage,
 	tinkoffApi *tinkoffApi.Client,
-	tokenCrypter *cryptoToken.TokenCrypter) *TokenAuthService {
+	tokenCrypter *cryptotoken.TokenCrypter,
+) *TokenAuthService {
 	return &TokenAuthService{
 		logger:       logger,
 		redis:        redis,
@@ -48,13 +49,12 @@ func NewTokenAuthService(logger *slog.Logger,
 }
 
 func (t *TokenAuthService) Auth(ctx context.Context, text string, username string) (TokenStatus, error) {
-	// TODO: Перенести auth в отдельный клиент. Проыверка комплексная, и относится не только к телеграмму. И проверяется Тинькофф token
 	const op = "telegram.auth"
 
 	logg := t.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished")
+		logg.InfoContext(ctx, "finished")
 	}()
 
 	chatIDStr, err := valuefromcontext.GetChatIDFromCtxStr(ctx)
@@ -67,7 +67,7 @@ func (t *TokenAuthService) Auth(ctx context.Context, text string, username strin
 		return TokenError, fmt.Errorf("%s:%w", op, err)
 	}
 	if haveTokenInRedisErr == nil {
-		logg.Debug("token found in redis")
+		logg.DebugContext(ctx, "token found in redis")
 		return TokenFound, nil
 	}
 
@@ -78,7 +78,7 @@ func (t *TokenAuthService) Auth(ctx context.Context, text string, username strin
 
 	switch haveToken {
 	case true:
-		logg.Info("existing user token reused")
+		logg.InfoContext(ctx, "existing user token reused")
 		tokenInBase64, err := t.storage.PickToken(ctx)
 		if err != nil {
 			return TokenError, fmt.Errorf("%s:%w", op, err)
@@ -88,11 +88,11 @@ func (t *TokenAuthService) Auth(ctx context.Context, text string, username strin
 		if err != nil {
 			return TokenError, fmt.Errorf("%s:%w", op, err)
 		}
-		logg.Info("token stored and cached")
+		logg.InfoContext(ctx, "token stored and cached")
 		return TokenInserted, nil
 
 	case false:
-		logg.Info("user provided new token")
+		logg.InfoContext(ctx, "user provided new token")
 		err := t.isToken(ctx, text)
 		if err != nil {
 			return TokenError, ErrIncorrectToken
@@ -109,7 +109,7 @@ func (t *TokenAuthService) Auth(ctx context.Context, text string, username strin
 		if err != nil {
 			return TokenError, fmt.Errorf("%s:%w", op, err)
 		}
-		logg.Info("token stored and cached")
+		logg.InfoContext(ctx, "token stored and cached")
 		return TokenInserted, nil
 	}
 	return TokenFound, nil
@@ -162,7 +162,7 @@ func (t *TokenAuthService) tokenToBase64(token string) (string, error) {
 	logg := t.logger.With(slog.String("op", op))
 	encryptedToken, err := t.tokenCrypter.EncryptToken(token)
 	if err != nil {
-		logg.Error("err encrypt token", slog.Any("error", err))
+		logg.Debug("err encrypt token", slog.Any("error", err))
 		return "", e.WrapIfErr("could not encrypt token", err)
 	}
 	tokenInBase64, err := encryptedToken.ToBase64()

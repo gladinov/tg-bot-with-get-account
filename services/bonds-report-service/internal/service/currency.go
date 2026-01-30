@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bonds-report-service/clients/cbr"
+	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
 	"log/slog"
@@ -8,12 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"bonds-report-service/clients/cbr"
-	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
+	"github.com/gladinov/e"
 )
 
-func (c *Client) GetCurrencyFromCB(charCode string, date time.Time) (vunit_rate float64, err error) {
+func (c *Client) GetCurrencyFromCB(ctx context.Context, charCode string, date time.Time) (vunit_rate float64, err error) {
 	const op = "service.GetCurrencyFromCB"
 
 	start := time.Now()
@@ -35,7 +35,7 @@ func (c *Client) GetCurrencyFromCB(charCode string, date time.Time) (vunit_rate 
 	if err != nil && !errors.Is(err, service_models.ErrNoCurrency) {
 		return vunit_rate, err
 	}
-	currenciesFromCB, err := c.CbrApi.GetAllCurrencies(date)
+	currenciesFromCB, err := c.CbrApi.GetAllCurrencies(ctx, date)
 	if err != nil {
 		return vunit_rate, err
 	}
@@ -51,7 +51,6 @@ func (c *Client) GetCurrencyFromCB(charCode string, date time.Time) (vunit_rate 
 		return vunit_rate, err
 	}
 	return vunit_rate, nil
-
 }
 
 func transformCurrenciesFromCB(logger *slog.Logger, inCurrencies cbr.CurrenciesResponce) (_ *service_models.Currencies, err error) {

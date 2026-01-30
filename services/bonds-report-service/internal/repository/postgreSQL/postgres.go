@@ -1,23 +1,23 @@
 package postgreSQL
 
 import (
-	"bonds-report-service/lib/e"
+	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/gladinov/e"
+
 	config "bonds-report-service/internal/configs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"bonds-report-service/internal/service/service_models"
 )
 
 const (
-	//postgresHost = "host=localhost user=user password=parol dbname=service port=5432 sslmode=disable"
+	// postgresHost = "host=localhost user=user password=parol dbname=service port=5432 sslmode=disable"
 	layout = "2006-01-02"
 )
 
@@ -38,6 +38,7 @@ func NewStorage(logger *slog.Logger, postgresConfig config.Config) (_ *Storage, 
 			slog.Duration("duration", time.Since(start)),
 			slog.Any("error", err),
 		)
+
 		err = e.WrapIfErr("could create new postgreSQL storage", err)
 	}()
 
@@ -312,12 +313,10 @@ from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 
 		operationRes = append(operationRes, operation)
 	}
 	if err := rows.Err(); err != nil {
-
 		return nil, fmt.Errorf("%s,rows iteration failed: %w", op, err)
 	}
 
 	return operationRes, nil
-
 }
 
 func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error) {
@@ -404,13 +403,11 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
 			report.Nominal,
 			report.Profit,
 			report.AnnualizedReturn)
-
 	}
 	br := tx.SendBatch(ctx, batch)
 
 	for range bondReport {
 		if _, err := br.Exec(); err != nil {
-
 			return fmt.Errorf("batch insert bond report failed: %w", err)
 		}
 	}
@@ -593,7 +590,6 @@ func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err err
 	}
 
 	return nil
-
 }
 
 func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
@@ -621,7 +617,6 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
 	}
 	if err != nil {
 		return time.Time{}, e.WrapIfErr("can't check update uids", err)
-
 	}
 
 	return date, nil
@@ -644,7 +639,6 @@ func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, e
 	q := `SELECT asset_uid FROM uids WHERE instrument_uid = $1`
 	var asset_uid string
 	err = s.db.QueryRow(ctx, q, instrumentUid).Scan(&asset_uid)
-
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", service_models.ErrEmptyUids

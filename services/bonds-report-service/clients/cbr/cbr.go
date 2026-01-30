@@ -1,8 +1,8 @@
 package cbr
 
 import (
-	"bonds-report-service/lib/e"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +11,11 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/gladinov/e"
+
+	httpheaders "github.com/gladinov/contracts/http"
+	"github.com/gladinov/contracts/trace"
 )
 
 const (
@@ -31,7 +36,7 @@ func New(logger *slog.Logger, host string) *Client {
 	}
 }
 
-func (c *Client) GetAllCurrencies(date time.Time) (res CurrenciesResponce, err error) {
+func (c *Client) GetAllCurrencies(ctx context.Context, date time.Time) (res CurrenciesResponce, err error) {
 	const op = "cbr.GetAllCurrencies"
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
@@ -56,7 +61,7 @@ func (c *Client) GetAllCurrencies(date time.Time) (res CurrenciesResponce, err e
 	}
 	formatRequestBody := bytes.NewBuffer(requestBody)
 
-	httpResponse, err := c.doRequest(Path, params, formatRequestBody)
+	httpResponse, err := c.doRequest(ctx, Path, params, formatRequestBody)
 	if err != nil {
 		logg.Debug("http request failed", slog.Any("err", err))
 		return CurrenciesResponce{}, err
@@ -83,7 +88,7 @@ func (c *Client) GetAllCurrencies(date time.Time) (res CurrenciesResponce, err e
 	return res, nil
 }
 
-func (c *Client) doRequest(Path string, query url.Values, requestBody io.Reader) (resp HTTPResponse, err error) {
+func (c *Client) doRequest(ctx context.Context, Path string, query url.Values, requestBody io.Reader) (resp HTTPResponse, err error) {
 	const op = "cbr.doRequest"
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
@@ -109,8 +114,9 @@ func (c *Client) doRequest(Path string, query url.Values, requestBody io.Reader)
 	}
 	req.URL.RawQuery = query.Encode()
 	req.Header.Set("Content-Type", "application/json")
+	reqWithTraceID := c.setHeaders(ctx, req)
 
-	response, err := c.client.Do(req)
+	response, err := c.client.Do(reqWithTraceID)
 	if err != nil {
 		logg.Debug("http client error", slog.Any("err", err))
 		return HTTPResponse{}, err
@@ -129,4 +135,22 @@ func (c *Client) doRequest(Path string, query url.Values, requestBody io.Reader)
 	}
 	logg.Debug("http request successful", slog.Int("statusCode", resp.StatusCode))
 	return resp, nil
+}
+
+func (c *Client) setHeaders(ctx context.Context, req *http.Request) *http.Request {
+	const op = "bondreportservice.SetHeaders"
+
+	logg := c.logger.With(slog.String("op", op))
+	logg.DebugContext(ctx, "start")
+	defer func() {
+		logg.InfoContext(ctx, "finished")
+	}()
+
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	if !ok {
+		logg.WarnContext(ctx, "hasn't traceID in ctx")
+	}
+	req.Header.Set(httpheaders.HeaderTraceID, traceID)
+
+	return req
 }

@@ -1,14 +1,14 @@
 package servicet_sqlite
 
 import (
+	"bonds-report-service/internal/service/service_models"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
-	"bonds-report-service/internal/service/service_models"
-	"bonds-report-service/lib/e"
+	"github.com/gladinov/e"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -31,6 +31,7 @@ func New(path string) (*Storage, error) {
 func (s *Storage) CloseDB() {
 	_ = s.db.Close()
 }
+
 func (s *Storage) Init(ctx context.Context) error {
 	q_bondReport := `CREATE TABLE IF NOT EXISTS bond_reports (
         id integer primary key,
@@ -148,7 +149,6 @@ func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountId s
 	var date time.Time
 
 	err := s.db.QueryRowContext(ctx, q, chatID, accountId).Scan(&date)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return date, service_models.ErrNoOpperations
@@ -156,7 +156,6 @@ func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountId s
 		return date, e.WrapIfErr("query error", err)
 	}
 	return date, nil
-
 }
 
 func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []service_models.Operation) error {
@@ -254,7 +253,6 @@ func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string
 	}
 
 	return operationRes, nil
-
 }
 
 func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error) {
@@ -270,7 +268,6 @@ func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId st
 }
 
 func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) error {
-
 	q := `
     INSERT INTO bond_reports (
 		chatId,
@@ -293,7 +290,6 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)
 	`
 	for _, report := range bondReport {
-
 		if _, err := s.db.ExecContext(
 			ctx,
 			q,
@@ -331,6 +327,7 @@ func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accou
 	}
 	return nil
 }
+
 func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []service_models.GeneralBondReportPosition) error {
 	q := `
     INSERT INTO general_bond_report (
@@ -434,7 +431,6 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (time.Time, error) {
 	}
 	if err != nil {
 		return time.Time{}, e.WrapIfErr("can't check update uids:", err)
-
 	}
 
 	return date, nil
@@ -502,7 +498,6 @@ func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Ti
 
 	var vunit_rate float64
 	err := s.db.QueryRowContext(ctx, q, charCode, date.Format("2006-01-02")).Scan(&vunit_rate)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return vunit_rate, service_models.ErrNoCurrency

@@ -1,9 +1,13 @@
 package event_consumer
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
+	"github.com/gladinov/contracts/trace"
+	"github.com/gladinov/e"
+	"github.com/gladinov/traceidgenerator"
 	"main.go/internal/app/events"
 	"main.go/internal/app/events/telegram"
 )
@@ -54,7 +58,6 @@ func (c Consumer) Start() error {
 			continue
 		}
 	}
-
 }
 
 func (c *Consumer) handleEvents(events []events.Event) error {
@@ -70,17 +73,24 @@ func (c *Consumer) handleEvents(events []events.Event) error {
 	}()
 
 	for _, event := range events {
+		traceID, err := traceidgenerator.New()
+		if err != nil {
+			return e.WrapIfErr(op, err)
+		}
+		ctx := trace.WithTraceID(context.Background(), traceID)
+
 		eventLog := logg.With(
 			slog.Any("event_type", event.Type),
 		)
-		//TODO: Подумать насколько это корректно? Разные логи для предусмотренных и не предусмотренных комманд
+
+		// TODO: Подумать насколько это корректно? Разные логи для предусмотренных и не предусмотренных комманд
 		if telegram.ContainsInConstantCommands(event.Text) {
-			eventLog.Debug("got new event", slog.String("event", event.Text))
+			eventLog.DebugContext(ctx, "got new event", slog.String("event", event.Text))
 		} else {
-			eventLog.Debug("got new other event")
+			eventLog.DebugContext(ctx, "got new other event")
 		}
 
-		if err := c.processor.Process(event); err != nil {
+		if err := c.processor.Process(ctx, event); err != nil {
 			if telegram.ContainsInConstantCommands(event.Text) {
 				eventLog.Error("process event failed",
 					slog.String("event", event.Text),

@@ -17,9 +17,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sl "github.com/gladinov/mylogger"
+	"github.com/gladinov/traceidgenerator"
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 	conf := config.MustInitConfig()
 
 	logg := sl.NewLogger(conf.Env)
@@ -29,10 +32,10 @@ func main() {
 		slog.String("bond-report-service_app_host", conf.Clients.BondReportService.Host),
 		slog.String("bond-report-service_app_port", conf.Clients.BondReportService.Port))
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	_ = traceidgenerator.Must()
 
 	repo := repository.MustInitNewStorage(ctx, conf, logg)
+	// TODO: close db
 
 	logg.Info("initialize Tinkoff client", slog.String("addres", conf.Clients.TinkoffClient.GetTinkoffApiAddress()))
 	tinkoffClient := tinkoffApi.NewClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
@@ -66,8 +69,9 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	router.Use(handlers.LoggerMiddleware(logg))
-	router.Use(handlers.AuthMiddleware(logg))
+	router.Use(handl.ContextHeaderTraceIdMiddleWare())
+	router.Use(handl.LoggerMiddleware())
+	router.Use(handl.AuthMiddleware())
 
 	router.GET("/bondReportService/accounts", handl.GetAccountsList)
 	router.GET("/bondReportService/getBondReportsByFifo", handl.GetBondReportsByFifo)
@@ -80,5 +84,4 @@ func main() {
 	address := conf.Clients.BondReportService.GetBondReportServiceAppAddress()
 	logg.Info("run bond-report-service", slog.String("address", address))
 	router.Run(address)
-
 }

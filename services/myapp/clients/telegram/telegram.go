@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,8 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gladinov/e"
 	bondreportservice "main.go/clients/bondReportService"
-	"main.go/lib/e"
 )
 
 type Client struct {
@@ -63,15 +64,17 @@ func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
 
 	if err := json.Unmarshal(data, &res); err != nil {
 		return nil, err
-
 	}
 
 	return res.Result, nil
 }
 
-func (c *Client) SendMessage(chatID int, text string) error {
+func (c *Client) SendMessage(ctx context.Context, chatID int, text string) error {
 	const op = "telegram.SendMessage"
-
+	logg := c.logger.With(
+		slog.String("op", op),
+	)
+	defer func() { logg.DebugContext(ctx, "success") }()
 	q := url.Values{}
 	q.Add("chat_id", strconv.Itoa(chatID))
 	q.Add("text", text)
@@ -81,7 +84,6 @@ func (c *Client) SendMessage(chatID int, text string) error {
 		return e.Wrap("can`t send message", err)
 	}
 	return nil
-
 }
 
 func (c *Client) doRequest(method string, query url.Values) (data []byte, err error) {
@@ -115,17 +117,16 @@ func (c *Client) doRequest(method string, query url.Values) (data []byte, err er
 	}
 
 	return body, nil
-
 }
 
-func (c *Client) SendImageFromBuffer(chatID int, imageData []byte, caption string) error {
+func (c *Client) SendImageFromBuffer(ctx context.Context, chatID int, imageData []byte, caption string) error {
 	const op = "telegram.SendImageFromBuffer"
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -149,18 +150,18 @@ func (c *Client) SendImageFromBuffer(chatID int, imageData []byte, caption strin
 
 	writer.Close()
 
-	_, err = c.doMultipartRequest("sendPhoto", body, writer.FormDataContentType())
+	_, err = c.doMultipartRequest(ctx, "sendPhoto", body, writer.FormDataContentType())
 	return err
 }
 
-func (c *Client) SendMediaGroupFromBuffer(chatID int, images []*bondreportservice.ImageData) error {
+func (c *Client) SendMediaGroupFromBuffer(ctx context.Context, chatID int, images []*bondreportservice.ImageData) error {
 	const op = "telegram.SendMediaGroupFromBuffer"
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()
@@ -212,7 +213,7 @@ func (c *Client) SendMediaGroupFromBuffer(chatID int, images []*bondreportservic
 
 	writer.Close()
 
-	_, err := c.doMultipartRequest("sendMediaGroup", body, writer.FormDataContentType())
+	_, err := c.doMultipartRequest(ctx, "sendMediaGroup", body, writer.FormDataContentType())
 	if err != nil {
 		return fmt.Errorf("can't send media group: %v", err)
 	}
@@ -220,16 +221,16 @@ func (c *Client) SendMediaGroupFromBuffer(chatID int, images []*bondreportservic
 	return nil
 }
 
-func (c *Client) doMultipartRequest(method string, body *bytes.Buffer, contentType string) (data []byte, err error) {
+func (c *Client) doMultipartRequest(ctx context.Context, method string, body *bytes.Buffer, contentType string) (data []byte, err error) {
 	defer func() { err = e.WrapIfErr("can't do multipart request", err) }()
 
 	const op = "telegram.doMultipartRequest"
 
 	start := time.Now()
 	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
+	logg.DebugContext(ctx, "start")
 	defer func() {
-		logg.Info("finished",
+		logg.InfoContext(ctx, "finished",
 			slog.Duration("duration", time.Since(start)),
 		)
 	}()

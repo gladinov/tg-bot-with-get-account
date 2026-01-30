@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"bonds-report-service/lib/e"
+	"github.com/gladinov/e"
 
 	"gopkg.in/yaml.v3"
 )
