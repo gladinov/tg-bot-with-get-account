@@ -20,10 +20,8 @@ func TestContextHeaderTraceIdMiddleware_FromHeader(t *testing.T) {
 	e := echo.New()
 
 	srvc := mocks.NewCurrencyService(t)
-	h := &Handlers{
-		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		service: srvc,
-	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := NewHandlers(logger, srvc)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set(httpheaders.HeaderTraceID, "trace-123")
@@ -53,10 +51,8 @@ func TestContextHeaderTraceIdMiddleware_EmptyTraceID(t *testing.T) {
 	e := echo.New()
 
 	srvc := mocks.NewCurrencyService(t)
-	h := &Handlers{
-		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		service: srvc,
-	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := NewHandlers(logger, srvc)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set(httpheaders.HeaderTraceID, "")
@@ -86,10 +82,8 @@ func TestLoggerMiddleware_PassesThrough(t *testing.T) {
 	e := echo.New()
 
 	srvc := mocks.NewCurrencyService(t)
-	h := &Handlers{
-		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		service: srvc,
-	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := NewHandlers(logger, srvc)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
@@ -113,10 +107,8 @@ func TestLoggerMiddleware_Error(t *testing.T) {
 	e := echo.New()
 
 	srvc := mocks.NewCurrencyService(t)
-	h := &Handlers{
-		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		service: srvc,
-	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := NewHandlers(logger, srvc)
 
 	req := httptest.NewRequest(http.MethodGet, "/err", nil)
 	rec := httptest.NewRecorder()
