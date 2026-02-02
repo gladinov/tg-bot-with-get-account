@@ -31,7 +31,7 @@ func TestGetAllCurrencies(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		wantMock := models.CurrenciesResponce{Date: "date"}
-		cbrClientMock := mocks.NewHTTPClient(t)
+		cbrClientMock := mocks.NewCbrClient(t)
 		cbrClientMock.On("GetAllCurrencies", ctx, mock.AnythingOfType("string")).
 			Return(wantMock, nil).Once()
 		srv := NewService(logg, cbrClientMock, location)
@@ -41,7 +41,7 @@ func TestGetAllCurrencies(t *testing.T) {
 	})
 	t.Run("GetAllCurrencies error", func(t *testing.T) {
 		errContains := "failed to get all currencies from client"
-		cbrClientMock := mocks.NewHTTPClient(t)
+		cbrClientMock := mocks.NewCbrClient(t)
 		cbrClientMock.On("GetAllCurrencies", ctx, mock.AnythingOfType("string")).
 			Return(models.CurrenciesResponce{}, errors.New("could not do request")).Once()
 		srv := NewService(logg, cbrClientMock, location)

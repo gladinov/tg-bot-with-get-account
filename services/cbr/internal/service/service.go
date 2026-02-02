@@ -18,11 +18,11 @@ type CurrencyService interface {
 
 type Service struct {
 	Logger       *slog.Logger
-	Client       cbr.HTTPClient
+	Client       cbr.CbrClient
 	TimeLocation *time.Location
 }
 
-func NewService(logger *slog.Logger, client cbr.HTTPClient, timeLocation *time.Location) *Service {
+func NewService(logger *slog.Logger, client cbr.CbrClient, timeLocation *time.Location) *Service {
 	return &Service{
 		Logger:       logger,
 		Client:       client,

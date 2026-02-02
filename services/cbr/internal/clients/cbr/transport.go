@@ -12,8 +12,8 @@ import (
 	"github.com/gladinov/e"
 )
 
-//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=HTTPTransport
-type HTTPTransport interface {
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=TransportClient
+type TransportClient interface {
 	DoRequest(ctx context.Context, Path string, query url.Values) ([]byte, error)
 }
 

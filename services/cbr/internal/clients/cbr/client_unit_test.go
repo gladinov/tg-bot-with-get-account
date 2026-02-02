@@ -33,7 +33,7 @@ func TestGetAllCurrencies(t *testing.T) {
 	formatDate := utils.NormalizeDate(date, now, startDate)
 
 	t.Run("sucsess", func(t *testing.T) {
-		transportMock := mocks.NewHTTPTransport(t)
+		transportMock := mocks.NewTransportClient(t)
 		transportMock.On(
 			"DoRequest",
 			ctx,
@@ -49,7 +49,7 @@ func TestGetAllCurrencies(t *testing.T) {
 		transportMock.AssertExpectations(t)
 	})
 	t.Run("DoRequest failed", func(t *testing.T) {
-		transportMock := mocks.NewHTTPTransport(t)
+		transportMock := mocks.NewTransportClient(t)
 		transportMock.On("DoRequest",
 			ctx,
 			"scripts/XML_daily.asp",
@@ -66,7 +66,7 @@ func TestGetAllCurrencies(t *testing.T) {
 		transportMock.AssertExpectations(t)
 	})
 	t.Run("parseCurrencies failed", func(t *testing.T) {
-		transportMock := mocks.NewHTTPTransport(t)
+		transportMock := mocks.NewTransportClient(t)
 		transportMock.On("DoRequest",
 			ctx,
 			"scripts/XML_daily.asp",

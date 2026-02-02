@@ -11,17 +11,17 @@ import (
 	"github.com/gladinov/e"
 )
 
-//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=HTTPClient
-type HTTPClient interface {
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=CbrClient
+type CbrClient interface {
 	GetAllCurrencies(ctx context.Context, formatDate string) (models.CurrenciesResponce, error)
 }
 
 type Client struct {
-	transport HTTPTransport
+	transport TransportClient
 	logger    *slog.Logger
 }
 
-func NewClient(logger *slog.Logger, transport HTTPTransport) *Client {
+func NewClient(logger *slog.Logger, transport TransportClient) *Client {
 	return &Client{
 		logger:    logger,
 		transport: transport,
