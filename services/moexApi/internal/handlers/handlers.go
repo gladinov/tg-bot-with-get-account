@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"main/internal/models"
 	"main/internal/service"
 	"net/http"
 	"time"
@@ -18,10 +19,10 @@ var (
 
 type Handlers struct {
 	logger  *slog.Logger
-	service service.Service
+	service service.ServiceClient
 }
 
-func NewHandlers(logger *slog.Logger, service service.Service) *Handlers {
+func NewHandlers(logger *slog.Logger, service service.ServiceClient) *Handlers {
 	return &Handlers{
 		logger:  logger,
 		service: service,
@@ -37,11 +38,11 @@ func (h *Handlers) GetSpecifications(c echo.Context) error {
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
 
-	var req service.SpecificationsRequest
+	var req models.SpecificationsRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, errInvalidRequestBody)
 	}
-	resp, err := h.service.GetSpecifications(req)
+	resp, err := h.service.GetSpecifications(ctx, req)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, errGetData)
 	}

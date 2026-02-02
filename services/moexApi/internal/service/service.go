@@ -1,77 +1,53 @@
 package service
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
-	"io"
 	"log/slog"
-	"net/http"
-	"net/url"
-	"path"
+	"main/internal/clients/moex"
+	"main/internal/models"
+	"main/internal/utils/logging"
 	"time"
 
 	"github.com/gladinov/e"
 )
 
-const (
-	layout = "2006-01-02"
-)
-
-//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=Service
-type Service interface {
-	GetSpecifications(req SpecificationsRequest) (values Values, err error)
-	DoRequest(Path string, query url.Values) (data []byte, err error)
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=ServiceClient
+type ServiceClient interface {
+	GetSpecifications(ctx context.Context, req models.SpecificationsRequest) (values models.Values, err error)
 }
 
-type SpecificationService struct {
+type Service struct {
 	logger *slog.Logger
-	host   string
-	client *http.Client
+	client moex.MoexClient
 }
 
-func NewSpecificationService(logger *slog.Logger, host string) Service {
-	return &SpecificationService{
+func NewServiceClient(logger *slog.Logger, client moex.MoexClient) *Service {
+	return &Service{
 		logger: logger,
-		host:   host,
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		client: client,
 	}
 }
 
-func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (values Values, err error) {
-	defer func() { err = e.WrapIfErr("getspecification error", err) }()
+func (c *Service) GetSpecifications(ctx context.Context, req models.SpecificationsRequest) (values models.Values, err error) {
+	const op = "service.GetSpecifications"
+
+	logg := c.logger.With()
+	defer logging.LogOperation_Debug(ctx, logg, op, &err)()
+
 	ticker := req.Ticker
 	date := req.Date
 
-	if date.Compare(time.Now().AddDate(0, 0, 1)) == 1 {
-		date = time.Now()
-	}
-	var data SpecificationsResponce
+	now := time.Now()
+	date = clampDate(req.Date, now)
+
+	var data models.SpecificationsResponce
 	daysMax := 14
 	var dayToSubstract int
 	for dayToSubstract = 1; dayToSubstract <= daysMax; dayToSubstract++ {
-
-		// Проверяем условия выхода из цикла
-		formatDate := date.Format(layout)
-		// uri := fmt.Sprintf("https://iss.moex.com/iss/history/engines/stock/markets/bonds/sessions/3/securities/%s.json", ticker)
-		Path := path.Join("iss", "history", "engines", "stock", "markets", "bonds", "sessions", "3", "securities", ticker+".json")
-		params := url.Values{}
-		params.Add("limit", "1")
-		params.Add("iss.meta", "off")
-		params.Add("history.columns", "TRADEDATE,MATDATE,OFFERDATE,BUYBACKDATE,YIELDCLOSE,YIELDTOOFFER,FACEVALUE,FACEUNIT,DURATION, SHORTNAME")
-		params.Add("limit", "1")
-		params.Add("from", formatDate)
-		params.Add("to", formatDate)
-
-		body, err := s.DoRequest(Path, params)
+		data, err = c.client.GetSpecifications(ctx, ticker, date)
 		if err != nil {
-			return Values{}, err
-		}
-
-		err = json.Unmarshal(body, &data)
-		if err != nil {
-			return Values{}, err
+			return models.Values{}, e.WrapIfErr("could not get specification from moexClient", err)
 		}
 		if data.History != nil {
 			if len(data.History.Data) != 0 {
@@ -81,39 +57,16 @@ func (s *SpecificationService) GetSpecifications(req SpecificationsRequest) (val
 		date = date.AddDate(0, 0, -1)
 	}
 	if dayToSubstract > daysMax {
-		return Values{}, errors.New("could not find data in MOEX")
+		return models.Values{}, errors.New("could not find data in MOEX")
 	}
+
 	resp := data.History.Data[0]
 	return resp, nil
 }
 
-func (s *SpecificationService) DoRequest(Path string, query url.Values) (data []byte, err error) {
-	defer func() { err = e.WrapIfErr("can`t do request", err) }()
-
-	u := url.URL{
-		Scheme: "https",
-		Host:   s.host,
-		Path:   Path,
+func clampDate(date, now time.Time) time.Time {
+	if date.After(now) {
+		return now
 	}
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.URL.RawQuery = query.Encode()
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return body, nil
+	return date
 }
