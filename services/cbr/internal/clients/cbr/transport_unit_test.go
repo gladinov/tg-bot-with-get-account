@@ -32,7 +32,7 @@ func TestDoRequest_Realistic(t *testing.T) {
 		transport := &Transport{
 			logger: logg,
 			host:   "cbr.ru",
-			client: client,
+			client: &client,
 		}
 		body, err := transport.DoRequest(ctx, "/mock", url.Values{})
 		require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestDoRequest_Realistic(t *testing.T) {
 			return nil, errors.New("network unreachable")
 		})
 
-		transport := &Transport{logger: logg, host: "cbr.ru", client: client}
+		transport := &Transport{logger: logg, host: "cbr.ru", client: &client}
 		_, err := transport.DoRequest(ctx, "/mock", url.Values{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "network unreachable")
@@ -54,7 +54,7 @@ func TestDoRequest_Realistic(t *testing.T) {
 		transport := &Transport{
 			logger: logg,
 			host:   "://bad_host",
-			client: http.Client{},
+			client: &http.Client{},
 		}
 		_, err := transport.DoRequest(ctx, "/mock", url.Values{})
 		require.Error(t, err)
@@ -70,7 +70,7 @@ func TestDoRequest_Realistic(t *testing.T) {
 			}, nil
 		})
 
-		transport := &Transport{logger: logg, host: "cbr.ru", client: client}
+		transport := &Transport{logger: logg, host: "cbr.ru", client: &client}
 		_, err := transport.DoRequest(ctx, "/mock", url.Values{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "could not read body")

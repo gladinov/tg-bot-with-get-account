@@ -34,7 +34,7 @@ func NewTransport(logger *slog.Logger, host string) *Transport {
 }
 
 func (t *Transport) DoRequest(ctx context.Context, Path string, query url.Values) (_ []byte, err error) {
-	const op = "service.doRequest"
+	const op = "transport.doRequest"
 	logg := t.logger.With()
 	defer logging.LogOperation_Debug(ctx, logg, op, &err)()
 

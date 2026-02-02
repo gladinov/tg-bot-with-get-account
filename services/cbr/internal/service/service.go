@@ -22,7 +22,7 @@ type Service struct {
 	TimeLocation *time.Location
 }
 
-func NewService(logger *slog.Logger, client cbr.HTTPClient, timeLocation *time.Location) CurrencyService {
+func NewService(logger *slog.Logger, client cbr.HTTPClient, timeLocation *time.Location) *Service {
 	return &Service{
 		Logger:       logger,
 		Client:       client,
