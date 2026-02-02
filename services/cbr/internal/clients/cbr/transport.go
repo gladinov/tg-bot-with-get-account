@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gladinov/e"
 )
@@ -19,14 +20,16 @@ type HTTPTransport interface {
 type Transport struct {
 	logger *slog.Logger
 	host   string
-	client http.Client
+	client *http.Client
 }
 
 func NewTransport(logger *slog.Logger, host string) *Transport {
 	return &Transport{
 		logger: logger,
 		host:   host,
-		client: http.Client{},
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
