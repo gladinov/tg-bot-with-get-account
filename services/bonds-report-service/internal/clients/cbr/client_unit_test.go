@@ -5,7 +5,7 @@ package cbr
 import (
 	"bonds-report-service/internal/clients/cbr/mocks"
 	factories "bonds-report-service/internal/clients/cbr/testdata"
-	models "bonds-report-service/internal/models/clients"
+	models "bonds-report-service/internal/models/dto/cbr"
 	"context"
 	"errors"
 	"log/slog"
