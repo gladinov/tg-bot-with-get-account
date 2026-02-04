@@ -76,7 +76,7 @@ func main() {
 	logg.Info("initialize TokenAuthService")
 	tokenAuthService := tokenauth.NewTokenAuthService(
 		logg,
-		redis,
+		redis, // TODO: Переместить redis cashe из слоя service в слой repo
 		userStorage,
 		tinkoffApiClient,
 		tokenCrypter)
