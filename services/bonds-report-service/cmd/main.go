@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bonds-report-service/clients/cbr"
-	"bonds-report-service/clients/moex"
-	"bonds-report-service/clients/sber"
-	"bonds-report-service/clients/tinkoffApi"
+	"bonds-report-service/internal/app"
 	config "bonds-report-service/internal/configs"
 	"bonds-report-service/internal/handlers"
 	"bonds-report-service/internal/repository"
@@ -37,17 +34,13 @@ func main() {
 	repo := repository.MustInitNewStorage(ctx, conf, logg)
 	// TODO: close db
 
-	logg.Info("initialize Tinkoff client", slog.String("addres", conf.Clients.TinkoffClient.GetTinkoffApiAddress()))
-	tinkoffClient := tinkoffApi.NewClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
+	tinkoffClient := app.InitTinkoffApiClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
 
-	logg.Info("initialize Moex client", slog.String("addres", conf.Clients.MoexClient.GetMoexAppAddress()))
-	moexClient := moex.NewClient(logg, conf.Clients.MoexClient.GetMoexAppAddress())
+	moexClient := app.InitTiMoexClient(logg, conf.Clients.MoexClient.GetMoexAppAddress())
 
-	logg.Info("initialize CBR client", slog.String("addres", conf.Clients.CBRClient.GetCBRAppAddress()))
-	cbrClient := cbr.New(logg, conf.Clients.CBRClient.GetCBRAppAddress())
+	cbrClient := app.InitCBRClient(logg, conf.Clients.CBRClient.GetCBRAppAddress())
 
-	logg.Info("initialize Sber client", slog.String("addres", conf.SberConfigPath))
-	sberClient, err := sber.NewClient(conf.RootPath, conf.SberConfigPath)
+	sberClient, err := app.InitSberClient(logg, &conf)
 	if err != nil {
 		logg.Error("could not create sber client", slog.String("error", err.Error()))
 		return

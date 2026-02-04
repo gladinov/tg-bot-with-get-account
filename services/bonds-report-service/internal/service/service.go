@@ -1,10 +1,10 @@
 package service
 
 import (
-	"bonds-report-service/clients/cbr"
-	"bonds-report-service/clients/moex"
-	"bonds-report-service/clients/sber"
-	"bonds-report-service/clients/tinkoffApi"
+	"bonds-report-service/internal/clients/cbr"
+	"bonds-report-service/internal/clients/moex"
+	"bonds-report-service/internal/clients/sber"
+	"bonds-report-service/internal/clients/tinkoffApi"
 	"bonds-report-service/internal/service/service_models"
 	"bonds-report-service/internal/service/visualization"
 	"context"

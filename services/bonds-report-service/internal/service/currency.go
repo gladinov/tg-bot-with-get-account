@@ -1,7 +1,7 @@
 package service
 
 import (
-	"bonds-report-service/clients/cbr"
+	"bonds-report-service/internal/models"
 	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
@@ -53,7 +53,7 @@ func (c *Client) GetCurrencyFromCB(ctx context.Context, charCode string, date ti
 	return vunit_rate, nil
 }
 
-func transformCurrenciesFromCB(logger *slog.Logger, inCurrencies cbr.CurrenciesResponce) (_ *service_models.Currencies, err error) {
+func transformCurrenciesFromCB(logger *slog.Logger, inCurrencies models.CurrenciesResponce) (_ *service_models.Currencies, err error) {
 	const op = "service.transformCurrenciesFromCB"
 
 	start := time.Now()

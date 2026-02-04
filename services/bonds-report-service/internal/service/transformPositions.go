@@ -1,7 +1,7 @@
 package service
 
 import (
-	"bonds-report-service/clients/tinkoffApi"
+	"bonds-report-service/internal/clients/tinkoffApi"
 	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"

@@ -1,4 +1,4 @@
-package cbr
+package models
 
 import (
 	"time"
@@ -6,6 +6,10 @@ import (
 
 type CurrencyRequest struct {
 	Date time.Time `json:"date,omitempty"`
+}
+
+func NewCurrencyRequest(date time.Time) *CurrencyRequest {
+	return &CurrencyRequest{Date: date}
 }
 
 type Currency struct {
@@ -22,7 +26,21 @@ type CurrenciesResponce struct {
 	Currencies []Currency `json:"valute,omitempty"`
 }
 
+func NewCurrenciesResponce(date string, currs []Currency) *CurrenciesResponce {
+	return &CurrenciesResponce{
+		Date:       date,
+		Currencies: currs,
+	}
+}
+
 type HTTPResponse struct {
 	StatusCode int
 	Body       []byte
+}
+
+func NewHTTPResponse(statusCode int, body []byte) *HTTPResponse {
+	return &HTTPResponse{
+		StatusCode: statusCode,
+		Body:       body,
+	}
 }
