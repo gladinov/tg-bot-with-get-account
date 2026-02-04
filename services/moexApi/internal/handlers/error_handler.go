@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 	"log/slog"
-	"main/internal/models"
+	"moex/internal/models"
 	"net/http"
 
 	"github.com/labstack/echo/v4"

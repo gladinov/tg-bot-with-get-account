@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"main/internal/clients/moex"
-	"main/internal/models"
-	"main/internal/utils/logging"
+	"moex/internal/clients/moex"
+	"moex/internal/models"
+	"moex/internal/utils/logging"
 	"time"
 
 	"github.com/gladinov/e"

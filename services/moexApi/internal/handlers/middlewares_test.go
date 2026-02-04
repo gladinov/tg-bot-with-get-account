@@ -3,9 +3,10 @@
 package handlers
 
 import (
+	"errors"
 	"io"
 	"log/slog"
-	"main/internal/service/mocks"
+	"moex/internal/service/mocks"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -78,6 +79,33 @@ func TestContextHeaderTraceIdMiddleware_EmptyTraceID(t *testing.T) {
 	require.True(t, called)
 }
 
+func TestLoggerMiddleware_ErrorWithInternal(t *testing.T) {
+	e := echo.New()
+
+	srvc := mocks.NewServiceClient(t)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := NewHandlers(logger, srvc)
+
+	req := httptest.NewRequest(http.MethodGet, "/err", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	internalErr := errors.New("database down")
+	next := func(c echo.Context) error {
+		return echo.NewHTTPError(http.StatusBadRequest, "bad request").SetInternal(internalErr)
+	}
+
+	mw := h.LoggerMiddleWare(next)
+	err := mw(c)
+
+	require.Error(t, err)
+
+	he, ok := err.(*echo.HTTPError)
+	require.True(t, ok)
+	require.Equal(t, http.StatusBadRequest, he.Code)
+	require.Equal(t, internalErr, he.Internal)
+}
+
 func TestLoggerMiddleware_PassesThrough(t *testing.T) {
 	e := echo.New()
 
@@ -101,25 +129,4 @@ func TestLoggerMiddleware_PassesThrough(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, nextCalled)
-}
-
-func TestLoggerMiddleware_Error(t *testing.T) {
-	e := echo.New()
-
-	srvc := mocks.NewServiceClient(t)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h := NewHandlers(logger, srvc)
-
-	req := httptest.NewRequest(http.MethodGet, "/err", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	next := func(c echo.Context) error {
-		return echo.NewHTTPError(http.StatusBadRequest, "bad request")
-	}
-
-	mw := h.LoggerMiddleWare(next)
-	err := mw(c)
-
-	require.Error(t, err)
 }

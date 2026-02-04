@@ -2,10 +2,9 @@ package factories
 
 import (
 	"encoding/json"
-	"main/internal/models"
+	"moex/internal/models"
 )
 
-// NewValuesArray возвращает массив, который ожидает UnmarshalJSON в Values
 func NewValuesArray() []any {
 	return []any{
 		"2025-01-15", // TradeDate
@@ -21,7 +20,6 @@ func NewValuesArray() []any {
 	}
 }
 
-// NewSpecificationsResponseJSON возвращает JSON байты для моков
 func NewSpecificationsResponseJSON() []byte {
 	resp := map[string]any{
 		"history": map[string]any{

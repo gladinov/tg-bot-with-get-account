@@ -74,8 +74,6 @@ type Values struct {
 
 func (v *Values) UnmarshalJSON(data []byte) error {
 	// const op = "service.Values.UnmarshalJSON"
-
-	// Парсим как массив
 	var dataSlice []any
 	if err := json.Unmarshal(data, &dataSlice); err != nil {
 		return fmt.Errorf("cannot unmarshal array: %w", err)

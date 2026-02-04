@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"main/internal/models"
-	"main/internal/service"
+	"moex/internal/models"
+	"moex/internal/service"
 	"net/http"
 	"time"
 
+	"github.com/gladinov/e"
 	"github.com/labstack/echo/v4"
+)
+
+const (
+	defaultTimeout = 10 * time.Second
 )
 
 var (
@@ -32,7 +37,7 @@ func NewHandlers(logger *slog.Logger, service service.ServiceClient) *Handlers {
 func (h *Handlers) GetSpecifications(c echo.Context) error {
 	const op = "handlers.GetSpecifications"
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
@@ -40,11 +45,33 @@ func (h *Handlers) GetSpecifications(c echo.Context) error {
 
 	var req models.SpecificationsRequest
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, errInvalidRequestBody)
+		return newHTTPError(http.StatusBadRequest, errInvalidRequestBody, err)
 	}
+
+	if err := validateRequest(req); err != nil {
+		return newHTTPError(http.StatusBadRequest, errInvalidRequestBody, err)
+	}
+
 	resp, err := h.service.GetSpecifications(ctx, req)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, errGetData)
+		return newHTTPError(http.StatusInternalServerError, errGetData, err)
 	}
+
 	return c.JSON(http.StatusOK, resp)
+}
+
+func validateRequest(req models.SpecificationsRequest) error {
+	const op = "handlers.requestValidate"
+	if req.Date.IsZero() {
+		return errors.New("date is required")
+	}
+	if req.Ticker == "" {
+		return errors.New("ticker is required")
+	}
+	return nil
+}
+
+func newHTTPError(code int, public error, cause error) *echo.HTTPError {
+	return echo.NewHTTPError(code, public).
+		SetInternal(e.WrapIfErr(public.Error(), cause))
 }

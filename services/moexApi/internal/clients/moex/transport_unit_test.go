@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"main/internal/clients/moex/mocks"
+	"moex/internal/clients/moex/mocks"
 	"net/http"
 	"net/url"
 	"strings"

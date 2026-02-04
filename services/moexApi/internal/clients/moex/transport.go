@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"main/internal/utils/logging"
+	"moex/internal/utils/logging"
 	"net/http"
 	"net/url"
 	"time"
