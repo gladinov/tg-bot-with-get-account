@@ -9,3 +9,4 @@ services/myapp/tokens.env
 .idea
 /services/tinkoffApi/secrets/tokens.env
 /services/tinkoffApi/secrets/.env
+Makefile.local
