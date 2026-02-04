@@ -31,7 +31,7 @@ func TestDoRequest_Realistic(t *testing.T) {
 
 		transport := &Transport{
 			logger: logg,
-			host:   "cbr.ru",
+			host:   "cbr.ru", // TODO: Исправить значения "cbr.ru" на значения хочта moexApi
 			client: &client,
 		}
 		body, err := transport.DoRequest(ctx, "/mock", url.Values{})
