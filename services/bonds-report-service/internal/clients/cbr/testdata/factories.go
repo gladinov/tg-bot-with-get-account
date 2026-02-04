@@ -1,7 +1,7 @@
 package factories
 
 import (
-	"bonds-report-service/internal/models"
+	models "bonds-report-service/internal/models/clients"
 	"encoding/json"
 	"time"
 )

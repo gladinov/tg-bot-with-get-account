@@ -8,7 +8,7 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "bonds-report-service/internal/models"
+	models "bonds-report-service/internal/models/clients"
 
 	url "net/url"
 )
@@ -53,7 +53,8 @@ func (_m *TransportClient) DoRequest(ctx context.Context, path string, query url
 func NewTransportClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *TransportClient {
+},
+) *TransportClient {
 	mock := &TransportClient{}
 	mock.Mock.Test(t)
 

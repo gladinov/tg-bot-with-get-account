@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	models "bonds-report-service/internal/models"
+	models "bonds-report-service/internal/models/clients"
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"

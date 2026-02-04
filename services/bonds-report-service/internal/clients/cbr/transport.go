@@ -1,7 +1,7 @@
 package cbr
 
 import (
-	"bonds-report-service/internal/models"
+	models "bonds-report-service/internal/models/clients"
 	"bonds-report-service/internal/utils/logging"
 	"context"
 	"io"
@@ -86,7 +86,7 @@ func (t *Transport) DoRequest(ctx context.Context,
 }
 
 func (t *Transport) setHeaders(ctx context.Context, req *http.Request) *http.Request {
-	const op = "bondreportservice.SetHeaders"
+	const op = "transport.SetHeaders"
 	logg := t.logger.With(slog.String("op", op))
 
 	traceID, ok := trace.TraceIDFromContext(ctx)

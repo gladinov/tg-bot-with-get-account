@@ -1,7 +1,7 @@
 package cbr
 
 import (
-	"bonds-report-service/internal/models"
+	models "bonds-report-service/internal/models/clients"
 	"bonds-report-service/internal/utils/logging"
 	"bytes"
 	"context"
