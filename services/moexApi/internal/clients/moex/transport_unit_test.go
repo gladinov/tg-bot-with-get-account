@@ -1,13 +1,13 @@
 //go:build unit
 
-package cbr
+package moex
 
 import (
-	"cbr/internal/clients/cbr/mocks"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
+	"moex/internal/clients/moex/mocks"
 	"net/http"
 	"net/url"
 	"strings"

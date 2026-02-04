@@ -1,4 +1,6 @@
-package service
+//go:build unit
+
+package models
 
 import (
 	"encoding/json"
@@ -61,9 +63,7 @@ func TestParseNullFloat64(t *testing.T) {
 			require.Equal(t, tc.expected.Value, got.Value)
 			require.Equal(t, tc.expected.IsSet, got.IsSet)
 			require.Equal(t, tc.expected.IsNull, got.IsNull)
-
 		})
-
 	}
 }
 
@@ -121,9 +121,7 @@ func TestParseNullString(t *testing.T) {
 			require.Equal(t, tc.expected.Value, got.Value)
 			require.Equal(t, tc.expected.IsSet, got.IsSet)
 			require.Equal(t, tc.expected.IsNull, got.IsNull)
-
 		})
-
 	}
 }
 

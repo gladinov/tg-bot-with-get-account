@@ -1,10 +1,10 @@
-package cbr
+package moex
 
 import (
-	"cbr/internal/utils/logging"
 	"context"
 	"io"
 	"log/slog"
+	"moex/internal/utils/logging"
 	"net/http"
 	"net/url"
 	"time"
@@ -33,14 +33,14 @@ func NewTransport(logger *slog.Logger, host string) *Transport {
 	}
 }
 
-func (t *Transport) DoRequest(ctx context.Context, Path string, query url.Values) (_ []byte, err error) {
+func (c *Transport) DoRequest(ctx context.Context, Path string, query url.Values) (data []byte, err error) {
 	const op = "transport.doRequest"
-	logg := t.logger.With()
+	logg := c.logger.With()
 	defer logging.LogOperation_Debug(ctx, logg, op, &err)()
 
 	u := url.URL{
 		Scheme: "https",
-		Host:   t.host,
+		Host:   c.host,
 		Path:   Path,
 	}
 
@@ -52,13 +52,11 @@ func (t *Transport) DoRequest(ctx context.Context, Path string, query url.Values
 	}
 
 	req.URL.RawQuery = query.Encode()
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; MyApp/1.0)")
 
-	resp, err := t.client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		errMsg := "could not do request"
 		logging.LoggHTTPError(ctx, logg, req, errMsg, op, err)
-
 		return nil, e.WrapIfErr(errMsg, err)
 	}
 

@@ -1,4 +1,4 @@
-package service
+package models
 
 import (
 	"encoding/json"
@@ -70,13 +70,10 @@ type Values struct {
 	FaceValue       NullFloat64 `json:"FACEVALUE"`
 	FaceUnit        NullString  `json:"FACEUNIT"` // номинальная стоимость облигации
 	Duration        NullFloat64 `json:"DURATION"` // дюрация (средневзвешенный срок платежей)
-
 }
 
 func (v *Values) UnmarshalJSON(data []byte) error {
 	// const op = "service.Values.UnmarshalJSON"
-
-	// Парсим как массив
 	var dataSlice []any
 	if err := json.Unmarshal(data, &dataSlice); err != nil {
 		return fmt.Errorf("cannot unmarshal array: %w", err)
@@ -180,4 +177,8 @@ func parseNullFloat64(input any) (NullFloat64, error) {
 	}
 	nf.Value = res
 	return nf, nil
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
