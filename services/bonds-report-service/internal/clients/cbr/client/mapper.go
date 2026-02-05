@@ -10,19 +10,19 @@ import (
 
 const layoutCurr = "02.01.2006"
 
-func MapCurrenciesResponseToDomain(dtoResp dto.CurrenciesResponse) (domain.Currencies, error) {
-	var out domain.Currencies
-	currenciesMap := make(map[string]domain.Currency)
+func MapCurrenciesResponseToDomain(dtoResp dto.CurrenciesResponse) (domain.CurrenciesCBR, error) {
+	var out domain.CurrenciesCBR
+	currenciesMap := make(map[string]domain.CurrencyCBR)
 
 	date, err := parseCBRDate(dtoResp.Date)
 	if err != nil {
-		return domain.Currencies{}, err
+		return domain.CurrenciesCBR{}, err
 	}
 
 	for _, dtoCurr := range dtoResp.Currencies {
 		domCurr, err := mapSingleCurrency(dtoCurr, date)
 		if err != nil {
-			return domain.Currencies{}, err
+			return domain.CurrenciesCBR{}, err
 		}
 		key := normalizeCharCode(dtoCurr.CharCode)
 		currenciesMap[key] = domCurr
@@ -32,8 +32,8 @@ func MapCurrenciesResponseToDomain(dtoResp dto.CurrenciesResponse) (domain.Curre
 	return out, nil
 }
 
-func mapSingleCurrency(dtoCurr dto.Currency, date time.Time) (domain.Currency, error) {
-	var domCurr domain.Currency
+func mapSingleCurrency(dtoCurr dto.Currency, date time.Time) (domain.CurrencyCBR, error) {
+	var domCurr domain.CurrencyCBR
 	var err error
 
 	domCurr.Date = date

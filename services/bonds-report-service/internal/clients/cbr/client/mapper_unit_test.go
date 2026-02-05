@@ -35,7 +35,7 @@ func TestMapCurrenciesResponseToDomain(t *testing.T) {
 		require.Len(t, got.CurrenciesMap, 1)
 
 		expectedDate, _ := time.Parse(layout, "05.02.2026")
-		expected := domain.Currency{
+		expected := domain.CurrencyCBR{
 			Date:      expectedDate,
 			NumCode:   "840",
 			CharCode:  "usd",
