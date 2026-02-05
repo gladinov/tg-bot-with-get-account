@@ -17,22 +17,22 @@ type MoexClient struct {
 }
 
 // GetSpecifications provides a mock function with given fields: ctx, ticker, date
-func (_m *MoexClient) GetSpecifications(ctx context.Context, ticker string, date time.Time) (domain.Values, error) {
+func (_m *MoexClient) GetSpecifications(ctx context.Context, ticker string, date time.Time) (domain.ValuesMoex, error) {
 	ret := _m.Called(ctx, ticker, date)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetSpecifications")
 	}
 
-	var r0 domain.Values
+	var r0 domain.ValuesMoex
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) (domain.Values, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) (domain.ValuesMoex, error)); ok {
 		return rf(ctx, ticker, date)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) domain.Values); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) domain.ValuesMoex); ok {
 		r0 = rf(ctx, ticker, date)
 	} else {
-		r0 = ret.Get(0).(domain.Values)
+		r0 = ret.Get(0).(domain.ValuesMoex)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {

@@ -5,8 +5,8 @@ import (
 	"bonds-report-service/internal/models/dto/moex"
 )
 
-func MapValueFromDTOToDomain(dtoValues moex.Values) domain.Values {
-	return domain.Values{
+func MapValueFromDTOToDomain(dtoValues moex.Values) domain.ValuesMoex {
+	return domain.ValuesMoex{
 		ShortName:       MapNullStringFromDTOToDomain(dtoValues.ShortName),
 		TradeDate:       MapNullStringFromDTOToDomain(dtoValues.TradeDate),
 		MaturityDate:    MapNullStringFromDTOToDomain(dtoValues.MaturityDate),

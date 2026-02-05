@@ -151,7 +151,7 @@ func TestMapValueFromDTOToDomain(t *testing.T) {
 
 	got := MapValueFromDTOToDomain(dto)
 
-	want := domainModel.Values{
+	want := domainModel.ValuesMoex{
 		ShortName:       domainModel.NewNullString("OFZ 26238", true, false),
 		TradeDate:       domainModel.NewNullString("2024-01-01", true, false),
 		MaturityDate:    domainModel.NewNullString("2034-01-01", true, false),
