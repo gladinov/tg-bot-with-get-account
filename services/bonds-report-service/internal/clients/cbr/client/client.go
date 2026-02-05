@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -66,10 +67,11 @@ func (c *Client) GetAllCurrencies(ctx context.Context, date time.Time) (_ domain
 	if err != nil {
 		return domain.Currencies{}, e.WrapIfErr("failed to unmarshal response", err)
 	}
+	fmt.Println(res)
 	domainRes, err := MapCurrenciesResponseToDomain(res)
 	if err != nil {
 		return domain.Currencies{}, e.WrapIfErr("failed map currencies response to domain", err)
 	}
-
+	fmt.Println(res)
 	return domainRes, nil
 }

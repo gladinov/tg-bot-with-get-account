@@ -118,4 +118,84 @@ func TestClient_GetAllCurrencies(t *testing.T) {
 
 		transportMock.AssertExpectations(t)
 	})
+	t.Run("Mapping error (invalid nominal)", func(t *testing.T) {
+		brokenResp := factories.NewCurrenciesResponse()
+
+		// Ломаем Nominal — strconv.Atoi гарантированно упадёт
+		brokenResp.Currencies[0].Nominal = "not-a-number"
+
+		httpResp := factories.NewHTTPResponse(http.StatusOK, brokenResp)
+
+		transportMock := &mocks.TransportClient{}
+		transportMock.On(
+			"DoRequest",
+			ctx,
+			path.Join("cbr", "currencies"),
+			url.Values{},
+			mock.AnythingOfType("*bytes.Buffer"),
+		).Return(httpResp, nil).Once()
+
+		client := NewCbrClient(logger, transportMock)
+
+		_, err := client.GetAllCurrencies(ctx, date)
+		require.Error(t, err)
+
+		assert.Contains(t, err.Error(), "failed map currencies response to domain")
+
+		transportMock.AssertExpectations(t)
+	})
+
+	t.Run("Mapping error (invalid date)", func(t *testing.T) {
+		brokenResp := factories.NewCurrenciesResponse()
+
+		// Ломаем дату: не соответствует layout "02.01.2006"
+		brokenResp.Date = "2026-02-05"
+
+		httpResp := factories.NewHTTPResponse(http.StatusOK, brokenResp)
+
+		transportMock := &mocks.TransportClient{}
+		transportMock.On(
+			"DoRequest",
+			ctx,
+			path.Join("cbr", "currencies"),
+			url.Values{},
+			mock.AnythingOfType("*bytes.Buffer"),
+		).Return(httpResp, nil).Once()
+
+		client := NewCbrClient(logger, transportMock)
+
+		_, err := client.GetAllCurrencies(ctx, date)
+		require.Error(t, err)
+
+		assert.Contains(t, err.Error(), "failed map currencies response to domain")
+
+		transportMock.AssertExpectations(t)
+	})
+
+	t.Run("Mapping error (invalid float)", func(t *testing.T) {
+		brokenResp := factories.NewCurrenciesResponse()
+
+		// Ломаем float: strconv.ParseFloat гарантированно упадёт
+		brokenResp.Currencies[0].Value = "12,3,4"
+
+		httpResp := factories.NewHTTPResponse(http.StatusOK, brokenResp)
+
+		transportMock := &mocks.TransportClient{}
+		transportMock.On(
+			"DoRequest",
+			ctx,
+			path.Join("cbr", "currencies"),
+			url.Values{},
+			mock.AnythingOfType("*bytes.Buffer"),
+		).Return(httpResp, nil).Once()
+
+		client := NewCbrClient(logger, transportMock)
+
+		_, err := client.GetAllCurrencies(ctx, date)
+		require.Error(t, err)
+
+		assert.Contains(t, err.Error(), "failed map currencies response to domain")
+
+		transportMock.AssertExpectations(t)
+	})
 }
