@@ -1,21 +1,22 @@
 package factories
 
 import (
-	models "bonds-report-service/internal/models/dto/cbr"
+	"bonds-report-service/internal/clients/cbr/models"
+	dto "bonds-report-service/internal/models/dto/cbr"
 	"encoding/json"
 	"time"
 )
 
-func NewCurrencyRequest(date ...time.Time) *models.CurrencyRequest {
+func NewCurrencyRequest(date ...time.Time) *dto.CurrencyRequest {
 	d := time.Now()
 	if len(date) > 0 {
 		d = date[0]
 	}
-	return models.NewCurrencyRequest(d)
+	return dto.NewCurrencyRequest(d)
 }
 
-func NewCurrency() models.Currency {
-	c := models.Currency{
+func NewCurrency() dto.Currency {
+	c := dto.Currency{
 		NumCode:   "840",
 		CharCode:  "USD",
 		Nominal:   "1",
@@ -26,11 +27,13 @@ func NewCurrency() models.Currency {
 	return c
 }
 
-func NewCurrenciesResponce(date string, currencies ...models.Currency) *models.CurrenciesResponce {
-	if date == "" {
-		date = time.Now().Format("2006-01-02")
+func NewCurrenciesResponse() *dto.CurrenciesResponse {
+	return &dto.CurrenciesResponse{
+		Date: time.Now().Format("02.01.2006"),
+		Currencies: []dto.Currency{
+			NewCurrency(),
+		},
 	}
-	return models.NewCurrenciesResponce(date, currencies)
 }
 
 func NewHTTPResponse(statusCode int, body interface{}) *models.HTTPResponse {

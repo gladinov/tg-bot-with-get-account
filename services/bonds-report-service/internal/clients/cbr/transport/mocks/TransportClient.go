@@ -3,13 +3,12 @@
 package mocks
 
 import (
-	cbr "bonds-report-service/internal/models/dto/cbr"
-
 	context "context"
-
 	io "io"
 
 	mock "github.com/stretchr/testify/mock"
+
+	models "bonds-report-service/internal/clients/cbr/models"
 
 	url "net/url"
 )
@@ -20,23 +19,23 @@ type TransportClient struct {
 }
 
 // DoRequest provides a mock function with given fields: ctx, path, query, requestBody
-func (_m *TransportClient) DoRequest(ctx context.Context, path string, query url.Values, requestBody io.Reader) (*cbr.HTTPResponse, error) {
+func (_m *TransportClient) DoRequest(ctx context.Context, path string, query url.Values, requestBody io.Reader) (*models.HTTPResponse, error) {
 	ret := _m.Called(ctx, path, query, requestBody)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DoRequest")
 	}
 
-	var r0 *cbr.HTTPResponse
+	var r0 *models.HTTPResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, url.Values, io.Reader) (*cbr.HTTPResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, url.Values, io.Reader) (*models.HTTPResponse, error)); ok {
 		return rf(ctx, path, query, requestBody)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, url.Values, io.Reader) *cbr.HTTPResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, url.Values, io.Reader) *models.HTTPResponse); ok {
 		r0 = rf(ctx, path, query, requestBody)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*cbr.HTTPResponse)
+			r0 = ret.Get(0).(*models.HTTPResponse)
 		}
 	}
 
@@ -54,8 +53,7 @@ func (_m *TransportClient) DoRequest(ctx context.Context, path string, query url
 func NewTransportClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *TransportClient {
+}) *TransportClient {
 	mock := &TransportClient{}
 	mock.Mock.Test(t)
 

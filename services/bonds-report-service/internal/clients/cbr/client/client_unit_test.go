@@ -3,15 +3,16 @@
 package cbr
 
 import (
-	"bonds-report-service/internal/clients/cbr/mocks"
-	factories "bonds-report-service/internal/clients/cbr/testdata"
-	models "bonds-report-service/internal/models/dto/cbr"
+	"bonds-report-service/internal/clients/cbr/models"
+	factories "bonds-report-service/internal/clients/cbr/testing"
+	"bonds-report-service/internal/clients/cbr/transport/mocks"
 	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,8 +27,7 @@ func TestClient_GetAllCurrencies(t *testing.T) {
 	date := time.Now()
 
 	t.Run("Success", func(t *testing.T) {
-		curr := factories.NewCurrency()
-		currResp := factories.NewCurrenciesResponce("", curr)
+		currResp := factories.NewCurrenciesResponse()
 		wantMock := factories.NewHTTPResponse(200, currResp)
 		transportMock := mocks.NewTransportClient(t)
 		transportMock.On("DoRequest",
@@ -39,8 +39,12 @@ func TestClient_GetAllCurrencies(t *testing.T) {
 		CbrClient := NewCbrClient(logger, transportMock)
 		got, err := CbrClient.GetAllCurrencies(ctx, date)
 		require.NoError(t, err)
-		require.Len(t, got.Currencies, 1)
-		require.Equal(t, currResp.Currencies[0].CharCode, got.Currencies[0].CharCode)
+		curr := currResp.Currencies[0]
+		key := strings.ToLower(curr.CharCode)
+		domainCurr, ok := got.CurrenciesMap[key]
+		require.True(t, ok)
+
+		require.Equal(t, strings.ToLower(curr.CharCode), strings.ToLower(domainCurr.CharCode))
 	})
 
 	t.Run("Transport error", func(t *testing.T) {

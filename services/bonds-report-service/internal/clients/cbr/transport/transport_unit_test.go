@@ -1,9 +1,9 @@
 //go:build unit
 
-package cbr
+package transport
 
 import (
-	"bonds-report-service/internal/clients/cbr/mocks"
+	"bonds-report-service/internal/clients/cbr/transport/mocks"
 	"context"
 	"errors"
 	"io"

@@ -1,7 +1,7 @@
-package cbr
+package transport
 
 import (
-	models "bonds-report-service/internal/models/dto/cbr"
+	"bonds-report-service/internal/clients/cbr/models"
 	"bonds-report-service/internal/utils/logging"
 	"context"
 	"io"

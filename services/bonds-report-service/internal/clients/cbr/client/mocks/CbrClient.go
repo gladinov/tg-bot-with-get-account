@@ -18,22 +18,22 @@ type CbrClient struct {
 }
 
 // GetAllCurrencies provides a mock function with given fields: ctx, date
-func (_m *CbrClient) GetAllCurrencies(ctx context.Context, date time.Time) (cbr.CurrenciesResponce, error) {
+func (_m *CbrClient) GetAllCurrencies(ctx context.Context, date time.Time) (cbr.CurrenciesResponse, error) {
 	ret := _m.Called(ctx, date)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAllCurrencies")
 	}
 
-	var r0 cbr.CurrenciesResponce
+	var r0 cbr.CurrenciesResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time) (cbr.CurrenciesResponce, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) (cbr.CurrenciesResponse, error)); ok {
 		return rf(ctx, date)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time) cbr.CurrenciesResponce); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) cbr.CurrenciesResponse); ok {
 		r0 = rf(ctx, date)
 	} else {
-		r0 = ret.Get(0).(cbr.CurrenciesResponce)
+		r0 = ret.Get(0).(cbr.CurrenciesResponse)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
@@ -50,8 +50,7 @@ func (_m *CbrClient) GetAllCurrencies(ctx context.Context, date time.Time) (cbr.
 func NewCbrClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *CbrClient {
+}) *CbrClient {
 	mock := &CbrClient{}
 	mock.Mock.Test(t)
 
