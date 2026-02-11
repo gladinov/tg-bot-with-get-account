@@ -1,7 +1,7 @@
 package service
 
 import (
-	"bonds-report-service/internal/service/service_models"
+	"bonds-report-service/internal/models/domain"
 	"context"
 	"errors"
 	"log/slog"
@@ -17,10 +17,10 @@ const (
 	daysInYear = 365
 )
 
-func (c *Client) CreateBondReport(ctx context.Context, reportPostions service_models.ReportPositions) (_ service_models.Report, err error) {
+func (c *Client) CreateBondReport(ctx context.Context, reportPostions domain.ReportPositions) (_ domain.Report, err error) {
 	const op = "service.CreateBondReport"
 
-	var resultReports service_models.Report
+	var resultReports domain.Report
 	for i := range reportPostions.CurrentPositions {
 		position := reportPostions.CurrentPositions[i]
 		switch position.Currency {
@@ -43,7 +43,7 @@ func (c *Client) CreateBondReport(ctx context.Context, reportPostions service_mo
 	return resultReports, nil
 }
 
-func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition *service_models.ReportPositions, totalAmount float64) (_ service_models.GeneralBondReportPosition, err error) {
+func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition *domain.ReportPositions, totalAmount float64) (_ domain.GeneralBondReportPosition, err error) {
 	const op = "service.CreateGeneralBondReport"
 
 	start := time.Now()
@@ -59,7 +59,7 @@ func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition
 	}()
 
 	currentPostions := resultBondPosition.CurrentPositions
-	var BondReporPosition service_models.GeneralBondReportPosition
+	var BondReporPosition domain.GeneralBondReportPosition
 
 	if len(currentPostions) == 0 {
 		return BondReporPosition, errors.New("no input positions")
@@ -184,7 +184,7 @@ func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition
 	return BondReporPosition, nil
 }
 
-func (c *Client) createBondReportByCurrency(ctx context.Context, position service_models.PositionByFIFO) (_ service_models.BondReport, err error) {
+func (c *Client) createBondReportByCurrency(ctx context.Context, position domain.PositionByFIFO) (_ domain.BondReport, err error) {
 	const op = "service.createBondReportByCurrency"
 
 	start := time.Now()
@@ -199,7 +199,7 @@ func (c *Client) createBondReportByCurrency(ctx context.Context, position servic
 		err = e.WrapIfErr("can't create bond report by currency", err)
 	}()
 
-	var bondReport service_models.BondReport
+	var bondReport domain.BondReport
 	moexBuyDateData, err := c.External.Moex.GetSpecifications(ctx, position.Ticker, position.BuyDate)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
@@ -210,7 +210,7 @@ func (c *Client) createBondReportByCurrency(ctx context.Context, position servic
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
 
-	bondReport = service_models.BondReport{
+	bondReport = domain.BondReport{
 		Name:         position.Name,
 		Ticker:       position.Ticker,
 		BuyDate:      position.BuyDate.Format(layout),
@@ -271,7 +271,7 @@ func (c *Client) createBondReportByCurrency(ctx context.Context, position servic
 	return bondReport, nil
 }
 
-func getProfit(logger *slog.Logger, sharePosition service_models.PositionByFIFO) (_ float64, err error) {
+func getProfit(logger *slog.Logger, sharePosition domain.PositionByFIFO) (_ float64, err error) {
 	const op = "service.getProfit"
 
 	start := time.Now()
@@ -295,7 +295,7 @@ func getProfit(logger *slog.Logger, sharePosition service_models.PositionByFIFO)
 	return profitInPercentage, nil
 }
 
-func getAnnualizedReturnInPercentage(logger *slog.Logger, p service_models.PositionByFIFO) (_ float64, err error) {
+func getAnnualizedReturnInPercentage(logger *slog.Logger, p domain.PositionByFIFO) (_ float64, err error) {
 	const op = "service.getAnnualizedReturnInPercentage"
 
 	start := time.Now()

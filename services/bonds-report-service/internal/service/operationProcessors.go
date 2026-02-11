@@ -2,7 +2,6 @@ package service
 
 import (
 	"bonds-report-service/internal/models/domain"
-	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
 	"log/slog"
@@ -30,7 +29,7 @@ const (
 	baseTaxRate                                    = 0.13  // Налог с продажи ЦБ
 )
 
-func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *service_models.PositionByFIFO) (err error) {
+func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *domain.PositionByFIFO) (err error) {
 	const op = "service.GetSpecificationsFromTinkoff"
 
 	start := time.Now()
@@ -73,7 +72,7 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *ser
 	return nil
 }
 
-func (c *Client) ProcessOperations(ctx context.Context, operations []domain.OperationWithoutCustomTypes) (_ *service_models.ReportPositions, err error) {
+func (c *Client) ProcessOperations(ctx context.Context, operations []domain.OperationWithoutCustomTypes) (_ *domain.ReportPositions, err error) {
 	const op = "service.ProcessOperations"
 
 	start := time.Now()
@@ -88,7 +87,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 		err = e.WrapIfErr("could not process operations", err)
 	}()
 
-	processPosition := &service_models.ReportPositions{}
+	processPosition := &domain.ReportPositions{}
 	for _, operation := range operations {
 		switch operation.Type {
 		// 2	Удержание НДФЛ по купонам.
@@ -178,7 +177,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 
 // 2	Удержание НДФЛ по купонам.
 // 8    Удержание налога по дивидендам.
-func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends"
 
 	start := time.Now()
@@ -205,7 +204,7 @@ func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(opera
 }
 
 // 10	Частичное погашение облигаций.
-func (c *Client) processPartialRedemptionOfBonds(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPartialRedemptionOfBonds(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPartialRedemptionOfBonds"
 
 	start := time.Now()
@@ -234,7 +233,7 @@ func (c *Client) processPartialRedemptionOfBonds(operation domain.OperationWitho
 // 15	Покупка ЦБ.
 // 16	Покупка ЦБ с карты.
 // 57   Перевод ценных бумаг с ИИС на Брокерский счет
-func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPurchaseOfSecurities"
 
 	start := time.Now()
@@ -251,7 +250,7 @@ func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation doma
 
 	// при обработке фьючерсов и акций, где была маржтнальная позиция,
 	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
-	position := service_models.PositionByFIFO{
+	position := domain.PositionByFIFO{
 		Name:           operation.Name,
 		BuyDate:        operation.Date,
 		Figi:           operation.Figi,
@@ -275,7 +274,7 @@ func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation doma
 }
 
 // 17	Перевод ценных бумаг из другого депозитария.
-func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processTransferOfSecuritiesFromAnotherDepository"
 
 	start := time.Now()
@@ -291,7 +290,7 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Co
 	}()
 	// при обработке фьючерсов и акций, где была маржтнальная позиция,
 	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
-	position := service_models.PositionByFIFO{
+	position := domain.PositionByFIFO{
 		Name:           operation.Name,
 		BuyDate:        operation.Date,
 		Figi:           operation.Figi,
@@ -320,7 +319,7 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Co
 }
 
 // 21	Выплата дивидендов.
-func (c *Client) processPaymentOfDividends(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPaymentOfDividends(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPaymentOfDividends"
 
 	start := time.Now()
@@ -349,7 +348,7 @@ func (c *Client) processPaymentOfDividends(operation domain.OperationWithoutCust
 }
 
 // 23 Выплата купонов.
-func (c *Client) processPaymentOfCoupons(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPaymentOfCoupons(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPaymentOfCoupons"
 
 	start := time.Now()
@@ -378,7 +377,7 @@ func (c *Client) processPaymentOfCoupons(operation domain.OperationWithoutCustom
 }
 
 // 47	Гербовый сбор.
-func (c *Client) processStampDuty(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processStampDuty(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processStampDuty"
 
 	start := time.Now()
@@ -406,7 +405,7 @@ func (c *Client) processStampDuty(operation domain.OperationWithoutCustomTypes, 
 }
 
 // 22	Продажа ЦБ.
-func (c *Client) processSellOfSecurities(operation *domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processSellOfSecurities(operation *domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processSellOfSecurities"
 
 	start := time.Now()
@@ -460,7 +459,7 @@ end:
 	return nil
 }
 
-func isCurrentQuantityGreaterThanSellQuantity(operation *domain.OperationWithoutCustomTypes, currPosition *service_models.PositionByFIFO) error {
+func isCurrentQuantityGreaterThanSellQuantity(operation *domain.OperationWithoutCustomTypes, currPosition *domain.PositionByFIFO) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64
@@ -478,12 +477,12 @@ func isCurrentQuantityGreaterThanSellQuantity(operation *domain.OperationWithout
 	return nil
 }
 
-func isEqualCurrentQuantityAndSellQuantity(processPosition *service_models.ReportPositions) error {
+func isEqualCurrentQuantityAndSellQuantity(processPosition *domain.ReportPositions) error {
 	processPosition.CurrentPositions = processPosition.CurrentPositions[1:]
 	return nil
 }
 
-func isCurrentQuantityLessThanSellQuantity(operation *domain.OperationWithoutCustomTypes, currPosition *service_models.PositionByFIFO) error {
+func isCurrentQuantityLessThanSellQuantity(operation *domain.OperationWithoutCustomTypes, currPosition *domain.PositionByFIFO) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64
@@ -505,7 +504,7 @@ func isCurrentQuantityLessThanSellQuantity(operation *domain.OperationWithoutCus
 }
 
 // Доход по позиции до вычета налога
-func getSecurityIncomeWithoutTax(p service_models.PositionByFIFO) float64 {
+func getSecurityIncomeWithoutTax(p domain.PositionByFIFO) float64 {
 	// Для незакрытых позиций необходимо посчитать еще потенциальную комиссию при продаже
 	quantity := p.Quantity
 	buySellDifference := (p.SellPrice-p.BuyPrice)*quantity + p.SellAccruedInt - p.BuyAccruedInt
@@ -515,7 +514,7 @@ func getSecurityIncomeWithoutTax(p service_models.PositionByFIFO) float64 {
 }
 
 // Расход полного налога по закрытой позиции
-func getTotalTaxFromPosition(p service_models.PositionByFIFO, profit float64) float64 {
+func getTotalTaxFromPosition(p domain.PositionByFIFO, profit float64) float64 {
 	// Рассчитываем срок владения
 	buyDate := p.BuyDate
 	sellDate := p.SellDate

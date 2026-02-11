@@ -8,8 +8,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	service_models "bonds-report-service/internal/service/service_models"
-
 	time "time"
 )
 
@@ -202,7 +200,7 @@ func (_m *Storage) LastOperationTime(ctx context.Context, chatID int, accountId 
 }
 
 // SaveBondReport provides a mock function with given fields: ctx, chatID, accountId, bondReport
-func (_m *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) error {
+func (_m *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []domain.BondReport) error {
 	ret := _m.Called(ctx, chatID, accountId, bondReport)
 
 	if len(ret) == 0 {
@@ -210,7 +208,7 @@ func (_m *Storage) SaveBondReport(ctx context.Context, chatID int, accountId str
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, string, []service_models.BondReport) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, string, []domain.BondReport) error); ok {
 		r0 = rf(ctx, chatID, accountId, bondReport)
 	} else {
 		r0 = ret.Error(0)
@@ -238,7 +236,7 @@ func (_m *Storage) SaveCurrency(ctx context.Context, currencies domain.Currencie
 }
 
 // SaveGeneralBondReport provides a mock function with given fields: ctx, chatID, accountId, bondReport
-func (_m *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.GeneralBondReportPosition) error {
+func (_m *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, bondReport []domain.GeneralBondReportPosition) error {
 	ret := _m.Called(ctx, chatID, accountId, bondReport)
 
 	if len(ret) == 0 {
@@ -246,7 +244,7 @@ func (_m *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accoun
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, string, []service_models.GeneralBondReportPosition) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, string, []domain.GeneralBondReportPosition) error); ok {
 		r0 = rf(ctx, chatID, accountId, bondReport)
 	} else {
 		r0 = ret.Error(0)

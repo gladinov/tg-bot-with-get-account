@@ -3,7 +3,6 @@ package repository
 import (
 	"bonds-report-service/internal/models/domain"
 	"bonds-report-service/internal/repository/postgreSQL"
-	"bonds-report-service/internal/service/service_models"
 	"context"
 	"fmt"
 	"log/slog"
@@ -30,12 +29,12 @@ type OperationStorage interface {
 
 type BondReportStorage interface {
 	DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error)
-	SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) error
+	SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []domain.BondReport) error
 }
 
 type GeneralBondReportStorage interface {
 	DeleteGeneralBondReport(ctx context.Context, chatID int, accountId string) (err error)
-	SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.GeneralBondReportPosition) error
+	SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, bondReport []domain.GeneralBondReportPosition) error
 }
 
 type CurrencyStorage interface {

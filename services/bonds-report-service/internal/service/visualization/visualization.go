@@ -1,7 +1,7 @@
 package visualization
 
 import (
-	"bonds-report-service/internal/service/service_models"
+	"bonds-report-service/internal/models/domain"
 	"bytes"
 	"fmt"
 	"image/color"
@@ -21,7 +21,7 @@ const (
 	layout = "2006-01-02"
 )
 
-func Vizualize(logger *slog.Logger, reports []service_models.GeneralBondReportPosition, filename string, typeOfBonds string) (err error) {
+func Vizualize(logger *slog.Logger, reports []domain.GeneralBondReportPosition, filename string, typeOfBonds string) (err error) {
 	const op = "visualization.Vizualize"
 
 	start := time.Now()
@@ -77,11 +77,11 @@ func Vizualize(logger *slog.Logger, reports []service_models.GeneralBondReportPo
 	dc.SetColor(color.Black)
 	var name string
 	switch typeOfBonds {
-	case service_models.ReplacedBonds:
+	case domain.ReplacedBonds:
 		name = "Отчет по замещающим облигациям"
-	case service_models.RubBonds:
+	case domain.RubBonds:
 		name = "Отчет по рублевым облигациям"
-	case service_models.EuroBonds:
+	case domain.EuroBonds:
 		name = "Отчет по валютным облигациям"
 	}
 	dc.DrawStringAnchored(name, width/2, margin, 0.5, 0.5)
@@ -205,7 +205,7 @@ func Vizualize(logger *slog.Logger, reports []service_models.GeneralBondReportPo
 	return dc.SavePNG(filename)
 }
 
-func GenerateTablePNG(logger *slog.Logger, reports []service_models.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
+func GenerateTablePNG(logger *slog.Logger, reports []domain.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
 	const op = "visualization.GenerateTablePNG"
 
 	start := time.Now()
@@ -261,11 +261,11 @@ func GenerateTablePNG(logger *slog.Logger, reports []service_models.GeneralBondR
 	dc.SetColor(color.Black)
 	var name string
 	switch typeOfBonds {
-	case service_models.ReplacedBonds:
+	case domain.ReplacedBonds:
 		name = "Отчет по замещающим облигациям"
-	case service_models.RubBonds:
+	case domain.RubBonds:
 		name = "Отчет по рублевым облигациям"
-	case service_models.EuroBonds:
+	case domain.EuroBonds:
 		name = "Отчет по валютным облигациям"
 	}
 	dc.DrawStringAnchored(name, width/2, margin, 0.5, 0.5)

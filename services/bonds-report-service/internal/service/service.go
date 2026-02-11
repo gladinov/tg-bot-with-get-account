@@ -4,7 +4,6 @@ import (
 	"bonds-report-service/internal/clients/sber"
 	"bonds-report-service/internal/models/domain"
 	"bonds-report-service/internal/models/domain/mapper"
-	"bonds-report-service/internal/service/service_models"
 	"bonds-report-service/internal/service/visualization"
 	"context"
 	"errors"
@@ -202,7 +201,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 				"deleteBondReport err", slog.Any("error", err))
 			return err
 		}
-		bondsInRub := make([]service_models.BondReport, 0)
+		bondsInRub := make([]domain.BondReport, 0)
 
 		for _, v := range portfolioPositions {
 			positionLogg := accountLogg.With(
@@ -280,10 +279,10 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 		if err != nil {
 			return err
 		}
-		generalBondReports := service_models.GeneralBondReports{
-			RubBondsReport:      make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
-			EuroBondsReport:     make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
-			ReplacedBondsReport: make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
+		generalBondReports := domain.GeneralBondReports{
+			RubBondsReport:      make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
+			EuroBondsReport:     make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
+			ReplacedBondsReport: make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
 		}
 
 		for _, v := range portfolioPositions {
@@ -304,19 +303,19 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 				}
 				switch {
 				case bondReport.Replaced:
-					tickerTimeKey := service_models.TickerTimeKey{
+					tickerTimeKey := domain.TickerTimeKey{
 						Ticker: bondReport.Ticker,
 						Time:   bondReport.BuyDate,
 					}
 					generalBondReports.ReplacedBondsReport[tickerTimeKey] = bondReport
 				case bondReport.Currencies != "rub":
-					tickerTimeKey := service_models.TickerTimeKey{
+					tickerTimeKey := domain.TickerTimeKey{
 						Ticker: bondReport.Ticker,
 						Time:   bondReport.BuyDate,
 					}
 					generalBondReports.EuroBondsReport[tickerTimeKey] = bondReport
 				default:
-					tickerTimeKey := service_models.TickerTimeKey{
+					tickerTimeKey := domain.TickerTimeKey{
 						Ticker: bondReport.Ticker,
 						Time:   bondReport.BuyDate,
 					}
@@ -336,7 +335,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 	return nil
 }
 
-func Vizualization(logger *slog.Logger, generalBondReports *service_models.GeneralBondReports, chatID int, accountID string) (err error) {
+func Vizualization(logger *slog.Logger, generalBondReports *domain.GeneralBondReports, chatID int, accountID string) (err error) {
 	const op = "service.Vizualization"
 
 	start := time.Now()
@@ -350,7 +349,7 @@ func Vizualization(logger *slog.Logger, generalBondReports *service_models.Gener
 		)
 		err = e.WrapIfErr("can't do vizualization", err)
 	}()
-	reports := make([][]service_models.GeneralBondReportPosition, 0)
+	reports := make([][]domain.GeneralBondReportPosition, 0)
 
 	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
 	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
@@ -376,11 +375,11 @@ func Vizualization(logger *slog.Logger, generalBondReports *service_models.Gener
 		var typeOfBonds string
 		switch {
 		case report[0].Replaced:
-			typeOfBonds = service_models.ReplacedBonds
+			typeOfBonds = domain.ReplacedBonds
 		case report[0].Currencies != "rub":
-			typeOfBonds = service_models.EuroBonds
+			typeOfBonds = domain.EuroBonds
 		default:
-			typeOfBonds = service_models.RubBonds
+			typeOfBonds = domain.RubBonds
 		}
 		pathDir := path.Join(reportPath, strconv.Itoa(chatID), accountID)
 		if _, err := os.Stat(pathDir); os.IsNotExist(err) {
@@ -412,7 +411,7 @@ func Vizualization(logger *slog.Logger, generalBondReports *service_models.Gener
 	return nil
 }
 
-func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_models.BondReportsResponce, err error) {
+func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ domain.BondReportsResponce, err error) {
 	const op = "service.GetBondReports"
 	start := time.Now()
 	logg := c.logger.With(
@@ -426,72 +425,72 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 		err = e.WrapIfErr("can't get general bond report", err)
 	}()
 
-	reportsInByteByAccounts := make([][]*service_models.MediaGroup, 0)
+	reportsInByteByAccounts := make([][]*domain.MediaGroup, 0)
 
 	accounts, err := c.GetAccounts(ctx)
 	if err != nil {
-		return service_models.BondReportsResponce{}, err
+		return domain.BondReportsResponce{}, err
 	}
 
 	for _, account := range accounts {
 		err = c.updateOperations(ctx, chatID, account.ID, account.OpenedDate)
 		if err != nil {
-			return service_models.BondReportsResponce{}, err
+			return domain.BondReportsResponce{}, err
 		}
 		if account.Status != 2 {
 			continue
 		}
 		portfolio, err := c.TinkoffGetPortfolio(ctx, account)
 		if err != nil {
-			return service_models.BondReportsResponce{}, err
+			return domain.BondReportsResponce{}, err
 		}
 
 		portfolioPositions, err := c.MapPositionsToPositionsWithAssetUid(ctx, portfolio.Positions)
 		if err != nil {
-			return service_models.BondReportsResponce{}, err
+			return domain.BondReportsResponce{}, err
 		}
 
 		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.ID)
 		if err != nil {
-			return service_models.BondReportsResponce{}, err
+			return domain.BondReportsResponce{}, err
 		}
-		generalBondReports := service_models.GeneralBondReports{
-			RubBondsReport:      make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
-			EuroBondsReport:     make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
-			ReplacedBondsReport: make(map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition),
+		generalBondReports := domain.GeneralBondReports{
+			RubBondsReport:      make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
+			EuroBondsReport:     make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
+			ReplacedBondsReport: make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
 		}
 
 		for _, v := range portfolioPositions {
 			if v.InstrumentType == "bond" {
 				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.ID)
 				if err != nil {
-					return service_models.BondReportsResponce{}, err
+					return domain.BondReportsResponce{}, err
 				}
 				resultBondPosition, err := c.ProcessOperations(ctx, operationsDb)
 				if err != nil {
-					return service_models.BondReportsResponce{}, err
+					return domain.BondReportsResponce{}, err
 				}
 				totalAmount := portfolio.TotalAmount.ToFloat()
 
 				bondReport, err := c.CreateGeneralBondReport(ctx, resultBondPosition, totalAmount)
 				if err != nil {
-					return service_models.BondReportsResponce{}, err
+					return domain.BondReportsResponce{}, err
 				}
 				switch {
 				case bondReport.Replaced:
-					tickerTimeKey := service_models.TickerTimeKey{
+					tickerTimeKey := domain.TickerTimeKey{
 						Ticker: bondReport.Ticker,
 						Time:   bondReport.BuyDate,
 					}
 					generalBondReports.ReplacedBondsReport[tickerTimeKey] = bondReport
 				case bondReport.Currencies != "rub":
-					tickerTimeKey := service_models.TickerTimeKey{
+					tickerTimeKey := domain.TickerTimeKey{
 						Ticker: bondReport.Ticker,
 						Time:   bondReport.BuyDate,
 					}
 					generalBondReports.EuroBondsReport[tickerTimeKey] = bondReport
 				default:
-					tickerTimeKey := service_models.TickerTimeKey{
+					tickerTimeKey := domain.TickerTimeKey{
 						Ticker: bondReport.Ticker,
 						Time:   bondReport.BuyDate,
 					}
@@ -503,16 +502,16 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 
 		reportsInByte, err := c.PrepareToGenerateTablePNG(&generalBondReports, chatID, account.ID)
 		if err != nil {
-			return service_models.BondReportsResponce{}, err
+			return domain.BondReportsResponce{}, err
 		}
 		reportsInByteByAccounts = append(reportsInByteByAccounts, reportsInByte)
 
 	}
-	getBondReportsResponce := service_models.BondReportsResponce{Media: reportsInByteByAccounts}
+	getBondReportsResponce := domain.BondReportsResponce{Media: reportsInByteByAccounts}
 	return getBondReportsResponce, nil
 }
 
-func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.GeneralBondReports, chatID int, accountID string) (_ []*service_models.MediaGroup, err error) {
+func (c *Client) PrepareToGenerateTablePNG(generalBondReports *domain.GeneralBondReports, chatID int, accountID string) (_ []*domain.MediaGroup, err error) {
 	const op = "service.PrepareToGenerateTablePNG"
 
 	start := time.Now()
@@ -527,7 +526,7 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 		err = e.WrapIfErr("can't prepareToGeneratePNG", err)
 	}()
 
-	reports := make([][]service_models.GeneralBondReportPosition, 0)
+	reports := make([][]domain.GeneralBondReportPosition, 0)
 
 	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
 	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
@@ -544,9 +543,9 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 	reports = append(reports, rubbleBondReportSorted)
 	reports = append(reports, replacedBondReportSorted)
 	reports = append(reports, euroBondReportSorted)
-	reportsInByte := make([]*service_models.MediaGroup, 3)
+	reportsInByte := make([]*domain.MediaGroup, 3)
 	for i, report := range reports {
-		reportsInByte[i] = service_models.NewMediaGroup()
+		reportsInByte[i] = domain.NewMediaGroup()
 		mediaGroup := reportsInByte[i]
 		if len(report) == 0 {
 			continue
@@ -555,11 +554,11 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 		var typeOfBonds string
 		switch {
 		case report[0].Replaced:
-			typeOfBonds = service_models.ReplacedBonds
+			typeOfBonds = domain.ReplacedBonds
 		case report[0].Currencies != "rub":
-			typeOfBonds = service_models.EuroBonds
+			typeOfBonds = domain.EuroBonds
 		default:
-			typeOfBonds = service_models.RubBonds
+			typeOfBonds = domain.RubBonds
 		}
 		count := 1
 		for start := 0; start < len(report); start += 10 {
@@ -571,7 +570,7 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 			if err != nil {
 				return nil, e.WrapIfErr("vizualize error", err)
 			}
-			imageData := service_models.NewImageData()
+			imageData := domain.NewImageData()
 			imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
 			imageData.Data = pngData
 			imageData.Caption = typeOfBonds
@@ -583,7 +582,7 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 	return reportsInByte, nil
 }
 
-func sortGeneralBondReports(logger *slog.Logger, report map[service_models.TickerTimeKey]service_models.GeneralBondReportPosition) (_ []service_models.GeneralBondReportPosition, err error) {
+func sortGeneralBondReports(logger *slog.Logger, report map[domain.TickerTimeKey]domain.GeneralBondReportPosition) (_ []domain.GeneralBondReportPosition, err error) {
 	const op = "service.sortGeneralBondReports"
 
 	start := time.Now()
@@ -600,10 +599,10 @@ func sortGeneralBondReports(logger *slog.Logger, report map[service_models.Ticke
 
 	// TODO: обработать более читаемо и в дальнейшем проверять ошибку
 	if len(report) == 0 {
-		return []service_models.GeneralBondReportPosition{}, domain.ErrEmptyReport
+		return []domain.GeneralBondReportPosition{}, domain.ErrEmptyReport
 	}
 
-	keys := make([]service_models.TickerTimeKey, 0, len(report))
+	keys := make([]domain.TickerTimeKey, 0, len(report))
 	for k := range report {
 		keys = append(keys, k)
 	}
@@ -613,7 +612,7 @@ func sortGeneralBondReports(logger *slog.Logger, report map[service_models.Ticke
 		}
 		return keys[i].Time.Before(keys[j].Time)
 	})
-	result := make([]service_models.GeneralBondReportPosition, len(keys))
+	result := make([]domain.GeneralBondReportPosition, len(keys))
 	for i, k := range keys {
 		result[i] = report[k]
 	}
@@ -621,7 +620,7 @@ func sortGeneralBondReports(logger *slog.Logger, report map[service_models.Ticke
 	return result, nil
 }
 
-func (c *Client) GetAccountsList(ctx context.Context) (answ service_models.AccountListResponce, err error) {
+func (c *Client) GetAccountsList(ctx context.Context) (answ domain.AccountListResponce, err error) {
 	const op = "service.GetAccountsList"
 
 	start := time.Now()
@@ -640,16 +639,16 @@ func (c *Client) GetAccountsList(ctx context.Context) (answ service_models.Accou
 
 	accs, err := c.GetAccounts(ctx)
 	if err != nil {
-		return service_models.AccountListResponce{}, err
+		return domain.AccountListResponce{}, err
 	}
 	for _, account := range accs {
 		accStr += fmt.Sprintf("\n ID:%s, Type: %s, Name: %s, Status: %v \n", account.ID, account.Type, account.Name, account.Status)
 	}
-	accountResponce := service_models.AccountListResponce{Accounts: accStr}
+	accountResponce := domain.AccountListResponce{Accounts: accStr}
 	return accountResponce, nil
 }
 
-func (c *Client) GetUsd(ctx context.Context) (_ service_models.UsdResponce, err error) {
+func (c *Client) GetUsd(ctx context.Context) (_ domain.UsdResponce, err error) {
 	const op = "service.GetUsd"
 
 	start := time.Now()
@@ -666,9 +665,9 @@ func (c *Client) GetUsd(ctx context.Context) (_ service_models.UsdResponce, err 
 
 	usd, err := c.GetCurrencyFromCB(ctx, "usd", time.Now())
 	if err != nil {
-		return service_models.UsdResponce{}, err
+		return domain.UsdResponce{}, err
 	}
-	usdResponce := service_models.UsdResponce{Usd: usd}
+	usdResponce := domain.UsdResponce{Usd: usd}
 
 	return usdResponce, nil
 }
@@ -738,7 +737,7 @@ func (c *Client) GetAccounts(ctx context.Context) (_ map[string]domain.Account, 
 	return accounts, nil
 }
 
-func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ service_models.PortfolioStructureForEachAccountResponce, err error) {
+func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ domain.PortfolioStructureForEachAccountResponce, err error) {
 	const op = "service.GetPortfolioStructureForEachAccount"
 
 	start := time.Now()
@@ -754,9 +753,9 @@ func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ ser
 	}()
 
 	accounts, err := c.GetAccounts(ctx)
-	response := service_models.PortfolioStructureForEachAccountResponce{}
+	response := domain.PortfolioStructureForEachAccountResponce{}
 	if err != nil {
-		return service_models.PortfolioStructureForEachAccountResponce{}, err
+		return domain.PortfolioStructureForEachAccountResponce{}, err
 	}
 	for _, account := range accounts {
 		if account.Status == 3 {
@@ -764,7 +763,7 @@ func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ ser
 		}
 		report, err := c.getPortfolioStructure(ctx, account)
 		if err != nil {
-			return service_models.PortfolioStructureForEachAccountResponce{}, err
+			return domain.PortfolioStructureForEachAccountResponce{}, err
 		}
 		response.PortfolioStructures = append(response.PortfolioStructures, report)
 	}
@@ -803,7 +802,7 @@ func (c *Client) getPortfolioStructure(ctx context.Context, account domain.Accou
 	return response, nil
 }
 
-func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (_ service_models.UnionPortfolioStructureResponce, err error) {
+func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (_ domain.UnionPortfolioStructureResponce, err error) {
 	const op = "service.GetUnionPortfolioStructureForEachAccount"
 
 	start := time.Now()
@@ -819,13 +818,13 @@ func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (
 	}()
 
 	accounts, err := c.GetAccounts(ctx)
-	response := service_models.UnionPortfolioStructureResponce{}
+	response := domain.UnionPortfolioStructureResponce{}
 	if err != nil {
-		return service_models.UnionPortfolioStructureResponce{}, err
+		return domain.UnionPortfolioStructureResponce{}, err
 	}
 	unionPortfolioStructure, err := c.getUnionPortfolioStructure(ctx, accounts)
 	if err != nil {
-		return service_models.UnionPortfolioStructureResponce{}, err
+		return domain.UnionPortfolioStructureResponce{}, err
 	}
 	response.Report = unionPortfolioStructure
 
@@ -847,7 +846,7 @@ func (c *Client) getUnionPortfolioStructure(ctx context.Context, accounts map[st
 		err = e.WrapIfErr("can't get union portfolio structuret", err)
 	}()
 
-	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
+	positionsList := make([]*domain.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
 		if account.Status != 2 {
 			continue
@@ -874,7 +873,7 @@ func (c *Client) getUnionPortfolioStructure(ctx context.Context, accounts map[st
 	return out, nil
 }
 
-func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ service_models.UnionPortfolioStructureWithSberResponce, err error) {
+func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ domain.UnionPortfolioStructureWithSberResponce, err error) {
 	const op = "service.GetUnionPortfolioStructureWithSber"
 
 	start := time.Now()
@@ -889,32 +888,32 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ serv
 		err = e.WrapIfErr("can't get union portfolio structure with Sber", err)
 	}()
 
-	responce := service_models.UnionPortfolioStructureWithSberResponce{}
+	responce := domain.UnionPortfolioStructureWithSberResponce{}
 	accounts, err := c.GetAccounts(ctx)
 	if err != nil {
-		return service_models.UnionPortfolioStructureWithSberResponce{}, err
+		return domain.UnionPortfolioStructureWithSberResponce{}, err
 	}
-	positionsList := make([]*service_models.PortfolioByTypeAndCurrency, 0)
+	positionsList := make([]*domain.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
 		if account.Status != 2 {
 			continue
 		}
 		portfolio, err := c.TinkoffGetPortfolio(ctx, account)
 		if err != nil {
-			return service_models.UnionPortfolioStructureWithSberResponce{}, err
+			return domain.UnionPortfolioStructureWithSberResponce{}, err
 		}
 		positions := portfolio.Positions
 
 		potfolioStructure, err := c.DivideByType(ctx, positions)
 		if err != nil {
-			return service_models.UnionPortfolioStructureWithSberResponce{}, err
+			return domain.UnionPortfolioStructureWithSberResponce{}, err
 		}
 		positionsList = append(positionsList, potfolioStructure)
 	}
 
 	sberPortfolio, err := c.DivideByTypeFromSber(ctx, c.External.Sber.Portfolio)
 	if err != nil {
-		return service_models.UnionPortfolioStructureWithSberResponce{}, err
+		return domain.UnionPortfolioStructureWithSberResponce{}, err
 	}
 
 	positionsList = append(positionsList, sberPortfolio)
@@ -922,7 +921,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ serv
 	accountTitle := "Струтура всех инвестиций\n"
 	unionPositions, err := c.UnionPortf(positionsList)
 	if err != nil {
-		return service_models.UnionPortfolioStructureWithSberResponce{}, err
+		return domain.UnionPortfolioStructureWithSberResponce{}, err
 	}
 	vizualizeUnionPositions := c.ResponsePortfolioStructure(unionPositions)
 	out := accountTitle + vizualizeUnionPositions
@@ -930,7 +929,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ serv
 	return responce, nil
 }
 
-func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioPosition) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
+func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioPosition) (_ *domain.PortfolioByTypeAndCurrency, err error) {
 	const op = "service.DivideByType"
 
 	start := time.Now()
@@ -945,7 +944,7 @@ func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioP
 		err = e.WrapIfErr("can't divide by type", err)
 	}()
 
-	portfolio := service_models.NewPortfolioByTypeAndCurrency()
+	portfolio := domain.NewPortfolioByTypeAndCurrency()
 	date := time.Now()
 
 	if len(positions) == 0 {
@@ -969,13 +968,13 @@ func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioP
 			positionPrice += pos.CurrentNkd.ToFloat() * pos.Quantity.ToFloat() * vunit_rate
 			portfolio.BondsAssets.SumOfAssets += positionPrice
 			if _, exist := portfolio.BondsAssets.AssetsByCurrency[currencyOfPos]; !exist {
-				portfolio.BondsAssets.AssetsByCurrency[currencyOfPos] = service_models.NewAssetsByParam()
+				portfolio.BondsAssets.AssetsByCurrency[currencyOfPos] = domain.NewAssetsByParam()
 			}
 			portfolio.BondsAssets.AssetsByCurrency[currencyOfPos].SumOfAssets += positionPrice
 		case share:
 			portfolio.SharesAssets.SumOfAssets += positionPrice
 			if _, exist := portfolio.SharesAssets.AssetsByCurrency[currencyOfPos]; !exist {
-				portfolio.SharesAssets.AssetsByCurrency[currencyOfPos] = service_models.NewAssetsByParam()
+				portfolio.SharesAssets.AssetsByCurrency[currencyOfPos] = domain.NewAssetsByParam()
 			}
 			portfolio.SharesAssets.AssetsByCurrency[currencyOfPos].SumOfAssets += positionPrice
 		case futures:
@@ -991,13 +990,13 @@ func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioP
 			switch futureType {
 			case commodityType:
 				if _, exist := portfolio.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[futures.Name]; !exist {
-					portfolio.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[futures.Name] = service_models.NewAssetsByParam()
+					portfolio.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[futures.Name] = domain.NewAssetsByParam()
 				}
 				portfolio.FuturesAssets.AssetsByType.Commodity.SumOfAssets += positionPrice
 				portfolio.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[futures.Name].SumOfAssets += positionPrice
 			case currencyType:
 				if _, exist := portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[futures.Name]; !exist {
-					portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[futures.Name] = service_models.NewAssetsByParam()
+					portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[futures.Name] = domain.NewAssetsByParam()
 				}
 				portfolio.FuturesAssets.AssetsByType.Currency.SumOfAssets += positionPrice
 				portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[futures.Name].SumOfAssets += positionPrice
@@ -1008,13 +1007,13 @@ func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioP
 				}
 				valute := resp.Currency
 				if _, exist := portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency[valute]; !exist {
-					portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency[valute] = service_models.NewAssetsByParam()
+					portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency[valute] = domain.NewAssetsByParam()
 				}
 				portfolio.FuturesAssets.AssetsByType.Security.SumOfAssets += positionPrice
 				portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency[valute].SumOfAssets += positionPrice
 			case indexType:
 				if _, exist := portfolio.FuturesAssets.AssetsByType.Index.AssetsByCurrency[futures.Name]; !exist {
-					portfolio.FuturesAssets.AssetsByType.Index.AssetsByCurrency[futures.Name] = service_models.NewAssetsByParam()
+					portfolio.FuturesAssets.AssetsByType.Index.AssetsByCurrency[futures.Name] = domain.NewAssetsByParam()
 				}
 
 				portfolio.FuturesAssets.AssetsByType.Index.SumOfAssets += positionPrice
@@ -1028,7 +1027,7 @@ func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioP
 			portfolio.EtfsAssets.SumOfAssets += positionPrice
 
 			if _, exist := portfolio.EtfsAssets.AssetsByCurrency[currencyOfPos]; !exist {
-				portfolio.EtfsAssets.AssetsByCurrency[currencyOfPos] = service_models.NewAssetsByParam()
+				portfolio.EtfsAssets.AssetsByCurrency[currencyOfPos] = domain.NewAssetsByParam()
 			}
 			portfolio.EtfsAssets.AssetsByCurrency[currencyOfPos].SumOfAssets += positionPrice
 		case currency:
@@ -1040,7 +1039,7 @@ func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioP
 			portfolio.CurrenciesAssets.SumOfAssets += positionPrice
 
 			if _, exist := portfolio.CurrenciesAssets.AssetsByCurrency[currName]; !exist {
-				portfolio.CurrenciesAssets.AssetsByCurrency[currName] = service_models.NewAssetsByParam()
+				portfolio.CurrenciesAssets.AssetsByCurrency[currName] = domain.NewAssetsByParam()
 			}
 			portfolio.CurrenciesAssets.AssetsByCurrency[currName].SumOfAssets += positionPrice
 
@@ -1052,7 +1051,7 @@ func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioP
 	return portfolio, nil
 }
 
-func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]float64) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
+func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]float64) (_ *domain.PortfolioByTypeAndCurrency, err error) {
 	const op = "service.DivideByTypeFromSber"
 
 	start := time.Now()
@@ -1067,7 +1066,7 @@ func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]
 		err = e.WrapIfErr("can't divide by type from sber", err)
 	}()
 
-	portfolio := service_models.NewPortfolioByTypeAndCurrency()
+	portfolio := domain.NewPortfolioByTypeAndCurrency()
 
 	if len(positions) == 0 {
 		return portfolio, errors.New("positions are empty")
@@ -1103,7 +1102,7 @@ func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]
 			portfolio.BondsAssets.SumOfAssets += positionPrice
 
 			if existing, exist := portfolio.BondsAssets.AssetsByCurrency[currency]; !exist {
-				portfolio.BondsAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				portfolio.BondsAssets.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: positionPrice,
 				}
 			} else {
@@ -1121,7 +1120,7 @@ func (c *Client) DivideByTypeFromSber(ctx context.Context, positions map[string]
 	return portfolio, nil
 }
 
-func (c *Client) ResponsePortfolioStructure(portfolio *service_models.PortfolioByTypeAndCurrency) string {
+func (c *Client) ResponsePortfolioStructure(portfolio *domain.PortfolioByTypeAndCurrency) string {
 	const op = "service.ResponsePortfolioStructure"
 
 	start := time.Now()
@@ -1254,7 +1253,7 @@ func (c *Client) ResponsePortfolioStructure(portfolio *service_models.PortfolioB
 	return output
 }
 
-func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurrency) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
+func (c *Client) UnionPortf(portfolios []*domain.PortfolioByTypeAndCurrency) (_ *domain.PortfolioByTypeAndCurrency, err error) {
 	const op = "service.UnionPortf"
 
 	start := time.Now()
@@ -1269,14 +1268,14 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 		err = e.WrapIfErr("can't union portfolios ", err)
 	}()
 
-	unionPortf := service_models.NewPortfolioByTypeAndCurrency()
+	unionPortf := domain.NewPortfolioByTypeAndCurrency()
 	for _, portf := range portfolios {
 		unionPortf.AllAssets += portf.AllAssets
 
 		unionPortf.BondsAssets.SumOfAssets += portf.BondsAssets.SumOfAssets
 		for k, v := range portf.BondsAssets.AssetsByCurrency {
 			if existing, exist := unionPortf.BondsAssets.AssetsByCurrency[k]; !exist {
-				unionPortf.BondsAssets.AssetsByCurrency[k] = service_models.NewAssetsByParam()
+				unionPortf.BondsAssets.AssetsByCurrency[k] = domain.NewAssetsByParam()
 				unionPortf.BondsAssets.AssetsByCurrency[k] = v
 			} else {
 				existing.SumOfAssets += v.SumOfAssets
@@ -1286,7 +1285,7 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 		unionPortf.SharesAssets.SumOfAssets += portf.SharesAssets.SumOfAssets
 		for currency, asset := range portf.SharesAssets.AssetsByCurrency {
 			if existing, exists := unionPortf.SharesAssets.AssetsByCurrency[currency]; !exists {
-				unionPortf.SharesAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				unionPortf.SharesAssets.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: asset.SumOfAssets,
 				}
 			} else {
@@ -1297,7 +1296,7 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 		unionPortf.EtfsAssets.SumOfAssets += portf.EtfsAssets.SumOfAssets
 		for currency, asset := range portf.EtfsAssets.AssetsByCurrency {
 			if existing, exists := unionPortf.EtfsAssets.AssetsByCurrency[currency]; !exists {
-				unionPortf.EtfsAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				unionPortf.EtfsAssets.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: asset.SumOfAssets,
 				}
 			} else {
@@ -1308,7 +1307,7 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 		unionPortf.CurrenciesAssets.SumOfAssets += portf.CurrenciesAssets.SumOfAssets
 		for currency, asset := range portf.CurrenciesAssets.AssetsByCurrency {
 			if existing, exists := unionPortf.CurrenciesAssets.AssetsByCurrency[currency]; !exists {
-				unionPortf.CurrenciesAssets.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				unionPortf.CurrenciesAssets.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: asset.SumOfAssets,
 				}
 			} else {
@@ -1320,7 +1319,7 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 		unionPortf.FuturesAssets.AssetsByType.Commodity.SumOfAssets += portf.FuturesAssets.AssetsByType.Commodity.SumOfAssets
 		for currency, asset := range portf.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency {
 			if existing, exist := unionPortf.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[currency]; !exist {
-				unionPortf.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				unionPortf.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: asset.SumOfAssets,
 				}
 			} else {
@@ -1332,7 +1331,7 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 
 		for currency, asset := range portf.FuturesAssets.AssetsByType.Currency.AssetsByCurrency {
 			if existing, exists := unionPortf.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[currency]; !exists {
-				unionPortf.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				unionPortf.FuturesAssets.AssetsByType.Currency.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: asset.SumOfAssets,
 				}
 			} else {
@@ -1344,7 +1343,7 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 
 		for currency, asset := range portf.FuturesAssets.AssetsByType.Security.AssetsByCurrency {
 			if existing, exists := unionPortf.FuturesAssets.AssetsByType.Security.AssetsByCurrency[currency]; !exists {
-				unionPortf.FuturesAssets.AssetsByType.Security.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				unionPortf.FuturesAssets.AssetsByType.Security.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: asset.SumOfAssets,
 				}
 			} else {
@@ -1356,7 +1355,7 @@ func (c *Client) UnionPortf(portfolios []*service_models.PortfolioByTypeAndCurre
 
 		for currency, asset := range portf.FuturesAssets.AssetsByType.Index.AssetsByCurrency {
 			if existing, exists := unionPortf.FuturesAssets.AssetsByType.Index.AssetsByCurrency[currency]; !exists {
-				unionPortf.FuturesAssets.AssetsByType.Index.AssetsByCurrency[currency] = &service_models.AssetByParam{
+				unionPortf.FuturesAssets.AssetsByType.Index.AssetsByCurrency[currency] = &domain.AssetByParam{
 					SumOfAssets: asset.SumOfAssets,
 				}
 			} else {

@@ -2,7 +2,6 @@ package postgreSQL
 
 import (
 	"bonds-report-service/internal/models/domain"
-	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
 	"fmt"
@@ -344,7 +343,7 @@ func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId st
 	return nil
 }
 
-func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []service_models.BondReport) (err error) {
+func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []domain.BondReport) (err error) {
 	const op = "postgreSql.SaveBondReport"
 
 	start := time.Now()
@@ -449,7 +448,7 @@ func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accou
 	return nil
 }
 
-func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []service_models.GeneralBondReportPosition) (err error) {
+func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []domain.GeneralBondReportPosition) (err error) {
 	const op = "postgreSql.SaveGeneralBondReport"
 
 	start := time.Now()
