@@ -51,7 +51,7 @@ const (
 	indexType     = "TYPE_INDEX"
 )
 
-//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=uidProvider
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=UidProvider
 type UidProvider interface {
 	GetUid(ctx context.Context, instrumentUid string) (string, error)
 	UpdateAndGetUid(ctx context.Context, instrumentUid string) (string, error)

@@ -6,8 +6,9 @@ import (
 	"bonds-report-service/internal/service"
 	"context"
 	"errors"
-	"fmt"
 	"time"
+
+	"github.com/gladinov/e"
 )
 
 const (
@@ -33,7 +34,7 @@ func NewUidProvider(storage service_storage.Storage, analyticClient service.Tink
 func (u *UidProvider) GetUid(ctx context.Context, instrumentUid string) (string, error) {
 	date, err := u.storage.IsUpdatedUids(ctx)
 	if err != nil && !errors.Is(err, domain.ErrEmptyUids) {
-		return "", fmt.Errorf("check updated uids: %w", err)
+		return "", e.WrapIfErr("check updated uids", err)
 	}
 
 	if errors.Is(err, domain.ErrEmptyUids) {
@@ -67,7 +68,7 @@ func (u *UidProvider) GetUid(ctx context.Context, instrumentUid string) (string,
 func (u *UidProvider) UpdateAndGetUid(ctx context.Context, instrumentUid string) (string, error) {
 	allAssetUids, err := u.analyticsTinkoffClient.GetAllAssetUids(ctx)
 	if err != nil {
-		return "", fmt.Errorf("get all asset uids: %w", err)
+		return "", e.WrapIfErr("failed to get all asset uids", err)
 	}
 
 	uid, exist := allAssetUids[instrumentUid]
@@ -76,7 +77,7 @@ func (u *UidProvider) UpdateAndGetUid(ctx context.Context, instrumentUid string)
 	}
 
 	if err := u.storage.SaveUids(ctx, allAssetUids); err != nil {
-		return "", fmt.Errorf("save uids: %w", err)
+		return "", e.WrapIfErr("failed to save uids to storage ", err)
 	}
 
 	return uid, nil
