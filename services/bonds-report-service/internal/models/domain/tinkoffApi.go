@@ -201,46 +201,4 @@ type ShareCurrency struct {
 	Currency string
 }
 
-type MediaGroup struct {
-	Reports []*ImageData
-}
 
-func NewMediaGroup() *MediaGroup {
-	return &MediaGroup{
-		Reports: make([]*ImageData, 0),
-	}
-}
-
-type ImageData struct {
-	Name    string
-	Data    []byte
-	Caption string
-}
-
-func NewImageData() *ImageData {
-	return &ImageData{}
-}
-
-type AccountListResponce struct {
-	Accounts string
-}
-
-type BondReportsResponce struct {
-	Media [][]*MediaGroup
-}
-
-type PortfolioStructureForEachAccountResponce struct {
-	PortfolioStructures []string
-}
-
-type UnionPortfolioStructureResponce struct {
-	Report string
-}
-
-type UnionPortfolioStructureWithSberResponce struct {
-	Report string
-}
-
-type UsdResponce struct {
-	Usd float64
-}
