@@ -1,10 +1,7 @@
 package service
 
 import (
-	cbr "bonds-report-service/internal/clients/cbr/client"
-	moex "bonds-report-service/internal/clients/moex/client"
 	"bonds-report-service/internal/clients/sber"
-	tinkoffApi "bonds-report-service/internal/clients/tinkoffApi/client"
 	"bonds-report-service/internal/models/domain"
 	"bonds-report-service/internal/models/domain/mapper"
 	"bonds-report-service/internal/service/service_models"
@@ -54,30 +51,102 @@ const (
 	indexType     = "TYPE_INDEX"
 )
 
-type uidProvider interface {
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=uidProvider
+type UidProvider interface {
 	GetUid(ctx context.Context, instrumentUid string) (string, error)
 	UpdateAndGetUid(ctx context.Context, instrumentUid string) (string, error)
 }
 
-type Client struct {
-	logger      *slog.Logger
-	Tinkoffapi  *tinkoffApi.Client
-	MoexApi     *moex.Client
-	CbrApi      *cbr.Client
-	Sber        *sber.Client
-	Storage     service_storage.Storage
-	uidProvider uidProvider
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=CbrClient
+type CbrClient interface {
+	GetAllCurrencies(ctx context.Context, date time.Time) (res domain.CurrenciesCBR, err error)
 }
 
-func New(logger *slog.Logger, tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient *cbr.Client, sber *sber.Client, storage service_storage.Storage, uidProvider uidProvider) *Client {
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=MoexClient
+type MoexClient interface {
+	GetSpecifications(ctx context.Context, ticker string, date time.Time) (data domain.ValuesMoex, err error)
+}
+
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=TinkoffInstrumentsClient
+type TinkoffInstrumentsClient interface {
+	FindBy(ctx context.Context, query string) ([]domain.InstrumentShort, error)
+	GetBondByUid(ctx context.Context, uid string) (domain.Bond, error)
+	GetCurrencyBy(ctx context.Context, figi string) (domain.Currency, error)
+	GetFutureBy(ctx context.Context, figi string) (domain.Future, error)
+	GetShareCurrencyBy(ctx context.Context, figi string) (domain.ShareCurrency, error)
+}
+
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=TinkoffPortfolioClient
+type TinkoffPortfolioClient interface {
+	GetAccounts(ctx context.Context) (_ map[string]domain.Account, err error)
+	GetPortfolio(ctx context.Context, accountID string, accountStatus int64) (domain.Portfolio, error)
+	GetOperations(ctx context.Context, accountId string, date time.Time) (_ []domain.Operation, err error)
+}
+
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=TinkoffAnalyticsClient
+type TinkoffAnalyticsClient interface {
+	GetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (domain.LastPrice, error)
+	GetAllAssetUids(ctx context.Context) (map[string]string, error)
+	GetBondsActions(ctx context.Context, instrumentUid string) (domain.BondIdentIdentifiers, error)
+}
+
+type TinkoffClients struct {
+	Instruments TinkoffInstrumentsClient
+	Portfolio   TinkoffPortfolioClient
+	Analytics   TinkoffAnalyticsClient
+}
+
+func NewTinkoffClients(
+	instruments TinkoffInstrumentsClient,
+	portfolio TinkoffPortfolioClient,
+	analytics TinkoffAnalyticsClient,
+) *TinkoffClients {
+	return &TinkoffClients{
+		Instruments: instruments,
+		Portfolio:   portfolio,
+		Analytics:   analytics,
+	}
+}
+
+type ExternalApis struct {
+	Moex MoexClient
+	Cbr  CbrClient
+	Sber *sber.Client
+}
+
+func NewExternalApis(
+	moex MoexClient,
+	cbr CbrClient,
+	sber *sber.Client,
+) *ExternalApis {
+	return &ExternalApis{
+		Moex: moex,
+		Cbr:  cbr,
+		Sber: sber,
+	}
+}
+
+type Client struct {
+	logger      *slog.Logger
+	Tinkoff     *TinkoffClients
+	External    *ExternalApis
+	Storage     service_storage.Storage
+	UidProvider UidProvider
+}
+
+func NewClient(
+	logger *slog.Logger,
+	tinkoffClients *TinkoffClients,
+	externalApis *ExternalApis,
+	storage service_storage.Storage,
+	uidProvider UidProvider,
+) *Client {
 	return &Client{
 		logger:      logger,
-		Tinkoffapi:  tinkoffApiClient,
-		MoexApi:     moexClient,
-		CbrApi:      CbrClient,
-		Sber:        sber,
+		Tinkoff:     tinkoffClients,
+		External:    externalApis,
 		Storage:     storage,
-		uidProvider: uidProvider,
+		UidProvider: uidProvider,
 	}
 }
 
@@ -94,7 +163,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 		)
 		err = e.WrapIfErr("can't get bond reports", err)
 	}()
-	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
+	accounts, err := c.GetAccounts(ctx)
 	if err != nil {
 		logg.Debug("get accounts error", slog.Any("error", err))
 		return err
@@ -121,7 +190,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 			return err
 		}
 
-		portfolioPositions, err := c.TransformPositions(ctx, portfolio.Positions)
+		portfolioPositions, err := c.MapPositionsToPositionsWithAssetUid(ctx, portfolio.Positions)
 		if err != nil {
 			accountLogg.Debug(
 				"transformPositions err", slog.Any("error", err))
@@ -185,7 +254,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 		err = e.WrapIfErr("can't get general bond report", err)
 	}()
 
-	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
+	accounts, err := c.GetAccounts(ctx)
 	if err != nil {
 		return err
 	}
@@ -203,7 +272,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 			return err
 		}
 
-		portfolioPositions, err := c.TransformPositions(ctx, portfolio.Positions)
+		portfolioPositions, err := c.MapPositionsToPositionsWithAssetUid(ctx, portfolio.Positions)
 		if err != nil {
 			return err
 		}
@@ -359,7 +428,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 
 	reportsInByteByAccounts := make([][]*service_models.MediaGroup, 0)
 
-	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
+	accounts, err := c.GetAccounts(ctx)
 	if err != nil {
 		return service_models.BondReportsResponce{}, err
 	}
@@ -377,7 +446,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 			return service_models.BondReportsResponce{}, err
 		}
 
-		portfolioPositions, err := c.TransformPositions(ctx, portfolio.Positions)
+		portfolioPositions, err := c.MapPositionsToPositionsWithAssetUid(ctx, portfolio.Positions)
 		if err != nil {
 			return service_models.BondReportsResponce{}, err
 		}
@@ -569,7 +638,7 @@ func (c *Client) GetAccountsList(ctx context.Context) (answ service_models.Accou
 
 	var accStr string = "По данному аккаунту доступны следующие счета:"
 
-	accs, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
+	accs, err := c.GetAccounts(ctx)
 	if err != nil {
 		return service_models.AccountListResponce{}, err
 	}
@@ -661,7 +730,7 @@ func (c *Client) GetAccounts(ctx context.Context) (_ map[string]domain.Account, 
 		err = e.WrapIfErr("cant' get accounts", err)
 	}()
 
-	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
+	accounts, err := c.GetAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -843,7 +912,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ serv
 		positionsList = append(positionsList, potfolioStructure)
 	}
 
-	sberPortfolio, err := c.DivideByTypeFromSber(ctx, c.Sber.Portfolio)
+	sberPortfolio, err := c.DivideByTypeFromSber(ctx, c.External.Sber.Portfolio)
 	if err != nil {
 		return service_models.UnionPortfolioStructureWithSberResponce{}, err
 	}

@@ -34,7 +34,7 @@ func (c *Client) GetCurrencyFromCB(ctx context.Context, charCode string, date ti
 		return vunit_rate, err
 	}
 
-	currencies, err := c.CbrApi.GetAllCurrencies(ctx, date)
+	currencies, err := c.External.Cbr.GetAllCurrencies(ctx, date)
 	if err != nil {
 		return vunit_rate, err
 	}

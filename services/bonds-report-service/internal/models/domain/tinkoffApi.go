@@ -112,7 +112,7 @@ type PortfolioPosition struct {
 	Ticker                   string
 }
 
-type PortfolioPositionWithoutCustomTypes struct {
+type PortfolioPositionsWithAssetUid struct {
 	InstrumentType string
 	AssetUid       string
 }

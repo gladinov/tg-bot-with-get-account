@@ -18,11 +18,6 @@ import (
 	"github.com/gladinov/e"
 )
 
-//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=MoexClient
-type MoexClient interface {
-	GetSpecifications(ctx context.Context, ticker string, date time.Time) (data domain.ValuesMoex, err error)
-}
-
 type Client struct {
 	logger    *slog.Logger
 	transport transport.TransportClient

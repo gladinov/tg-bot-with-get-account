@@ -46,14 +46,17 @@ func main() {
 		return
 	}
 
+	externalApis := service.NewExternalApis(moexClient, cbrClient, sberClient)
+
+	uidProvider := app.InitUidProvider(logg, repo, tinkoffClient.Analytics)
+
 	logg.Info("initialize Service client")
-	serviceClient := service.New(
+	serviceClient := service.NewClient(
 		logg,
 		tinkoffClient,
-		moexClient,
-		cbrClient,
-		sberClient,
-		repo)
+		externalApis,
+		repo,
+		uidProvider)
 
 	logg.Info("initialize Handlers")
 	handl := handlers.NewHandlers(logg, serviceClient)

@@ -1,9 +1,9 @@
 package uidprovider
 
 import (
-	"bonds-report-service/internal/clients/tinkoffApi/client/analyticsclient"
 	"bonds-report-service/internal/models/domain"
 	service_storage "bonds-report-service/internal/repository"
+	"bonds-report-service/internal/service"
 	"context"
 	"errors"
 	"fmt"
@@ -16,12 +16,12 @@ const (
 
 type UidProvider struct {
 	storage                service_storage.Storage
-	analyticsTinkoffClient analyticsclient.AnalyticsClient
+	analyticsTinkoffClient service.TinkoffAnalyticsClient
 	hoursToUpdate          time.Duration
 	now                    func() time.Time
 }
 
-func NewUidProvider(storage service_storage.Storage, analyticClient analyticsclient.AnalyticsClient) *UidProvider {
+func NewUidProvider(storage service_storage.Storage, analyticClient service.TinkoffAnalyticsClient) *UidProvider {
 	return &UidProvider{
 		storage:                storage,
 		analyticsTinkoffClient: analyticClient,

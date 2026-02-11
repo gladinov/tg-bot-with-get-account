@@ -19,11 +19,6 @@ import (
 	"github.com/gladinov/e"
 )
 
-//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=CbrClient
-type CbrClient interface {
-	GetAllCurrencies(ctx context.Context, date time.Time) (res domain.CurrenciesCBR, err error)
-}
-
 type Client struct {
 	logger    *slog.Logger
 	transport transport.TransportClient

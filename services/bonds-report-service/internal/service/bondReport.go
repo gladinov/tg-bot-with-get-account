@@ -94,12 +94,12 @@ func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition
 	BondReporPosition.ProfitInPercentage = RoundFloat((profit/sumOfPosition)*100, 2)
 	BondReporPosition.PercentOfPortfolio = RoundFloat((sumOfPosition/totalAmount)*100, 2)
 
-	moexBuyDateData, err := c.MoexApi.GetSpecifications(ctx, BondReporPosition.Ticker, buyDate)
+	moexBuyDateData, err := c.External.Moex.GetSpecifications(ctx, BondReporPosition.Ticker, buyDate)
 	if err != nil {
 		return BondReporPosition, err
 	}
 	date := time.Now()
-	moexNowData, err := c.MoexApi.GetSpecifications(ctx, BondReporPosition.Ticker, date)
+	moexNowData, err := c.External.Moex.GetSpecifications(ctx, BondReporPosition.Ticker, date)
 	if err != nil {
 		return BondReporPosition, err
 	}
@@ -200,12 +200,12 @@ func (c *Client) createBondReportByCurrency(ctx context.Context, position servic
 	}()
 
 	var bondReport service_models.BondReport
-	moexBuyDateData, err := c.MoexApi.GetSpecifications(ctx, position.Ticker, position.BuyDate)
+	moexBuyDateData, err := c.External.Moex.GetSpecifications(ctx, position.Ticker, position.BuyDate)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
 	date := time.Now()
-	moexNowData, err := c.MoexApi.GetSpecifications(ctx, position.Ticker, date)
+	moexNowData, err := c.External.Moex.GetSpecifications(ctx, position.Ticker, date)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}

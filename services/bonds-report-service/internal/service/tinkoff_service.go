@@ -53,7 +53,7 @@ func (c *Client) TinkoffGetPortfolio(ctx context.Context, account domain.Account
 	if account.ID == "" {
 		return domain.Portfolio{}, ErrEmptyAccountIdInRequest
 	}
-	portfolio, err := c.Tinkoffapi.PortfolioTinkoffClient.GetPortfolio(ctx, account.ID, account.Status)
+	portfolio, err := c.Tinkoff.Portfolio.GetPortfolio(ctx, account.ID, account.Status)
 	if err != nil {
 		return domain.Portfolio{}, fmt.Errorf("op:%s, %s", op, err)
 	}
@@ -80,7 +80,7 @@ func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fro
 	if fromDate.After(now) {
 		return nil, fmt.Errorf("op:%s, from can't be more than the current date", op)
 	}
-	tinkoffOperations, err := c.Tinkoffapi.PortfolioTinkoffClient.GetOperations(ctx, accountId, fromDate)
+	tinkoffOperations, err := c.Tinkoff.Portfolio.GetOperations(ctx, accountId, fromDate)
 	if err != nil {
 		return nil, e.WrapIfErr(fmt.Sprintf("op:%s,", op), err)
 	}
@@ -104,7 +104,7 @@ func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string
 	if instrumentUid == "" {
 		return domain.BondIdentIdentifiers{}, ErrEmptyInstrumentUid
 	}
-	bondActions, err := c.Tinkoffapi.AnalyticsTinkoffClient.GetBondsActions(ctx, instrumentUid)
+	bondActions, err := c.Tinkoff.Analytics.GetBondsActions(ctx, instrumentUid)
 	if err != nil {
 		return domain.BondIdentIdentifiers{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
@@ -127,7 +127,7 @@ func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (_ domain.
 	if figi == "" {
 		return domain.Future{}, ErrEmptyFigi
 	}
-	future, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetFutureBy(ctx, figi)
+	future, err := c.Tinkoff.Instruments.GetFutureBy(ctx, figi)
 	if err != nil {
 		return domain.Future{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
@@ -150,7 +150,7 @@ func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (_ domain.
 	if uid == "" {
 		return domain.Bond{}, ErrEmptyUid
 	}
-	bond, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetBondByUid(ctx, uid)
+	bond, err := c.Tinkoff.Instruments.GetBondByUid(ctx, uid)
 	if err != nil {
 		return domain.Bond{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
@@ -173,7 +173,7 @@ func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ domai
 	if figi == "" {
 		return domain.Currency{}, ErrEmptyFigi
 	}
-	currency, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetCurrencyBy(ctx, figi)
+	currency, err := c.Tinkoff.Instruments.GetCurrencyBy(ctx, figi)
 	if err != nil {
 		return domain.Currency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
@@ -198,7 +198,7 @@ func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUi
 		return domain.ShareCurrency{}, ErrEmptyPositionUid
 	}
 
-	instrumentsShortResponce, err := c.Tinkoffapi.InstrumentsTinkoffClient.FindBy(ctx, positionUid)
+	instrumentsShortResponce, err := c.Tinkoff.Instruments.FindBy(ctx, positionUid)
 	if err != nil {
 		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
@@ -212,7 +212,7 @@ func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUi
 	if instrument.Figi == "" {
 		return domain.ShareCurrency{}, ErrEmptyFigi
 	}
-	currency, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetShareCurrencyBy(ctx, instrument.Figi)
+	currency, err := c.Tinkoff.Instruments.GetShareCurrencyBy(ctx, instrument.Figi)
 	if err != nil {
 		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
@@ -237,7 +237,7 @@ func (c *Client) TinkoffFindBy(ctx context.Context, query string) (_ []domain.In
 	if query == "" {
 		return nil, ErrEmptyQuery
 	}
-	resp, err := c.Tinkoffapi.InstrumentsTinkoffClient.FindBy(ctx, query)
+	resp, err := c.Tinkoff.Instruments.FindBy(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
@@ -261,7 +261,7 @@ func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, i
 	if instrumentUid == "" {
 		return domain.LastPrice{}, ErrEmptyInstrumentUid
 	}
-	lastPrice, err := c.Tinkoffapi.AnalyticsTinkoffClient.GetLastPriceInPersentageToNominal(ctx, instrumentUid)
+	lastPrice, err := c.Tinkoff.Analytics.GetLastPriceInPersentageToNominal(ctx, instrumentUid)
 	if err != nil {
 		return domain.LastPrice{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}

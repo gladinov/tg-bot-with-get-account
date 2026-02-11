@@ -6,13 +6,14 @@ import (
 	moex "bonds-report-service/internal/clients/moex/client"
 	moextransport "bonds-report-service/internal/clients/moex/transport"
 	"bonds-report-service/internal/clients/sber"
-	tinkoffApi "bonds-report-service/internal/clients/tinkoffApi/client"
 	"bonds-report-service/internal/clients/tinkoffApi/client/analyticsclient"
 	"bonds-report-service/internal/clients/tinkoffApi/client/instrumentsclient"
 	"bonds-report-service/internal/clients/tinkoffApi/client/portfolioclient"
+	"bonds-report-service/internal/service"
+	"log/slog"
+
 	tinkofftransport "bonds-report-service/internal/clients/tinkoffApi/transport"
 	config "bonds-report-service/internal/configs"
-	"log/slog"
 )
 
 func InitCBRClient(logger *slog.Logger, host string) *cbr.Client {
@@ -25,7 +26,7 @@ func InitCBRClient(logger *slog.Logger, host string) *cbr.Client {
 	return client
 }
 
-func InitTinkoffApiClient(logger *slog.Logger, host string) *tinkoffApi.Client {
+func InitTinkoffApiClient(logger *slog.Logger, host string) *service.TinkoffClients {
 	logger.Info("initialize Tinkoff client", slog.String("address", host))
 	if host == "" {
 		panic("tinkoff host is empty")
@@ -34,11 +35,7 @@ func InitTinkoffApiClient(logger *slog.Logger, host string) *tinkoffApi.Client {
 	analyticsclient := analyticsclient.NewAnalyticsTinkoffClient(logger, transport)
 	instrumentsclient := instrumentsclient.NewInstrumentsTinkoffClient(logger, transport)
 	portfolioclient := portfolioclient.NewPortfolioTinkoffClient(logger, transport)
-	client := tinkoffApi.NewTinkoffClient(
-		logger,
-		instrumentsclient,
-		portfolioclient,
-		analyticsclient)
+	client := service.NewTinkoffClients(instrumentsclient, portfolioclient, analyticsclient)
 	return client
 }
 
