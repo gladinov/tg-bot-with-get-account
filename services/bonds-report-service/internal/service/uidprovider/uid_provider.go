@@ -1,0 +1,83 @@
+package uidprovider
+
+import (
+	"bonds-report-service/internal/clients/tinkoffApi/client/analyticsclient"
+	"bonds-report-service/internal/models/domain"
+	service_storage "bonds-report-service/internal/repository"
+	"context"
+	"errors"
+	"fmt"
+	"time"
+)
+
+const (
+	HoursToUpdate = 12 * time.Hour
+)
+
+type UidProvider struct {
+	storage                service_storage.Storage
+	analyticsTinkoffClient analyticsclient.AnalyticsClient
+	hoursToUpdate          time.Duration
+	now                    func() time.Time
+}
+
+func NewUidProvider(storage service_storage.Storage, analyticClient analyticsclient.AnalyticsClient) *UidProvider {
+	return &UidProvider{
+		storage:                storage,
+		analyticsTinkoffClient: analyticClient,
+		hoursToUpdate:          HoursToUpdate,
+		now:                    time.Now,
+	}
+}
+
+func (u *UidProvider) GetUid(ctx context.Context, instrumentUid string) (string, error) {
+	date, err := u.storage.IsUpdatedUids(ctx)
+	if err != nil && !errors.Is(err, domain.ErrEmptyUids) {
+		return "", fmt.Errorf("check updated uids: %w", err)
+	}
+
+	if errors.Is(err, domain.ErrEmptyUids) {
+		return u.UpdateAndGetUid(ctx, instrumentUid)
+	}
+
+	if u.now().Sub(date) > u.hoursToUpdate {
+		return u.UpdateAndGetUid(ctx, instrumentUid)
+	}
+
+	uid, err := u.storage.GetUid(ctx, instrumentUid)
+	if errors.Is(err, domain.ErrEmptyUids) {
+		return "", domain.ErrEmptyUidAfterUpdate
+	}
+	return uid, err
+}
+
+// TODO: Потенциальная проблема конкурентности
+
+// Если 100 горутин одновременно вызовут GetUid,и TTL истёк — ты 100 раз вызовешь UpdateAndGetUid.
+// Это:
+// 100 сетевых вызовов
+// 100 сохранений в storage
+// В реальном проде это может убить сервис.
+// Решение:
+// mutex
+// singleflight
+// или внешний coordination
+// Пока это не критично, но держи в голове.
+
+func (u *UidProvider) UpdateAndGetUid(ctx context.Context, instrumentUid string) (string, error) {
+	allAssetUids, err := u.analyticsTinkoffClient.GetAllAssetUids(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get all asset uids: %w", err)
+	}
+
+	uid, exist := allAssetUids[instrumentUid]
+	if !exist {
+		return "", domain.ErrEmptyUidAfterUpdate
+	}
+
+	if err := u.storage.SaveUids(ctx, allAssetUids); err != nil {
+		return "", fmt.Errorf("save uids: %w", err)
+	}
+
+	return uid, nil
+}

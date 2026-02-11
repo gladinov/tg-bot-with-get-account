@@ -1,4 +1,4 @@
-package models
+package cbr
 
 import (
 	"time"
@@ -21,26 +21,16 @@ type Currency struct {
 	VunitRate string `json:"vunitRate,omitempty"`
 }
 
-type CurrenciesResponce struct {
+type CurrenciesResponse struct {
 	Date       string     `json:"date,omitempty"`
 	Currencies []Currency `json:"valute,omitempty"`
 }
 
-func NewCurrenciesResponce(date string, currs []Currency) *CurrenciesResponce {
-	return &CurrenciesResponce{
+func NewCurrenciesResponce(date string, currs []Currency) *CurrenciesResponse {
+	return &CurrenciesResponse{
 		Date:       date,
 		Currencies: currs,
 	}
 }
 
-type HTTPResponse struct {
-	StatusCode int
-	Body       []byte
-}
 
-func NewHTTPResponse(statusCode int, body []byte) *HTTPResponse {
-	return &HTTPResponse{
-		StatusCode: statusCode,
-		Body:       body,
-	}
-}

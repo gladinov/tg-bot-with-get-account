@@ -1,10 +1,12 @@
 package service
 
 import (
-	"bonds-report-service/internal/clients/cbr"
-	"bonds-report-service/internal/clients/moex"
+	cbr "bonds-report-service/internal/clients/cbr/client"
+	moex "bonds-report-service/internal/clients/moex/client"
 	"bonds-report-service/internal/clients/sber"
-	"bonds-report-service/internal/clients/tinkoffApi"
+	tinkoffApi "bonds-report-service/internal/clients/tinkoffApi/client"
+	"bonds-report-service/internal/models/domain"
+	"bonds-report-service/internal/models/domain/mapper"
 	"bonds-report-service/internal/service/service_models"
 	"bonds-report-service/internal/service/visualization"
 	"context"
@@ -24,7 +26,7 @@ import (
 
 const (
 	layoutTime = "2006-01-02_15-04-05"
-	layoutCurr = "02.01.2006"
+
 	reportPath = "service/visualization/tables/"
 )
 
@@ -52,23 +54,30 @@ const (
 	indexType     = "TYPE_INDEX"
 )
 
-type Client struct {
-	logger     *slog.Logger
-	Tinkoffapi *tinkoffApi.Client
-	MoexApi    *moex.Client
-	CbrApi     *cbr.Client
-	Sber       *sber.Client
-	Storage    service_storage.Storage
+type uidProvider interface {
+	GetUid(ctx context.Context, instrumentUid string) (string, error)
+	UpdateAndGetUid(ctx context.Context, instrumentUid string) (string, error)
 }
 
-func New(logger *slog.Logger, tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient *cbr.Client, sber *sber.Client, storage service_storage.Storage) *Client {
+type Client struct {
+	logger      *slog.Logger
+	Tinkoffapi  *tinkoffApi.Client
+	MoexApi     *moex.Client
+	CbrApi      *cbr.Client
+	Sber        *sber.Client
+	Storage     service_storage.Storage
+	uidProvider uidProvider
+}
+
+func New(logger *slog.Logger, tinkoffApiClient *tinkoffApi.Client, moexClient *moex.Client, CbrClient *cbr.Client, sber *sber.Client, storage service_storage.Storage, uidProvider uidProvider) *Client {
 	return &Client{
-		logger:     logger,
-		Tinkoffapi: tinkoffApiClient,
-		MoexApi:    moexClient,
-		CbrApi:     CbrClient,
-		Sber:       sber,
-		Storage:    storage,
+		logger:      logger,
+		Tinkoffapi:  tinkoffApiClient,
+		MoexApi:     moexClient,
+		CbrApi:      CbrClient,
+		Sber:        sber,
+		Storage:     storage,
+		uidProvider: uidProvider,
 	}
 }
 
@@ -85,7 +94,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 		)
 		err = e.WrapIfErr("can't get bond reports", err)
 	}()
-	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
+	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
 	if err != nil {
 		logg.Debug("get accounts error", slog.Any("error", err))
 		return err
@@ -93,10 +102,10 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 
 	for _, account := range accounts {
 		accountLogg := logg.With(
-			slog.String("account_id", account.Id),
+			slog.String("account_id", account.ID),
 			slog.String("account_name", account.Name),
 			slog.String("account_type", account.Type))
-		err = c.updateOperations(ctx, chatID, account.Id, account.OpenedDate)
+		err = c.updateOperations(ctx, chatID, account.ID, account.OpenedDate)
 		if err != nil {
 			accountLogg.Debug(
 				"update operation error", slog.Any("error", err))
@@ -118,7 +127,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 				"transformPositions err", slog.Any("error", err))
 			return err
 		}
-		err = c.Storage.DeleteBondReport(context.Background(), chatID, account.Id)
+		err = c.Storage.DeleteBondReport(context.Background(), chatID, account.ID)
 		if err != nil {
 			accountLogg.Debug(
 				"deleteBondReport err", slog.Any("error", err))
@@ -131,7 +140,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 				slog.String("Asset_uid", v.AssetUid),
 				slog.String("Instrument_type", v.InstrumentType))
 			if v.InstrumentType == "bond" {
-				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
+				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.ID)
 				if err != nil {
 					positionLogg.Debug(
 						"storage.GetOperation error", slog.Any("error", err))
@@ -152,7 +161,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 				bondsInRub = append(bondsInRub, bondReport.BondsInRUB...)
 			}
 		}
-		err = c.Storage.SaveBondReport(context.Background(), chatID, account.Id, bondsInRub)
+		err = c.Storage.SaveBondReport(context.Background(), chatID, account.ID, bondsInRub)
 		if err != nil {
 			accountLogg.Debug(
 				"Storage.SaveBondReport error", slog.Any("error", err))
@@ -176,13 +185,13 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 		err = e.WrapIfErr("can't get general bond report", err)
 	}()
 
-	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
+	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, account := range accounts {
-		err = c.updateOperations(ctx, chatID, account.Id, account.OpenedDate)
+		err = c.updateOperations(ctx, chatID, account.ID, account.OpenedDate)
 		if err != nil {
 			return err
 		}
@@ -198,7 +207,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 		if err != nil {
 			return err
 		}
-		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.Id)
+		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.ID)
 		if err != nil {
 			return err
 		}
@@ -210,7 +219,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 
 		for _, v := range portfolioPositions {
 			if v.InstrumentType == "bond" {
-				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
+				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.ID)
 				if err != nil {
 					return err
 				}
@@ -248,7 +257,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 			}
 		}
 
-		err = Vizualization(logg, &generalBondReports, chatID, account.Id)
+		err = Vizualization(logg, &generalBondReports, chatID, account.ID)
 		if err != nil {
 			return err
 		}
@@ -258,7 +267,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 	return nil
 }
 
-func Vizualization(logger *slog.Logger, generalBondReports *service_models.GeneralBondReports, chatID int, accountId string) (err error) {
+func Vizualization(logger *slog.Logger, generalBondReports *service_models.GeneralBondReports, chatID int, accountID string) (err error) {
 	const op = "service.Vizualization"
 
 	start := time.Now()
@@ -275,15 +284,15 @@ func Vizualization(logger *slog.Logger, generalBondReports *service_models.Gener
 	reports := make([][]service_models.GeneralBondReportPosition, 0)
 
 	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
-	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return err
 	}
 	replacedBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.ReplacedBondsReport)
-	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return err
 	}
 	euroBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.EuroBondsReport)
-	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return err
 	}
 	reports = append(reports, rubbleBondReportSorted)
@@ -304,7 +313,7 @@ func Vizualization(logger *slog.Logger, generalBondReports *service_models.Gener
 		default:
 			typeOfBonds = service_models.RubBonds
 		}
-		pathDir := path.Join(reportPath, strconv.Itoa(chatID), accountId)
+		pathDir := path.Join(reportPath, strconv.Itoa(chatID), accountID)
 		if _, err := os.Stat(pathDir); os.IsNotExist(err) {
 			err = os.MkdirAll(pathDir, 0755)
 			if err != nil {
@@ -350,13 +359,13 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 
 	reportsInByteByAccounts := make([][]*service_models.MediaGroup, 0)
 
-	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
+	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
 	if err != nil {
 		return service_models.BondReportsResponce{}, err
 	}
 
 	for _, account := range accounts {
-		err = c.updateOperations(ctx, chatID, account.Id, account.OpenedDate)
+		err = c.updateOperations(ctx, chatID, account.ID, account.OpenedDate)
 		if err != nil {
 			return service_models.BondReportsResponce{}, err
 		}
@@ -373,7 +382,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 			return service_models.BondReportsResponce{}, err
 		}
 
-		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.Id)
+		err = c.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.ID)
 		if err != nil {
 			return service_models.BondReportsResponce{}, err
 		}
@@ -385,7 +394,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 
 		for _, v := range portfolioPositions {
 			if v.InstrumentType == "bond" {
-				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.Id)
+				operationsDb, err := c.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.ID)
 				if err != nil {
 					return service_models.BondReportsResponce{}, err
 				}
@@ -423,7 +432,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 			}
 		}
 
-		reportsInByte, err := c.PrepareToGenerateTablePNG(&generalBondReports, chatID, account.Id)
+		reportsInByte, err := c.PrepareToGenerateTablePNG(&generalBondReports, chatID, account.ID)
 		if err != nil {
 			return service_models.BondReportsResponce{}, err
 		}
@@ -434,7 +443,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ service_mode
 	return getBondReportsResponce, nil
 }
 
-func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.GeneralBondReports, chatID int, accountId string) (_ []*service_models.MediaGroup, err error) {
+func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.GeneralBondReports, chatID int, accountID string) (_ []*service_models.MediaGroup, err error) {
 	const op = "service.PrepareToGenerateTablePNG"
 
 	start := time.Now()
@@ -452,15 +461,15 @@ func (c *Client) PrepareToGenerateTablePNG(generalBondReports *service_models.Ge
 	reports := make([][]service_models.GeneralBondReportPosition, 0)
 
 	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
-	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return nil, err
 	}
 	replacedBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.ReplacedBondsReport)
-	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return nil, err
 	}
 	euroBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.EuroBondsReport)
-	if err != nil && !errors.Is(err, service_models.ErrEmptyReport) {
+	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return nil, err
 	}
 	reports = append(reports, rubbleBondReportSorted)
@@ -522,7 +531,7 @@ func sortGeneralBondReports(logger *slog.Logger, report map[service_models.Ticke
 
 	// TODO: обработать более читаемо и в дальнейшем проверять ошибку
 	if len(report) == 0 {
-		return []service_models.GeneralBondReportPosition{}, service_models.ErrEmptyReport
+		return []service_models.GeneralBondReportPosition{}, domain.ErrEmptyReport
 	}
 
 	keys := make([]service_models.TickerTimeKey, 0, len(report))
@@ -560,12 +569,12 @@ func (c *Client) GetAccountsList(ctx context.Context) (answ service_models.Accou
 
 	var accStr string = "По данному аккаунту доступны следующие счета:"
 
-	accs, err := c.Tinkoffapi.GetAccounts(ctx)
+	accs, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
 	if err != nil {
 		return service_models.AccountListResponce{}, err
 	}
 	for _, account := range accs {
-		accStr += fmt.Sprintf("\n ID:%s, Type: %s, Name: %s, Status: %v \n", account.Id, account.Type, account.Name, account.Status)
+		accStr += fmt.Sprintf("\n ID:%s, Type: %s, Name: %s, Status: %v \n", account.ID, account.Type, account.Name, account.Status)
 	}
 	accountResponce := service_models.AccountListResponce{Accounts: accStr}
 	return accountResponce, nil
@@ -595,7 +604,7 @@ func (c *Client) GetUsd(ctx context.Context) (_ service_models.UsdResponce, err 
 	return usdResponce, nil
 }
 
-func (c *Client) updateOperations(ctx context.Context, chatID int, accountId string, openDate time.Time) (err error) {
+func (c *Client) updateOperations(ctx context.Context, chatID int, accountID string, openDate time.Time) (err error) {
 	const op = "service.updateOperations"
 
 	start := time.Now()
@@ -610,34 +619,34 @@ func (c *Client) updateOperations(ctx context.Context, chatID int, accountId str
 		err = e.WrapIfErr("can't updateOperations", err)
 	}()
 
-	fromDate, err := c.Storage.LastOperationTime(context.Background(), chatID, accountId)
+	fromDate, err := c.Storage.LastOperationTime(context.Background(), chatID, accountID)
 	// TODO: Если fromDate будет больше time.Now, то будет ошибка.
 	// Есть вероятность такой ошибки, поэтому при тестировании функции нужно придумать другой способ вызова функции по последней операции
 	fromDate = fromDate.Add(time.Microsecond * 1)
 
 	if err != nil {
-		if errors.Is(err, service_models.ErrNoOpperations) {
+		if errors.Is(err, domain.ErrNoOpperations) {
 			fromDate = openDate
 		} else {
 			return err
 		}
 	}
 
-	tinkoffOperations, err := c.TinkoffGetOperations(ctx, accountId, fromDate)
+	tinkoffOperations, err := c.TinkoffGetOperations(ctx, accountID, fromDate)
 	if err != nil {
 		return err
 	}
 
-	operations := c.TransOperations(tinkoffOperations)
+	operations := mapper.MapOperationToOperationWithoutCustomTypes(tinkoffOperations)
 
-	err = c.Storage.SaveOperations(context.Background(), chatID, accountId, operations)
+	err = c.Storage.SaveOperations(context.Background(), chatID, accountID, operations)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Client) GetAccounts(ctx context.Context) (_ map[string]tinkoffApi.Account, err error) {
+func (c *Client) GetAccounts(ctx context.Context) (_ map[string]domain.Account, err error) {
 	const op = "service.GetAccounts"
 
 	start := time.Now()
@@ -652,7 +661,7 @@ func (c *Client) GetAccounts(ctx context.Context) (_ map[string]tinkoffApi.Accou
 		err = e.WrapIfErr("cant' get accounts", err)
 	}()
 
-	accounts, err := c.Tinkoffapi.GetAccounts(ctx)
+	accounts, err := c.Tinkoffapi.PortfolioTinkoffClient.GetAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +702,7 @@ func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ ser
 	return response, nil
 }
 
-func (c *Client) getPortfolioStructure(ctx context.Context, account tinkoffApi.Account) (_ string, err error) {
+func (c *Client) getPortfolioStructure(ctx context.Context, account domain.Account) (_ string, err error) {
 	const op = "service.getPortfolioStructure"
 
 	start := time.Now()
@@ -754,7 +763,7 @@ func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (
 	return response, nil
 }
 
-func (c *Client) getUnionPortfolioStructure(ctx context.Context, accounts map[string]tinkoffApi.Account) (_ string, err error) {
+func (c *Client) getUnionPortfolioStructure(ctx context.Context, accounts map[string]domain.Account) (_ string, err error) {
 	const op = "service.getUnionPortfolioStructure"
 
 	start := time.Now()
@@ -852,7 +861,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ serv
 	return responce, nil
 }
 
-func (c *Client) DivideByType(ctx context.Context, positions []tinkoffApi.PortfolioPositions) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
+func (c *Client) DivideByType(ctx context.Context, positions []domain.PortfolioPosition) (_ *service_models.PortfolioByTypeAndCurrency, err error) {
 	const op = "service.DivideByType"
 
 	start := time.Now()

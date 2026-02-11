@@ -1,6 +1,7 @@
 package postgreSQL
 
 import (
+	"bonds-report-service/internal/models/domain"
 	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
@@ -156,14 +157,14 @@ func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID s
 	err = s.db.QueryRow(ctx, q, chatID, accountID).Scan(&date)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return time.Time{}, service_models.ErrNoOpperations
+			return time.Time{}, domain.ErrNoOpperations
 		}
 		return time.Time{}, err
 	}
 	return date, nil
 }
 
-func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []service_models.Operation) (err error) {
+func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []domain.OperationWithoutCustomTypes) (err error) {
 	const op = "postgreSQL.SaveOperations"
 
 	start := time.Now()
@@ -216,8 +217,8 @@ func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId stri
 			chatID,
 			accountId,
 			op.Currency,
-			op.Operation_Id,
-			op.ParentOperationId,
+			op.OperationID,
+			op.ParentOperationID,
 			op.Name,
 			op.Date,
 			op.Type,
@@ -256,7 +257,7 @@ func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId stri
 	return nil
 }
 
-func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) (_ []service_models.Operation, err error) {
+func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) (_ []domain.OperationWithoutCustomTypes, err error) {
 	const op = "postgreSql.GetOperations"
 
 	start := time.Now()
@@ -285,7 +286,7 @@ func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string
     payment
 from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 order by date`
 
-	var operationRes []service_models.Operation
+	var operationRes []domain.OperationWithoutCustomTypes
 
 	rows, err := s.db.Query(ctx, q, chatId, accountId, assetUid)
 	if err != nil {
@@ -293,12 +294,12 @@ from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var operation service_models.Operation
+		var operation domain.OperationWithoutCustomTypes
 		err := rows.Scan(&operation.Name,
 			&operation.Date,
 			&operation.Type,
 			&operation.Figi,
-			&operation.Operation_Id,
+			&operation.OperationID,
 			&operation.QuantityDone,
 			&operation.InstrumentType,
 			&operation.InstrumentUid,
@@ -613,7 +614,7 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
 
 	err = s.db.QueryRow(ctx, q).Scan(&date)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return time.Time{}, service_models.ErrEmptyUids
+		return time.Time{}, domain.ErrEmptyUids
 	}
 	if err != nil {
 		return time.Time{}, e.WrapIfErr("can't check update uids", err)
@@ -641,7 +642,7 @@ func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, e
 	err = s.db.QueryRow(ctx, q, instrumentUid).Scan(&asset_uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", service_models.ErrEmptyUids
+			return "", domain.ErrEmptyUids
 		} else {
 			return "", e.WrapIfErr("can't get uid from DB", err)
 		}
@@ -649,7 +650,7 @@ func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, e
 	return asset_uid, nil
 }
 
-func (s *Storage) SaveCurrency(ctx context.Context, currencies service_models.Currencies, date time.Time) (err error) {
+func (s *Storage) SaveCurrency(ctx context.Context, currencies domain.CurrenciesCBR, date time.Time) (err error) {
 	const op = "postgreSql.SaveCurrency"
 	start := time.Now()
 	logg := s.logger.With(
@@ -725,7 +726,7 @@ func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Ti
 	err = s.db.QueryRow(ctx, q, charCode, date).Scan(&vunit_rate)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return vunit_rate, service_models.ErrNoCurrency
+			return vunit_rate, domain.ErrNoCurrency
 		}
 		return vunit_rate, e.WrapIfErr("can't get currency from DB", err)
 	}

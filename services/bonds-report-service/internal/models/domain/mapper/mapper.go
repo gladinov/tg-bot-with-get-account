@@ -1,32 +1,17 @@
-package service
+package mapper
 
-import (
-	"bonds-report-service/internal/clients/tinkoffApi"
-	"bonds-report-service/internal/service/service_models"
-	"log/slog"
-	"time"
-)
+import "bonds-report-service/internal/models/domain"
 
-func (c *Client) TransOperations(operations []tinkoffApi.Operation) []service_models.Operation {
+func MapOperationToOperationWithoutCustomTypes(operations []domain.Operation) []domain.OperationWithoutCustomTypes {
 	const op = "service.TransformOperations"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-		)
-	}()
-
-	transformOperations := make([]service_models.Operation, 0)
+	transformOperations := make([]domain.OperationWithoutCustomTypes, 0, len(operations))
 	for _, v := range operations {
-		transformOperation := service_models.Operation{
+		transformOperation := domain.OperationWithoutCustomTypes{
 			Currency:          v.Currency,
-			BrokerAccountId:   v.BrokerAccountId,
-			Operation_Id:      v.Operation_Id,
-			ParentOperationId: v.ParentOperationId,
+			BrokerAccountID:   v.BrokerAccountID,
+			OperationID:       v.OperationID,
+			ParentOperationID: v.ParentOperationID,
 			Name:              v.Name,
 			Date:              v.Date,
 			Type:              v.Type,

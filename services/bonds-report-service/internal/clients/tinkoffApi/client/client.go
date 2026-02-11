@@ -9,9 +9,9 @@ import (
 
 type Client struct {
 	logger                   *slog.Logger
-	instrumentsTinkoffClient instrumentsclient.InstrumentsClient
-	portfolioTinkoffClient   portfolioclient.PortfolioClient
-	analyticsTinkoffClient   analyticsclient.AnalyticsClient
+	InstrumentsTinkoffClient instrumentsclient.InstrumentsClient
+	PortfolioTinkoffClient   portfolioclient.PortfolioClient
+	AnalyticsTinkoffClient   analyticsclient.AnalyticsClient
 }
 
 func NewTinkoffClient(logger *slog.Logger,
@@ -21,8 +21,8 @@ func NewTinkoffClient(logger *slog.Logger,
 ) *Client {
 	return &Client{
 		logger:                   logger,
-		instrumentsTinkoffClient: instrumentsTinkoffClient,
-		portfolioTinkoffClient:   portfolioTinkoffClient,
-		analyticsTinkoffClient:   analyticsTinkoffClient,
+		InstrumentsTinkoffClient: instrumentsTinkoffClient,
+		PortfolioTinkoffClient:   portfolioTinkoffClient,
+		AnalyticsTinkoffClient:   analyticsTinkoffClient,
 	}
 }

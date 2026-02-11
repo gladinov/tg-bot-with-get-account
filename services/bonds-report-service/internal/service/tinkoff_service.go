@@ -1,7 +1,7 @@
 package service
 
 import (
-	"bonds-report-service/internal/clients/tinkoffApi"
+	"bonds-report-service/internal/models/domain"
 	"context"
 	"errors"
 	"fmt"
@@ -24,7 +24,7 @@ var (
 	ErrEmptyPositionUid        = errors.New("positionUid could not be empty string")
 )
 
-func (c *Client) TinkoffGetPortfolio(ctx context.Context, account tinkoffApi.Account) (_ tinkoffApi.Portfolio, err error) {
+func (c *Client) TinkoffGetPortfolio(ctx context.Context, account domain.Account) (_ domain.Portfolio, err error) {
 	const op = "service.TinkoffGetPortfolio"
 
 	start := time.Now()
@@ -37,34 +37,30 @@ func (c *Client) TinkoffGetPortfolio(ctx context.Context, account tinkoffApi.Acc
 			slog.Any("error", err),
 		)
 	}()
-	portfolioRequest := tinkoffApi.PortfolioRequest{
-		AccountID:     account.Id,
-		AccountStatus: account.Status,
-	}
 
 	switch account.Status {
 	case 0:
-		return tinkoffApi.Portfolio{}, ErrUnspecifiedAccount
+		return domain.Portfolio{}, ErrUnspecifiedAccount
 	case 1:
-		return tinkoffApi.Portfolio{}, ErrNewNotOpenYetAccount
+		return domain.Portfolio{}, ErrNewNotOpenYetAccount
 	case 3:
-		return tinkoffApi.Portfolio{}, ErrCloseAccount
+		return domain.Portfolio{}, ErrCloseAccount
 	}
 
 	if account.AccessLevel == 3 {
-		return tinkoffApi.Portfolio{}, ErrNoAcces
+		return domain.Portfolio{}, ErrNoAcces
 	}
-	if account.Id == "" {
-		return tinkoffApi.Portfolio{}, ErrEmptyAccountIdInRequest
+	if account.ID == "" {
+		return domain.Portfolio{}, ErrEmptyAccountIdInRequest
 	}
-	portfolio, err := c.Tinkoffapi.GetPortfolio(ctx, portfolioRequest)
+	portfolio, err := c.Tinkoffapi.PortfolioTinkoffClient.GetPortfolio(ctx, account.ID, account.Status)
 	if err != nil {
-		return tinkoffApi.Portfolio{}, fmt.Errorf("op:%s, %s", op, err)
+		return domain.Portfolio{}, fmt.Errorf("op:%s, %s", op, err)
 	}
 	return portfolio, nil
 }
 
-func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fromDate time.Time) (_ []tinkoffApi.Operation, err error) {
+func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fromDate time.Time) (_ []domain.Operation, err error) {
 	const op = "service.TinkoffGetPortfolio"
 
 	start := time.Now()
@@ -84,18 +80,14 @@ func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fro
 	if fromDate.After(now) {
 		return nil, fmt.Errorf("op:%s, from can't be more than the current date", op)
 	}
-	operationRequest := tinkoffApi.OperationsRequest{
-		AccountID: accountId,
-		Date:      fromDate,
-	}
-	tinkoffOperations, err := c.Tinkoffapi.GetOperations(ctx, operationRequest)
+	tinkoffOperations, err := c.Tinkoffapi.PortfolioTinkoffClient.GetOperations(ctx, accountId, fromDate)
 	if err != nil {
 		return nil, e.WrapIfErr(fmt.Sprintf("op:%s,", op), err)
 	}
 	return tinkoffOperations, nil
 }
 
-func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string) (_ tinkoffApi.BondIdentIdentifiers, err error) {
+func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string) (_ domain.BondIdentIdentifiers, err error) {
 	const op = "service.TinkoffGetBondActions"
 
 	start := time.Now()
@@ -110,16 +102,16 @@ func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string
 	}()
 
 	if instrumentUid == "" {
-		return tinkoffApi.BondIdentIdentifiers{}, ErrEmptyInstrumentUid
+		return domain.BondIdentIdentifiers{}, ErrEmptyInstrumentUid
 	}
-	bondActions, err := c.Tinkoffapi.GetBondsActions(ctx, instrumentUid)
+	bondActions, err := c.Tinkoffapi.AnalyticsTinkoffClient.GetBondsActions(ctx, instrumentUid)
 	if err != nil {
-		return tinkoffApi.BondIdentIdentifiers{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.BondIdentIdentifiers{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
 	return bondActions, nil
 }
 
-func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (_ tinkoffApi.Future, err error) {
+func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (_ domain.Future, err error) {
 	const op = "service.TinkoffGetFutureBy"
 
 	start := time.Now()
@@ -133,16 +125,16 @@ func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (_ tinkoff
 		)
 	}()
 	if figi == "" {
-		return tinkoffApi.Future{}, ErrEmptyFigi
+		return domain.Future{}, ErrEmptyFigi
 	}
-	future, err := c.Tinkoffapi.GetFutureBy(ctx, figi)
+	future, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetFutureBy(ctx, figi)
 	if err != nil {
-		return tinkoffApi.Future{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.Future{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
 	return future, nil
 }
 
-func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (_ tinkoffApi.Bond, err error) {
+func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (_ domain.Bond, err error) {
 	const op = "service.TinkoffGetBondByUid"
 
 	start := time.Now()
@@ -156,16 +148,16 @@ func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (_ tinkoff
 		)
 	}()
 	if uid == "" {
-		return tinkoffApi.Bond{}, ErrEmptyUid
+		return domain.Bond{}, ErrEmptyUid
 	}
-	bond, err := c.Tinkoffapi.GetBondByUid(ctx, uid)
+	bond, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetBondByUid(ctx, uid)
 	if err != nil {
-		return tinkoffApi.Bond{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.Bond{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
 	return bond, nil
 }
 
-func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ tinkoffApi.Currency, err error) {
+func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ domain.Currency, err error) {
 	const op = "service.TinkoffGetCurrencyBy"
 
 	start := time.Now()
@@ -179,16 +171,16 @@ func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ tinko
 		)
 	}()
 	if figi == "" {
-		return tinkoffApi.Currency{}, ErrEmptyFigi
+		return domain.Currency{}, ErrEmptyFigi
 	}
-	currency, err := c.Tinkoffapi.GetCurrencyBy(ctx, figi)
+	currency, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetCurrencyBy(ctx, figi)
 	if err != nil {
-		return tinkoffApi.Currency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.Currency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
 	return currency, nil
 }
 
-func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUid string) (_ tinkoffApi.BaseShareFutureValuteResponse, err error) {
+func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUid string) (_ domain.ShareCurrency, err error) {
 	const op = "service.TinkoffGetBaseShareFutureValute"
 
 	start := time.Now()
@@ -203,33 +195,32 @@ func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUi
 	}()
 
 	if positionUid == "" {
-		return tinkoffApi.BaseShareFutureValuteResponse{}, ErrEmptyPositionUid
+		return domain.ShareCurrency{}, ErrEmptyPositionUid
 	}
 
-	instrumentsShortResponce, err := c.Tinkoffapi.FindBy(ctx, positionUid)
+	instrumentsShortResponce, err := c.Tinkoffapi.InstrumentsTinkoffClient.FindBy(ctx, positionUid)
 	if err != nil {
-		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
 	if len(instrumentsShortResponce) == 0 {
-		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, error:can't get base share future valute", op)
+		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error:can't get base share future valute", op)
 	}
 	instrument := instrumentsShortResponce[0]
 	if instrument.InstrumentType != "share" {
-		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, instrument is not share", op)
+		return domain.ShareCurrency{}, fmt.Errorf("op: %s, instrument is not share", op)
 	}
 	if instrument.Figi == "" {
-		return tinkoffApi.BaseShareFutureValuteResponse{}, ErrEmptyFigi
+		return domain.ShareCurrency{}, ErrEmptyFigi
 	}
-	currency, err := c.Tinkoffapi.GetShareCurrencyBy(ctx, instrument.Figi)
+	currency, err := c.Tinkoffapi.InstrumentsTinkoffClient.GetShareCurrencyBy(ctx, instrument.Figi)
 	if err != nil {
-		return tinkoffApi.BaseShareFutureValuteResponse{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
-	var resp tinkoffApi.BaseShareFutureValuteResponse
-	resp.Currency = currency.Currency
-	return resp, nil
+
+	return currency, nil
 }
 
-func (c *Client) TinkoffFindBy(ctx context.Context, query string) (_ []tinkoffApi.InstrumentShort, err error) {
+func (c *Client) TinkoffFindBy(ctx context.Context, query string) (_ []domain.InstrumentShort, err error) {
 	const op = "service.TinkoffFindBy"
 
 	start := time.Now()
@@ -246,14 +237,14 @@ func (c *Client) TinkoffFindBy(ctx context.Context, query string) (_ []tinkoffAp
 	if query == "" {
 		return nil, ErrEmptyQuery
 	}
-	resp, err := c.Tinkoffapi.FindBy(ctx, query)
+	resp, err := c.Tinkoffapi.InstrumentsTinkoffClient.FindBy(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
 	return resp, nil
 }
 
-func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (_ tinkoffApi.LastPriceResponse, err error) {
+func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (_ domain.LastPrice, err error) {
 	const op = "service.TinkoffGetLastPriceInPersentageToNominal"
 
 	start := time.Now()
@@ -268,11 +259,11 @@ func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, i
 	}()
 
 	if instrumentUid == "" {
-		return tinkoffApi.LastPriceResponse{}, ErrEmptyInstrumentUid
+		return domain.LastPrice{}, ErrEmptyInstrumentUid
 	}
-	lastPrice, err := c.Tinkoffapi.GetLastPriceInPersentageToNominal(ctx, instrumentUid)
+	lastPrice, err := c.Tinkoffapi.AnalyticsTinkoffClient.GetLastPriceInPersentageToNominal(ctx, instrumentUid)
 	if err != nil {
-		return tinkoffApi.LastPriceResponse{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.LastPrice{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
 	}
 	return lastPrice, nil
 }

@@ -1,19 +1,15 @@
 package repository
 
 import (
+	"bonds-report-service/internal/models/domain"
 	"bonds-report-service/internal/repository/postgreSQL"
 	"bonds-report-service/internal/service/service_models"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	config "bonds-report-service/internal/configs"
-
-	servicet_sqlite "bonds-report-service/internal/repository/sqlite"
-
-	"github.com/gladinov/rootpathfinder"
 )
 
 type Storage interface {
@@ -27,8 +23,8 @@ type Storage interface {
 
 type OperationStorage interface {
 	LastOperationTime(ctx context.Context, chatID int, accountId string) (time.Time, error)
-	SaveOperations(ctx context.Context, chatID int, accountId string, operations []service_models.Operation) error
-	GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) ([]service_models.Operation, error)
+	SaveOperations(ctx context.Context, chatID int, accountId string, operations []domain.OperationWithoutCustomTypes) error
+	GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) ([]domain.OperationWithoutCustomTypes, error)
 }
 
 type BondReportStorage interface {
@@ -42,7 +38,7 @@ type GeneralBondReportStorage interface {
 }
 
 type CurrencyStorage interface {
-	SaveCurrency(ctx context.Context, currencies service_models.Currencies, date time.Time) error
+	SaveCurrency(ctx context.Context, currencies domain.CurrenciesCBR, date time.Time) error
 	GetCurrency(ctx context.Context, currency string, date time.Time) (float64, error)
 }
 
@@ -64,43 +60,17 @@ const (
 func MustInitNewStorage(ctx context.Context, config config.Config, logg *slog.Logger) Storage {
 	const op = "repository.MustInitNewStorage"
 	logg.Debug(fmt.Sprintf("start %s", op))
-	switch config.DbType {
-	case postreSQL:
-		serviceStorage, err := postgreSQL.NewStorage(logg, config)
-		if err != nil {
-			logg.Debug("failed to create PostgreSQL storage", "err", err)
-			panic(err)
-		}
-		err = serviceStorage.InitDB(ctx)
-		if err != nil {
-			logg.Debug("failed to init PostgreSQL database", "err", err)
-			panic(err)
-		}
-		logg.Info("PostgreSQL storage initialized successfully")
-		return serviceStorage
 
-	case SQLite:
-		serviceStorageAbsolutPath, err := rootpathfinder.PathFromWD(config.RootPath, config.ServiceStorageSQLLitePath)
-		if err != nil {
-			logg.Debug("failed to resolve SQLite storage path", "err", err)
-			panic(err)
-		}
-
-		serviceStorage, err := servicet_sqlite.New(serviceStorageAbsolutPath)
-		if err != nil {
-			logg.Debug("failed to create SQLite storage", "err", err)
-			panic(err)
-		}
-
-		if err := serviceStorage.Init(ctx); err != nil {
-			logg.Debug("failed to init SQLite database", "err", err)
-			panic(err)
-		}
-		logg.Info("SQLite storage initialized successfully", "path", serviceStorageAbsolutPath)
-		return serviceStorage
-	default:
-		err := errors.New("possible init only SQLite or PostgreSQL databases")
-		logg.Debug("unsupported db type", "db_type", config.DbType, "err", err)
+	serviceStorage, err := postgreSQL.NewStorage(logg, config)
+	if err != nil {
+		logg.Debug("failed to create PostgreSQL storage", "err", err)
 		panic(err)
 	}
+	err = serviceStorage.InitDB(ctx)
+	if err != nil {
+		logg.Debug("failed to init PostgreSQL database", "err", err)
+		panic(err)
+	}
+	logg.Info("PostgreSQL storage initialized successfully")
+	return serviceStorage
 }

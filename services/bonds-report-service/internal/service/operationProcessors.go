@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bonds-report-service/internal/models/domain"
 	"bonds-report-service/internal/service/service_models"
 	"context"
 	"errors"
@@ -72,7 +73,7 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *ser
 	return nil
 }
 
-func (c *Client) ProcessOperations(ctx context.Context, operations []service_models.Operation) (_ *service_models.ReportPositions, err error) {
+func (c *Client) ProcessOperations(ctx context.Context, operations []domain.OperationWithoutCustomTypes) (_ *service_models.ReportPositions, err error) {
 	const op = "service.ProcessOperations"
 
 	start := time.Now()
@@ -177,7 +178,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []service_mod
 
 // 2	Удержание НДФЛ по купонам.
 // 8    Удержание налога по дивидендам.
-func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends"
 
 	start := time.Now()
@@ -204,7 +205,7 @@ func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(opera
 }
 
 // 10	Частичное погашение облигаций.
-func (c *Client) processPartialRedemptionOfBonds(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPartialRedemptionOfBonds(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processPartialRedemptionOfBonds"
 
 	start := time.Now()
@@ -233,7 +234,7 @@ func (c *Client) processPartialRedemptionOfBonds(operation service_models.Operat
 // 15	Покупка ЦБ.
 // 16	Покупка ЦБ с карты.
 // 57   Перевод ценных бумаг с ИИС на Брокерский счет
-func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processPurchaseOfSecurities"
 
 	start := time.Now()
@@ -274,7 +275,7 @@ func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation serv
 }
 
 // 17	Перевод ценных бумаг из другого депозитария.
-func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processTransferOfSecuritiesFromAnotherDepository"
 
 	start := time.Now()
@@ -319,7 +320,7 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Co
 }
 
 // 21	Выплата дивидендов.
-func (c *Client) processPaymentOfDividends(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPaymentOfDividends(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processPaymentOfDividends"
 
 	start := time.Now()
@@ -348,7 +349,7 @@ func (c *Client) processPaymentOfDividends(operation service_models.Operation, p
 }
 
 // 23 Выплата купонов.
-func (c *Client) processPaymentOfCoupons(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processPaymentOfCoupons(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processPaymentOfCoupons"
 
 	start := time.Now()
@@ -377,7 +378,7 @@ func (c *Client) processPaymentOfCoupons(operation service_models.Operation, pro
 }
 
 // 47	Гербовый сбор.
-func (c *Client) processStampDuty(operation service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processStampDuty(operation domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processStampDuty"
 
 	start := time.Now()
@@ -405,7 +406,7 @@ func (c *Client) processStampDuty(operation service_models.Operation, processPos
 }
 
 // 22	Продажа ЦБ.
-func (c *Client) processSellOfSecurities(operation *service_models.Operation, processPosition *service_models.ReportPositions) (err error) {
+func (c *Client) processSellOfSecurities(operation *domain.OperationWithoutCustomTypes, processPosition *service_models.ReportPositions) (err error) {
 	const op = "service.processSellOfSecurities"
 
 	start := time.Now()
@@ -459,7 +460,7 @@ end:
 	return nil
 }
 
-func isCurrentQuantityGreaterThanSellQuantity(operation *service_models.Operation, currPosition *service_models.PositionByFIFO) error {
+func isCurrentQuantityGreaterThanSellQuantity(operation *domain.OperationWithoutCustomTypes, currPosition *service_models.PositionByFIFO) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64
@@ -482,7 +483,7 @@ func isEqualCurrentQuantityAndSellQuantity(processPosition *service_models.Repor
 	return nil
 }
 
-func isCurrentQuantityLessThanSellQuantity(operation *service_models.Operation, currPosition *service_models.PositionByFIFO) error {
+func isCurrentQuantityLessThanSellQuantity(operation *domain.OperationWithoutCustomTypes, currPosition *service_models.PositionByFIFO) error {
 	currentQuantity := currPosition.Quantity
 	sellQuantity := operation.QuantityDone
 	var proportion float64

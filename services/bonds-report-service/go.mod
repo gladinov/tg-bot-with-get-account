@@ -7,11 +7,9 @@ require (
 	github.com/gladinov/contracts v0.1.5
 	github.com/gladinov/e v0.2.0
 	github.com/gladinov/mylogger v0.3.3
-	github.com/gladinov/rootpathfinder v0.1.0
 	github.com/gladinov/traceidgenerator v0.1.0
 	github.com/gladinov/valuefromcontext v0.2.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
-	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/image v0.34.0
 )

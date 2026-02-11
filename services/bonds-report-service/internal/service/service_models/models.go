@@ -1,44 +1,14 @@
 package service_models
 
 import (
-	"errors"
 	"time"
 )
-
-var ErrEmptyUids = errors.New("no uids")
-var ErrNoCurrency = errors.New("no currency")
-var ErrNoOpperations = errors.New("no operations")
-var ErrEmptyReport = errors.New("no elements in report")
 
 const (
 	RubBonds      = "bondsInRub"
 	ReplacedBonds = "replacedBonds"
 	EuroBonds     = "euroBonds"
 )
-
-type Operation struct {
-	BrokerAccountId   string    `json:"brokerAccountId,omitempty"`
-	Currency          string    `json:"currency,omitempty"`
-	Operation_Id      string    `json:"operationId,omitempty"`
-	ParentOperationId string    `json:"parentOperationId,omitempty"`
-	Name              string    `json:"name,omitempty"`
-	Date              time.Time `json:"date,omitempty"`
-	Type              int64     `json:"type,omitempty"`
-	Description       string    `json:"description,omitempty"`
-	InstrumentUid     string    `json:"instrumentUid,omitempty"`
-	Figi              string    `json:"figi,omitempty"`
-	InstrumentType    string    `json:"instrumentType,omitempty"`
-	InstrumentKind    string    `json:"instrumentKind,omitempty"`
-	PositionUid       string    `json:"positionUid,omitempty"`
-	Payment           float64   `json:"payment,omitempty"`
-	Price             float64   `json:"price,omitempty"`
-	Commission        float64   `json:"commission,omitempty"`
-	Yield             float64   `json:"yield,omitempty"`
-	YieldRelative     float64   `json:"yieldRelative,omitempty"`
-	AccruedInt        float64   `json:"accruedInt,omitempty"`
-	QuantityDone      float64   `json:"quantityDone,omitempty"`
-	AssetUid          string    `json:"assetUid,omitempty"`
-}
 
 type ReportPositions struct {
 	Quantity         float64
@@ -126,20 +96,6 @@ type GeneralBondReportPosition struct {
 type PortfolioPosition struct {
 	InstrumentType string
 	AssetUid       string
-}
-
-type Currency struct {
-	Date      time.Time
-	NumCode   string
-	CharCode  string
-	Nominal   int
-	Name      string
-	Value     float64
-	VunitRate float64
-}
-
-type Currencies struct {
-	CurrenciesMap map[string]Currency
 }
 
 type TickerTimeKey struct {

@@ -1,10 +1,17 @@
-package models
+package moex
 
 import "time"
 
 type SpecificationsRequest struct {
 	Ticker string    `json:"ticker"`
 	Date   time.Time `json:"date"`
+}
+
+func NewSpecificationsRequest(ticker string, date time.Time) *SpecificationsRequest {
+	return &SpecificationsRequest{
+		Ticker: ticker,
+		Date:   date,
+	}
 }
 
 type Values struct {
@@ -20,57 +27,14 @@ type Values struct {
 	Duration        NullFloat64 `json:"DURATION"` // дюрация (средневзвешенный срок платежей)
 }
 
-type Nullable interface {
-	IsSet() bool
-	IsNull() bool
-}
-
 type NullString struct {
 	Value  string `json:"value"`
 	IsSet  bool   `json:"isSet"`
 	IsNull bool   `json:"isNull"`
 }
 
-func (ns NullString) GetValue() string {
-	return ns.Value
-}
-
-func (ns NullString) GetIsSet() bool {
-	return ns.IsSet
-}
-
-func (ns NullString) GetIsNull() bool {
-	return ns.IsNull
-}
-
 type NullFloat64 struct {
 	Value  float64 `json:"value"`
 	IsSet  bool    `json:"isSet"`
 	IsNull bool    `json:"isNull"`
-}
-
-func (nf NullFloat64) GetValue() float64 {
-	return nf.Value
-}
-
-func (nf NullFloat64) GetIsSet() bool {
-	return nf.IsSet
-}
-
-func (nf NullFloat64) GetIsNull() bool {
-	return nf.IsNull
-}
-
-func (nf NullFloat64) IsHasValue() bool {
-	if !nf.IsSet || nf.IsNull {
-		return false
-	}
-	return true
-}
-
-func (ns NullString) IsHasValue() bool {
-	if !ns.IsSet || ns.IsNull {
-		return false
-	}
-	return true
 }
