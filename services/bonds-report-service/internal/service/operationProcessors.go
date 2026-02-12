@@ -29,11 +29,11 @@ const (
 	baseTaxRate                                    = 0.13  // Налог с продажи ЦБ
 )
 
-func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *domain.PositionByFIFO) (err error) {
+func (s *Service) GetSpecificationsFromTinkoff(ctx context.Context, position *domain.PositionByFIFO) (err error) {
 	const op = "service.GetSpecificationsFromTinkoff"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -44,7 +44,7 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *dom
 		err = e.WrapIfErr("could not get specifications from tinkoff", err)
 	}()
 
-	resSpecFromTinkoff, err := c.TinkoffGetBondActions(ctx, position.InstrumentUid)
+	resSpecFromTinkoff, err := s.TinkoffGetBondActions(ctx, position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex " + err.Error())
 	}
@@ -55,7 +55,7 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *dom
 		position.Replaced = true
 		isoCurrName := resSpecFromTinkoff.NominalCurrency
 		position.CurrencyIfReplaced = isoCurrName
-		vunit_rate, err := c.GetCurrencyFromCB(ctx, isoCurrName, date)
+		vunit_rate, err := s.GetCurrencyFromCB(ctx, isoCurrName, date)
 		if err != nil {
 			return e.WrapIfErr("getSpecificationsFromMoex err", err)
 		}
@@ -63,7 +63,7 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *dom
 	} else {
 		position.Nominal = resSpecFromTinkoff.Nominal.ToFloat()
 	}
-	resp, err := c.TinkoffGetLastPriceInPersentageToNominal(ctx, position.InstrumentUid)
+	resp, err := s.TinkoffGetLastPriceInPersentageToNominal(ctx, position.InstrumentUid)
 	if err != nil {
 		return errors.New("service:GetSpecificationsFromMoex:" + err.Error())
 	}
@@ -72,11 +72,11 @@ func (c *Client) GetSpecificationsFromTinkoff(ctx context.Context, position *dom
 	return nil
 }
 
-func (c *Client) ProcessOperations(ctx context.Context, operations []domain.OperationWithoutCustomTypes) (_ *domain.ReportPositions, err error) {
+func (s *Service) ProcessOperations(ctx context.Context, operations []domain.OperationWithoutCustomTypes) (_ *domain.ReportPositions, err error) {
 	const op = "service.ProcessOperations"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -93,14 +93,14 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 		// 2	Удержание НДФЛ по купонам.
 		// 8    Удержание налога по дивидендам.
 		case WithholdingOfPersonalIncomeTaxOnCoupons, WithholdingOfPersonalIncomeTaxOnDividends:
-			err := c.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation, processPosition)
+			err := s.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation, processPosition)
 			if err != nil {
 				return nil, err
 			}
 
 			// 10	Частичное погашение облигаций.
 		case PartialRedemptionOfBonds:
-			err := c.processPartialRedemptionOfBonds(operation, processPosition)
+			err := s.processPartialRedemptionOfBonds(operation, processPosition)
 			if err != nil {
 				return nil, err
 			}
@@ -114,7 +114,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 			if operation.QuantityDone == 0 {
 				continue
 			} else {
-				err := c.processPurchaseOfSecurities(ctx, operation, processPosition)
+				err := s.processPurchaseOfSecurities(ctx, operation, processPosition)
 				if err != nil {
 					return nil, err
 				}
@@ -126,7 +126,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 			if operation.QuantityDone == 0 {
 				continue
 			} else {
-				err := c.processTransferOfSecuritiesFromAnotherDepository(ctx, operation, processPosition)
+				err := s.processTransferOfSecuritiesFromAnotherDepository(ctx, operation, processPosition)
 				if err != nil {
 					return nil, err
 				}
@@ -137,7 +137,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 
 			// 21	Выплата дивидендов.
 		case PaymentOfDividends:
-			err := c.processPaymentOfDividends(operation, processPosition)
+			err := s.processPaymentOfDividends(operation, processPosition)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +148,7 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 			if operation.QuantityDone == 0 {
 				continue
 			} else {
-				err := c.processSellOfSecurities(&operation, processPosition)
+				err := s.processSellOfSecurities(&operation, processPosition)
 				if err != nil {
 					return nil, err
 				}
@@ -156,14 +156,14 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 
 			// 23 Выплата купонов.
 		case PaymentOfCoupons:
-			err := c.processPaymentOfCoupons(operation, processPosition)
+			err := s.processPaymentOfCoupons(operation, processPosition)
 			if err != nil {
 				return nil, err
 			}
 
 			// 47	Гербовый сбор.
 		case StampDuty:
-			err := c.processStampDuty(operation, processPosition)
+			err := s.processStampDuty(operation, processPosition)
 			if err != nil {
 				return nil, err
 			}
@@ -177,11 +177,11 @@ func (c *Client) ProcessOperations(ctx context.Context, operations []domain.Oper
 
 // 2	Удержание НДФЛ по купонам.
 // 8    Удержание налога по дивидендам.
-func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -204,11 +204,11 @@ func (c *Client) processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(opera
 }
 
 // 10	Частичное погашение облигаций.
-func (c *Client) processPartialRedemptionOfBonds(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processPartialRedemptionOfBonds(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPartialRedemptionOfBonds"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -233,11 +233,11 @@ func (c *Client) processPartialRedemptionOfBonds(operation domain.OperationWitho
 // 15	Покупка ЦБ.
 // 16	Покупка ЦБ с карты.
 // 57   Перевод ценных бумаг с ИИС на Брокерский счет
-func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processPurchaseOfSecurities(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPurchaseOfSecurities"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -263,7 +263,7 @@ func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation doma
 		TotalComission: operation.Commission,
 	}
 
-	err = c.GetSpecificationsFromTinkoff(ctx, &position)
+	err = s.GetSpecificationsFromTinkoff(ctx, &position)
 	if err != nil {
 		return errors.New("service:processPurchaseOfSecurities:" + err.Error())
 	}
@@ -274,11 +274,11 @@ func (c *Client) processPurchaseOfSecurities(ctx context.Context, operation doma
 }
 
 // 17	Перевод ценных бумаг из другого депозитария.
-func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processTransferOfSecuritiesFromAnotherDepository(ctx context.Context, operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processTransferOfSecuritiesFromAnotherDepository"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -307,7 +307,7 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Co
 		position.BuyPrice = EuroTransBuyCost
 	}
 
-	err = c.GetSpecificationsFromTinkoff(ctx, &position)
+	err = s.GetSpecificationsFromTinkoff(ctx, &position)
 	if err != nil {
 		return errors.New("service:processTransferOfSecuritiesFromAnotherDepository:" + err.Error())
 	}
@@ -319,11 +319,11 @@ func (c *Client) processTransferOfSecuritiesFromAnotherDepository(ctx context.Co
 }
 
 // 21	Выплата дивидендов.
-func (c *Client) processPaymentOfDividends(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processPaymentOfDividends(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPaymentOfDividends"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -348,11 +348,11 @@ func (c *Client) processPaymentOfDividends(operation domain.OperationWithoutCust
 }
 
 // 23 Выплата купонов.
-func (c *Client) processPaymentOfCoupons(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processPaymentOfCoupons(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processPaymentOfCoupons"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -377,11 +377,11 @@ func (c *Client) processPaymentOfCoupons(operation domain.OperationWithoutCustom
 }
 
 // 47	Гербовый сбор.
-func (c *Client) processStampDuty(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processStampDuty(operation domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processStampDuty"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -405,11 +405,11 @@ func (c *Client) processStampDuty(operation domain.OperationWithoutCustomTypes, 
 }
 
 // 22	Продажа ЦБ.
-func (c *Client) processSellOfSecurities(operation *domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
+func (s *Service) processSellOfSecurities(operation *domain.OperationWithoutCustomTypes, processPosition *domain.ReportPositions) (err error) {
 	const op = "service.processSellOfSecurities"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {

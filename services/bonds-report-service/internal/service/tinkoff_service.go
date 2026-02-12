@@ -2,268 +2,157 @@ package service
 
 import (
 	"bonds-report-service/internal/models/domain"
+	"bonds-report-service/internal/utils/logging"
 	"context"
-	"errors"
-	"fmt"
-	"log/slog"
-	"time"
 
 	"github.com/gladinov/e"
 )
 
-var (
-	ErrCloseAccount            = errors.New("close account haven't portffolio positions")
-	ErrNoAcces                 = errors.New("this token no access to account")
-	ErrEmptyAccountIdInRequest = errors.New("accountId could not be empty")
-	ErrUnspecifiedAccount      = errors.New("account is unspecified")
-	ErrNewNotOpenYetAccount    = errors.New("accountId is not opened yet")
-	ErrEmptyInstrumentUid      = errors.New("instrumentUid could not be empty string")
-	ErrEmptyFigi               = errors.New("figi could not be empty string")
-	ErrEmptyQuery              = errors.New("query could not be empty")
-	ErrEmptyUid                = errors.New("uid could not be empty string")
-	ErrEmptyPositionUid        = errors.New("positionUid could not be empty string")
-)
-
-func (c *Client) TinkoffGetPortfolio(ctx context.Context, account domain.Account) (_ domain.Portfolio, err error) {
+func (s *Service) TinkoffGetPortfolio(ctx context.Context, account domain.Account) (_ domain.Portfolio, err error) {
 	const op = "service.TinkoffGetPortfolio"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
-	switch account.Status {
-	case 0:
-		return domain.Portfolio{}, ErrUnspecifiedAccount
-	case 1:
-		return domain.Portfolio{}, ErrNewNotOpenYetAccount
-	case 3:
-		return domain.Portfolio{}, ErrCloseAccount
-	}
-
-	if account.AccessLevel == 3 {
-		return domain.Portfolio{}, ErrNoAcces
-	}
-	if account.ID == "" {
-		return domain.Portfolio{}, ErrEmptyAccountIdInRequest
-	}
-	portfolio, err := c.Tinkoff.Portfolio.GetPortfolio(ctx, account.ID, account.Status)
+	err = account.ValidateForPortfolio()
 	if err != nil {
-		return domain.Portfolio{}, fmt.Errorf("op:%s, %s", op, err)
+		return domain.Portfolio{}, e.WrapIfErr("failed to validate account", err)
+	}
+	portfolio, err := s.Tinkoff.Portfolio.GetPortfolio(ctx, account.ID, account.Status)
+	if err != nil {
+		return domain.Portfolio{}, e.WrapIfErr("failed to get portfolio", err)
 	}
 	return portfolio, nil
 }
 
-func (c *Client) TinkoffGetOperations(ctx context.Context, accountId string, fromDate time.Time) (_ []domain.Operation, err error) {
-	const op = "service.TinkoffGetPortfolio"
+func (s *Service) TinkoffGetOperations(ctx context.Context, opRequest domain.OperationsRequest) (_ []domain.Operation, err error) {
+	const op = "service.TinkoffGetOperations"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
-	now := time.Now().UTC()
-	if accountId == "" {
-		return nil, fmt.Errorf("%s: empty account ID", op)
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
+	if err := opRequest.Validate(s.now()); err != nil {
+		return nil, e.WrapIfErr("failed to validate", err)
 	}
-	if fromDate.After(now) {
-		return nil, fmt.Errorf("op:%s, from can't be more than the current date", op)
-	}
-	tinkoffOperations, err := c.Tinkoff.Portfolio.GetOperations(ctx, accountId, fromDate)
+
+	tinkoffOperations, err := s.Tinkoff.Portfolio.GetOperations(ctx, opRequest.AccountID, opRequest.FromDate)
 	if err != nil {
-		return nil, e.WrapIfErr(fmt.Sprintf("op:%s,", op), err)
+		return nil, e.WrapIfErr("failed get operations from tinkoff", err)
 	}
 	return tinkoffOperations, nil
 }
 
-func (c *Client) TinkoffGetBondActions(ctx context.Context, instrumentUid string) (_ domain.BondIdentIdentifiers, err error) {
+func (s *Service) TinkoffGetBondActions(ctx context.Context, instrumentUid string) (_ domain.BondIdentIdentifiers, err error) {
 	const op = "service.TinkoffGetBondActions"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	if instrumentUid == "" {
-		return domain.BondIdentIdentifiers{}, ErrEmptyInstrumentUid
+		return domain.BondIdentIdentifiers{}, domain.ErrEmptyInstrumentUid
 	}
-	bondActions, err := c.Tinkoff.Analytics.GetBondsActions(ctx, instrumentUid)
+	bondActions, err := s.Tinkoff.Analytics.GetBondsActions(ctx, instrumentUid)
 	if err != nil {
-		return domain.BondIdentIdentifiers{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.BondIdentIdentifiers{}, e.WrapIfErr("failed get bond actions from tinkoff", err)
 	}
 	return bondActions, nil
 }
 
-func (c *Client) TinkoffGetFutureBy(ctx context.Context, figi string) (_ domain.Future, err error) {
+func (s *Service) TinkoffGetFutureBy(ctx context.Context, figi string) (_ domain.Future, err error) {
 	const op = "service.TinkoffGetFutureBy"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	if figi == "" {
-		return domain.Future{}, ErrEmptyFigi
+		return domain.Future{}, domain.ErrEmptyFigi
 	}
-	future, err := c.Tinkoff.Instruments.GetFutureBy(ctx, figi)
+	future, err := s.Tinkoff.Instruments.GetFutureBy(ctx, figi)
 	if err != nil {
-		return domain.Future{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.Future{}, e.WrapIfErr("failed get future by from tinkoff", err)
 	}
 	return future, nil
 }
 
-func (c *Client) TinkoffGetBondByUid(ctx context.Context, uid string) (_ domain.Bond, err error) {
+func (s *Service) TinkoffGetBondByUid(ctx context.Context, uid string) (_ domain.Bond, err error) {
 	const op = "service.TinkoffGetBondByUid"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	if uid == "" {
-		return domain.Bond{}, ErrEmptyUid
+		return domain.Bond{}, domain.ErrEmptyUid
 	}
-	bond, err := c.Tinkoff.Instruments.GetBondByUid(ctx, uid)
+	bond, err := s.Tinkoff.Instruments.GetBondByUid(ctx, uid)
 	if err != nil {
-		return domain.Bond{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.Bond{}, e.WrapIfErr("failed get bond by uid from tinkoff", err)
 	}
 	return bond, nil
 }
 
-func (c *Client) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ domain.Currency, err error) {
+func (s *Service) TinkoffGetCurrencyBy(ctx context.Context, figi string) (_ domain.Currency, err error) {
 	const op = "service.TinkoffGetCurrencyBy"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	if figi == "" {
-		return domain.Currency{}, ErrEmptyFigi
+		return domain.Currency{}, domain.ErrEmptyFigi
 	}
-	currency, err := c.Tinkoff.Instruments.GetCurrencyBy(ctx, figi)
+	currency, err := s.Tinkoff.Instruments.GetCurrencyBy(ctx, figi)
 	if err != nil {
-		return domain.Currency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.Currency{}, e.WrapIfErr("failed get currency by from tinkoff", err)
 	}
 	return currency, nil
 }
 
-func (c *Client) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUid string) (_ domain.ShareCurrency, err error) {
+func (s *Service) TinkoffGetBaseShareFutureValute(ctx context.Context, positionUid string) (_ domain.ShareCurrency, err error) {
 	const op = "service.TinkoffGetBaseShareFutureValute"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	if positionUid == "" {
-		return domain.ShareCurrency{}, ErrEmptyPositionUid
+		return domain.ShareCurrency{}, domain.ErrEmptyPositionUid
 	}
 
-	instrumentsShortResponce, err := c.Tinkoff.Instruments.FindBy(ctx, positionUid)
+	instrumentsShortResponce, err := s.Tinkoff.Instruments.FindBy(ctx, positionUid)
 	if err != nil {
-		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.ShareCurrency{}, e.WrapIfErr("failed find by from tinkoff", err)
 	}
-	if len(instrumentsShortResponce) == 0 {
-		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error:can't get base share future valute", op)
-	}
-	instrument := instrumentsShortResponce[0]
-	if instrument.InstrumentType != "share" {
-		return domain.ShareCurrency{}, fmt.Errorf("op: %s, instrument is not share", op)
-	}
-	if instrument.Figi == "" {
-		return domain.ShareCurrency{}, ErrEmptyFigi
-	}
-	currency, err := c.Tinkoff.Instruments.GetShareCurrencyBy(ctx, instrument.Figi)
+
+	instrument, err := instrumentsShortResponce.ValidateAndGetFirstShare()
 	if err != nil {
-		return domain.ShareCurrency{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.ShareCurrency{}, e.WrapIfErr("failed to validate and get first share", err)
+	}
+
+	currency, err := s.Tinkoff.Instruments.GetShareCurrencyBy(ctx, instrument.Figi)
+	if err != nil {
+		return domain.ShareCurrency{}, e.WrapIfErr("failed get share future valute by from tinkoff", err)
 	}
 
 	return currency, nil
 }
 
-func (c *Client) TinkoffFindBy(ctx context.Context, query string) (_ []domain.InstrumentShort, err error) {
+func (s *Service) TinkoffFindBy(ctx context.Context, query string) (_ []domain.InstrumentShort, err error) {
 	const op = "service.TinkoffFindBy"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	if query == "" {
-		return nil, ErrEmptyQuery
+		return nil, domain.ErrEmptyQuery
 	}
-	resp, err := c.Tinkoff.Instruments.FindBy(ctx, query)
+	resp, err := s.Tinkoff.Instruments.FindBy(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return nil, e.WrapIfErr("failed find by from tinkoff", err)
 	}
 	return resp, nil
 }
 
-func (c *Client) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (_ domain.LastPrice, err error) {
+func (s *Service) TinkoffGetLastPriceInPersentageToNominal(ctx context.Context, instrumentUid string) (_ domain.LastPrice, err error) {
 	const op = "service.TinkoffGetLastPriceInPersentageToNominal"
 
-	start := time.Now()
-	logg := c.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	if instrumentUid == "" {
-		return domain.LastPrice{}, ErrEmptyInstrumentUid
+		return domain.LastPrice{}, domain.ErrEmptyInstrumentUid
 	}
-	lastPrice, err := c.Tinkoff.Analytics.GetLastPriceInPersentageToNominal(ctx, instrumentUid)
+	lastPrice, err := s.Tinkoff.Analytics.GetLastPriceInPersentageToNominal(ctx, instrumentUid)
 	if err != nil {
-		return domain.LastPrice{}, fmt.Errorf("op: %s, error: %s", op, err.Error())
+		return domain.LastPrice{}, e.WrapIfErr("failed get last price in persentage to nominal from tinkoff", err)
 	}
 	return lastPrice, nil
 }

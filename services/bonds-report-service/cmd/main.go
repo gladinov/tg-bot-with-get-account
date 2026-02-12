@@ -51,7 +51,7 @@ func main() {
 	uidProvider := app.InitUidProvider(logg, repo, tinkoffClient.Analytics)
 
 	logg.Info("initialize Service client")
-	serviceClient := service.NewClient(
+	serviceClient := service.NewService(
 		logg,
 		tinkoffClient,
 		externalApis,

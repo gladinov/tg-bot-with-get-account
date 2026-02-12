@@ -17,7 +17,7 @@ const (
 	daysInYear = 365
 )
 
-func (c *Client) CreateBondReport(ctx context.Context, reportPostions domain.ReportPositions) (_ domain.Report, err error) {
+func (s *Service) CreateBondReport(ctx context.Context, reportPostions domain.ReportPositions) (_ domain.Report, err error) {
 	const op = "service.CreateBondReport"
 
 	var resultReports domain.Report
@@ -25,13 +25,13 @@ func (c *Client) CreateBondReport(ctx context.Context, reportPostions domain.Rep
 		position := reportPostions.CurrentPositions[i]
 		switch position.Currency {
 		case "rub":
-			bondReport, err := c.createBondReportByCurrency(ctx, position)
+			bondReport, err := s.createBondReportByCurrency(ctx, position)
 			if err != nil {
 				return resultReports, errors.New("service: GetBondReport" + err.Error())
 			}
 			resultReports.BondsInRUB = append(resultReports.BondsInRUB, bondReport)
 		case "cny":
-			bondReport, err := c.createBondReportByCurrency(ctx, position)
+			bondReport, err := s.createBondReportByCurrency(ctx, position)
 			if err != nil {
 				return resultReports, errors.New("service: GetBondReport" + err.Error())
 			}
@@ -43,11 +43,11 @@ func (c *Client) CreateBondReport(ctx context.Context, reportPostions domain.Rep
 	return resultReports, nil
 }
 
-func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition *domain.ReportPositions, totalAmount float64) (_ domain.GeneralBondReportPosition, err error) {
+func (s *Service) CreateGeneralBondReport(ctx context.Context, resultBondPosition *domain.ReportPositions, totalAmount float64) (_ domain.GeneralBondReportPosition, err error) {
 	const op = "service.CreateGeneralBondReport"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -94,12 +94,12 @@ func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition
 	BondReporPosition.ProfitInPercentage = RoundFloat((profit/sumOfPosition)*100, 2)
 	BondReporPosition.PercentOfPortfolio = RoundFloat((sumOfPosition/totalAmount)*100, 2)
 
-	moexBuyDateData, err := c.External.Moex.GetSpecifications(ctx, BondReporPosition.Ticker, buyDate)
+	moexBuyDateData, err := s.GetSpecificationsFromMoex(ctx, BondReporPosition.Ticker, buyDate)
 	if err != nil {
 		return BondReporPosition, err
 	}
 	date := time.Now()
-	moexNowData, err := c.External.Moex.GetSpecifications(ctx, BondReporPosition.Ticker, date)
+	moexNowData, err := s.GetSpecificationsFromMoex(ctx, BondReporPosition.Ticker, date)
 	if err != nil {
 		return BondReporPosition, err
 	}
@@ -184,11 +184,11 @@ func (c *Client) CreateGeneralBondReport(ctx context.Context, resultBondPosition
 	return BondReporPosition, nil
 }
 
-func (c *Client) createBondReportByCurrency(ctx context.Context, position domain.PositionByFIFO) (_ domain.BondReport, err error) {
+func (s *Service) createBondReportByCurrency(ctx context.Context, position domain.PositionByFIFO) (_ domain.BondReport, err error) {
 	const op = "service.createBondReportByCurrency"
 
 	start := time.Now()
-	logg := c.logger.With(
+	logg := s.logger.With(
 		slog.String("op", op))
 	logg.Debug("start")
 	defer func() {
@@ -200,12 +200,12 @@ func (c *Client) createBondReportByCurrency(ctx context.Context, position domain
 	}()
 
 	var bondReport domain.BondReport
-	moexBuyDateData, err := c.External.Moex.GetSpecifications(ctx, position.Ticker, position.BuyDate)
+	moexBuyDateData, err := s.GetSpecificationsFromMoex(ctx, position.Ticker, position.BuyDate)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}
 	date := time.Now()
-	moexNowData, err := c.External.Moex.GetSpecifications(ctx, position.Ticker, date)
+	moexNowData, err := s.GetSpecificationsFromMoex(ctx, position.Ticker, date)
 	if err != nil {
 		return bondReport, errors.New("service: createBondReport" + err.Error())
 	}

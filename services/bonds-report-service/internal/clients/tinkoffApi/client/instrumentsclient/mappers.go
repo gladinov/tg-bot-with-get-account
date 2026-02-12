@@ -52,7 +52,7 @@ func MapInstrumentShortToDomain(dto dtoTinkoff.InstrumentShort) domain.Instrumen
 	}
 }
 
-func MapSliceInstrumentShortToDomain(dto []dtoTinkoff.InstrumentShort) []domain.InstrumentShort {
+func MapSliceInstrumentShortToDomain(dto []dtoTinkoff.InstrumentShort) domain.InstrumentShortList {
 	out := make([]domain.InstrumentShort, 0, len(dto))
 	for _, v := range dto {
 		dom := MapInstrumentShortToDomain(v)

@@ -8,12 +8,12 @@ import (
 	"github.com/gladinov/e"
 )
 
-func (c *Client) MapPositionsToPositionsWithAssetUid(ctx context.Context, portffolioPositions []domain.PortfolioPosition) (_ []domain.PortfolioPositionsWithAssetUid, err error) {
+func (s *Service) MapPositionsToPositionsWithAssetUid(ctx context.Context, portffolioPositions []domain.PortfolioPosition) (_ []domain.PortfolioPositionsWithAssetUid, err error) {
 	const op = "service.TransformPositions"
 
 	portfolio := make([]domain.PortfolioPositionsWithAssetUid, 0, len(portffolioPositions))
 	for _, v := range portffolioPositions {
-		assetUid, err := c.UidProvider.GetUid(ctx, v.InstrumentUid)
+		assetUid, err := s.UidProvider.GetUid(ctx, v.InstrumentUid)
 		if err != nil && !errors.Is(err, domain.ErrEmptyUidAfterUpdate) {
 			return nil, e.WrapIfErr("failed to get uid by instrument uid", err)
 		}

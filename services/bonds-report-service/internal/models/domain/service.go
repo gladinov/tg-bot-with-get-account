@@ -221,3 +221,25 @@ func NewPortfolioByTypeAndCurrency() *PortfolioByTypeAndCurrency {
 		},
 	}
 }
+
+type OperationsRequest struct {
+	AccountID string
+	FromDate  time.Time
+}
+
+func NewOperationsRequest(accountID string, fromDate time.Time) OperationsRequest {
+	return OperationsRequest{
+		AccountID: accountID,
+		FromDate:  fromDate,
+	}
+}
+
+func (r OperationsRequest) Validate(now time.Time) error {
+	if r.AccountID == "" {
+		return ErrEmptyAccountID
+	}
+	if r.FromDate.After(now) {
+		return ErrInvalidFromDate
+	}
+	return nil
+}

@@ -14,10 +14,10 @@ import (
 
 type Client struct {
 	logger  *slog.Logger
-	service *service.Client
+	service *service.Service
 }
 
-func NewHandlers(logger *slog.Logger, service *service.Client) *Client {
+func NewHandlers(logger *slog.Logger, service *service.Service) *Client {
 	return &Client{
 		logger:  logger,
 		service: service,

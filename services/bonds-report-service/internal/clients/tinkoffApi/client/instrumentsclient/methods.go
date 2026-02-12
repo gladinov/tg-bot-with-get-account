@@ -134,7 +134,7 @@ func (c *InstrumentsTinkoffClient) GetCurrencyBy(ctx context.Context, figi strin
 	return domainData, nil
 }
 
-func (c *InstrumentsTinkoffClient) FindBy(ctx context.Context, findQuery string) (_ []domain.InstrumentShort, err error) {
+func (c *InstrumentsTinkoffClient) FindBy(ctx context.Context, findQuery string) (_ domain.InstrumentShortList, err error) {
 	const op = "tinkoffApi.FindBy"
 
 	logg := c.logger.With()

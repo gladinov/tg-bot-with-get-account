@@ -133,6 +133,26 @@ type Currency struct {
 	Isin string
 }
 
+type InstrumentShortList []InstrumentShort
+
+func (list InstrumentShortList) ValidateAndGetFirstShare() (InstrumentShort, error) {
+	if len(list) == 0 {
+		return InstrumentShort{}, ErrEmptyInstrumentShortResponce
+	}
+
+	inst := list[0]
+
+	if inst.InstrumentType != share {
+		return InstrumentShort{}, ErrInstrumentNotShare
+	}
+
+	if inst.Figi == "" {
+		return InstrumentShort{}, ErrEmptyFigi
+	}
+
+	return inst, nil
+}
+
 type InstrumentShort struct {
 	InstrumentType string
 	Uid            string
@@ -197,8 +217,27 @@ type Account struct {
 	AccessLevel int64
 }
 
+func (a Account) ValidateForPortfolio() error {
+	switch a.Status {
+	case 0:
+		return ErrUnspecifiedAccount
+	case 1:
+		return ErrNewNotOpenYetAccount
+	case 3:
+		return ErrCloseAccount
+	}
+
+	if a.AccessLevel == 3 {
+		return ErrNoAcces
+	}
+
+	if a.ID == "" {
+		return ErrEmptyAccountIdInRequest
+	}
+
+	return nil
+}
+
 type ShareCurrency struct {
 	Currency string
 }
-
-
