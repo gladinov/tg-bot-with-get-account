@@ -15,23 +15,23 @@ type TinkoffInstrumentsClient struct {
 }
 
 // FindBy provides a mock function with given fields: ctx, query
-func (_m *TinkoffInstrumentsClient) FindBy(ctx context.Context, query string) ([]domain.InstrumentShort, error) {
+func (_m *TinkoffInstrumentsClient) FindBy(ctx context.Context, query string) (domain.InstrumentShortList, error) {
 	ret := _m.Called(ctx, query)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindBy")
 	}
 
-	var r0 []domain.InstrumentShort
+	var r0 domain.InstrumentShortList
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) ([]domain.InstrumentShort, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (domain.InstrumentShortList, error)); ok {
 		return rf(ctx, query)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) []domain.InstrumentShort); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) domain.InstrumentShortList); ok {
 		r0 = rf(ctx, query)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]domain.InstrumentShort)
+			r0 = ret.Get(0).(domain.InstrumentShortList)
 		}
 	}
 

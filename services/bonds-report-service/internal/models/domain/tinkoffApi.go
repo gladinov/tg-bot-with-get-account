@@ -30,6 +30,14 @@ type MoneyValue struct {
 	Nano     int32
 }
 
+func NewMoneyValue(currency string, units int64, nano int32) MoneyValue {
+	return MoneyValue{
+		Units:    units,
+		Nano:     nano,
+		Currency: currency,
+	}
+}
+
 func (x *MoneyValue) GetCurrency() string {
 	if x != nil {
 		return x.Currency
@@ -62,6 +70,13 @@ func (mv *MoneyValue) ToFloat() float64 {
 type Quotation struct {
 	Units int64
 	Nano  int32
+}
+
+func NewQuotation(units int64, nano int32) Quotation {
+	return Quotation{
+		Units: units,
+		Nano:  nano,
+	}
 }
 
 func (x *Quotation) GetUnits() int64 {

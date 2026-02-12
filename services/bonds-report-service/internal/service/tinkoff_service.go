@@ -127,7 +127,7 @@ func (s *Service) TinkoffGetBaseShareFutureValute(ctx context.Context, positionU
 	return currency, nil
 }
 
-func (s *Service) TinkoffFindBy(ctx context.Context, query string) (_ []domain.InstrumentShort, err error) {
+func (s *Service) TinkoffFindBy(ctx context.Context, query string) (_ domain.InstrumentShortList, err error) {
 	const op = "service.TinkoffFindBy"
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
