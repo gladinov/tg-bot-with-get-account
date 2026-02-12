@@ -22,7 +22,7 @@ func TestTransport_DoRequest(t *testing.T) {
 
 	t.Run("Success GET returns 200", func(t *testing.T) {
 		// Поднимаем тестовый HTTP-сервер
-		ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"message":"ok"}`))
 		}))
@@ -49,7 +49,7 @@ func TestTransport_DoRequest(t *testing.T) {
 	})
 
 	t.Run("Error: server returns 500", func(t *testing.T) {
-		ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(`internal error`))
 		}))
@@ -68,7 +68,7 @@ func TestTransport_DoRequest(t *testing.T) {
 	})
 
 	t.Run("POST request body", func(t *testing.T) {
-		ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(r.Body)
 			assert.Equal(t, `{"foo":"bar"}`, string(body))
 			w.WriteHeader(http.StatusOK)

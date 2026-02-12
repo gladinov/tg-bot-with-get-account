@@ -47,12 +47,19 @@ func (t *Transport) DoRequest(ctx context.Context,
 	defer logging.LogOperation_Debug(ctx, logg, op, &err)()
 
 	u := url.URL{
-		Scheme: "https",
+		Scheme: "http",
 		Host:   t.host,
 		Path:   path,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), requestBody)
+	var method string
+	if requestBody != nil {
+		method = http.MethodPost
+	} else {
+		method = http.MethodGet
+	}
+
+	req, err := http.NewRequest(method, u.String(), requestBody)
 	if err != nil {
 		errMsg := "could not create http.NewRequest"
 		logging.LoggHTTPError(ctx, logg, req, errMsg, op, err)

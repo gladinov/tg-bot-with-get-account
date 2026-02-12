@@ -162,7 +162,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context, chatID int) (err erro
 		)
 		err = e.WrapIfErr("can't get bond reports", err)
 	}()
-	accounts, err := c.GetAccounts(ctx)
+	accounts, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	if err != nil {
 		logg.Debug("get accounts error", slog.Any("error", err))
 		return err
@@ -253,7 +253,7 @@ func (c *Client) GetBondReportsWithEachGeneralPosition(ctx context.Context, chat
 		err = e.WrapIfErr("can't get general bond report", err)
 	}()
 
-	accounts, err := c.GetAccounts(ctx)
+	accounts, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	if err != nil {
 		return err
 	}
@@ -427,7 +427,7 @@ func (c *Client) GetBondReports(ctx context.Context, chatID int) (_ domain.BondR
 
 	reportsInByteByAccounts := make([][]*domain.MediaGroup, 0)
 
-	accounts, err := c.GetAccounts(ctx)
+	accounts, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	if err != nil {
 		return domain.BondReportsResponce{}, err
 	}
@@ -637,7 +637,7 @@ func (c *Client) GetAccountsList(ctx context.Context) (answ domain.AccountListRe
 
 	var accStr string = "По данному аккаунту доступны следующие счета:"
 
-	accs, err := c.GetAccounts(ctx)
+	accs, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	if err != nil {
 		return domain.AccountListResponce{}, err
 	}
@@ -729,7 +729,7 @@ func (c *Client) GetAccounts(ctx context.Context) (_ map[string]domain.Account, 
 		err = e.WrapIfErr("cant' get accounts", err)
 	}()
 
-	accounts, err := c.GetAccounts(ctx)
+	accounts, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +752,7 @@ func (c *Client) GetPortfolioStructureForEachAccount(ctx context.Context) (_ dom
 		err = e.WrapIfErr("cant' Get Portfolio Structure For Each Account", err)
 	}()
 
-	accounts, err := c.GetAccounts(ctx)
+	accounts, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	response := domain.PortfolioStructureForEachAccountResponce{}
 	if err != nil {
 		return domain.PortfolioStructureForEachAccountResponce{}, err
@@ -817,7 +817,7 @@ func (c *Client) GetUnionPortfolioStructureForEachAccount(ctx context.Context) (
 		err = e.WrapIfErr("cant' Get Union Portfolio Structure For Each Account", err)
 	}()
 
-	accounts, err := c.GetAccounts(ctx)
+	accounts, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	response := domain.UnionPortfolioStructureResponce{}
 	if err != nil {
 		return domain.UnionPortfolioStructureResponce{}, err
@@ -889,7 +889,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ doma
 	}()
 
 	responce := domain.UnionPortfolioStructureWithSberResponce{}
-	accounts, err := c.GetAccounts(ctx)
+	accounts, err := c.Tinkoff.Portfolio.GetAccounts(ctx)
 	if err != nil {
 		return domain.UnionPortfolioStructureWithSberResponce{}, err
 	}
