@@ -94,7 +94,7 @@ func TestTinkoffGetOperations(t *testing.T) {
 			Return(wantOperations, nil)
 
 		tinkoffClients := NewTinkoffClients(nil, mockPortfolioClient, nil)
-		srv := NewService(logger, tinkoffClients, nil, nil, nil)
+		srv := NewService(logger, tinkoffClients, nil, nil, nil, nil)
 
 		got, err := srv.TinkoffGetOperations(ctx, req)
 		assert.NoError(t, err)
@@ -107,7 +107,7 @@ func TestTinkoffGetOperations(t *testing.T) {
 		req := factories.NewOperationsRequest()
 		req.AccountID = ""
 
-		srv := NewService(logger, nil, nil, nil, nil)
+		srv := NewService(logger, nil, nil, nil, nil, nil)
 
 		_, err := srv.TinkoffGetOperations(ctx, req)
 		assert.Error(t, err)
@@ -122,7 +122,7 @@ func TestTinkoffGetOperations(t *testing.T) {
 			Return(nil, errors.New("client error"))
 
 		tinkoffClients := NewTinkoffClients(nil, mockPortfolioClient, nil)
-		srv := NewService(logger, tinkoffClients, nil, nil, nil)
+		srv := NewService(logger, tinkoffClients, nil, nil, nil, nil)
 
 		_, err := srv.TinkoffGetOperations(ctx, req)
 		assert.Error(t, err)
@@ -145,7 +145,7 @@ func TestTinkoffGetBondActions(t *testing.T) {
 			Return(wantBondActions, nil)
 
 		tinkoffClients := NewTinkoffClients(nil, nil, mockAnalyticsClient)
-		srv := NewService(logger, tinkoffClients, nil, nil, nil)
+		srv := NewService(logger, tinkoffClients, nil, nil, nil, nil)
 
 		got, err := srv.TinkoffGetBondActions(ctx, instrumentUid)
 		assert.NoError(t, err)
@@ -155,7 +155,7 @@ func TestTinkoffGetBondActions(t *testing.T) {
 	})
 
 	t.Run("Err: Empty instrument UID", func(t *testing.T) {
-		srv := NewService(logger, nil, nil, nil, nil)
+		srv := NewService(logger, nil, nil, nil, nil, nil)
 
 		_, err := srv.TinkoffGetBondActions(ctx, "")
 		assert.Error(t, err)
@@ -170,7 +170,7 @@ func TestTinkoffGetBondActions(t *testing.T) {
 			Return(domain.BondIdentIdentifiers{}, errors.New("client error"))
 
 		tinkoffClients := NewTinkoffClients(nil, nil, mockAnalyticsClient)
-		srv := NewService(logger, tinkoffClients, nil, nil, nil)
+		srv := NewService(logger, tinkoffClients, nil, nil, nil, nil)
 
 		_, err := srv.TinkoffGetBondActions(ctx, instrumentUid)
 		assert.Error(t, err)
@@ -202,9 +202,10 @@ func TestTinkoffGetFutureBy(t *testing.T) {
 		srv := NewService(
 			logger,
 			tinkoff,
-			nil, // ExternalApis
-			nil, // Storage
-			nil, // UidProvider
+			nil,
+			nil,
+			nil,
+			nil,
 		)
 
 		got, err := srv.TinkoffGetFutureBy(ctx, figi)
@@ -218,6 +219,7 @@ func TestTinkoffGetFutureBy(t *testing.T) {
 	t.Run("Err: empty figi", func(t *testing.T) {
 		srv := NewService(
 			logger,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -247,6 +249,7 @@ func TestTinkoffGetFutureBy(t *testing.T) {
 		srv := NewService(
 			logger,
 			tinkoff,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -286,6 +289,7 @@ func TestTinkoffGetBondByUid(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 		)
 
 		got, err := srv.TinkoffGetBondByUid(ctx, uid)
@@ -299,6 +303,7 @@ func TestTinkoffGetBondByUid(t *testing.T) {
 	t.Run("Err: empty uid", func(t *testing.T) {
 		srv := NewService(
 			logger,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -328,6 +333,7 @@ func TestTinkoffGetBondByUid(t *testing.T) {
 		srv := NewService(
 			logger,
 			tinkoff,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -367,6 +373,7 @@ func TestTinkoffGetCurrencyBy(t *testing.T) {
 			nil, // ExternalApis
 			nil, // Storage
 			nil, // UidProvider
+			nil,
 		)
 
 		got, err := srv.TinkoffGetCurrencyBy(ctx, figi)
@@ -380,6 +387,7 @@ func TestTinkoffGetCurrencyBy(t *testing.T) {
 	t.Run("Err: empty figi", func(t *testing.T) {
 		srv := NewService(
 			logger,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -409,6 +417,7 @@ func TestTinkoffGetCurrencyBy(t *testing.T) {
 		srv := NewService(
 			logger,
 			tinkoff,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -452,7 +461,7 @@ func TestService_TinkoffGetBaseShareFutureValute(t *testing.T) {
 
 		tinkoff := NewTinkoffClients(mockInstruments, nil, nil)
 
-		service := NewService(logger, tinkoff, nil, nil, nil)
+		service := NewService(logger, tinkoff, nil, nil, nil, nil)
 
 		got, err := service.TinkoffGetBaseShareFutureValute(ctx, positionUid)
 
@@ -463,7 +472,7 @@ func TestService_TinkoffGetBaseShareFutureValute(t *testing.T) {
 	})
 
 	t.Run("empty positionUid", func(t *testing.T) {
-		service := NewService(logger, nil, nil, nil, nil)
+		service := NewService(logger, nil, nil, nil, nil, nil)
 
 		_, err := service.TinkoffGetBaseShareFutureValute(ctx, "")
 
@@ -480,7 +489,7 @@ func TestService_TinkoffGetBaseShareFutureValute(t *testing.T) {
 
 		tinkoff := NewTinkoffClients(mockInstruments, nil, nil)
 
-		service := NewService(logger, tinkoff, nil, nil, nil)
+		service := NewService(logger, tinkoff, nil, nil, nil, nil)
 
 		_, err := service.TinkoffGetBaseShareFutureValute(ctx, positionUid)
 
@@ -502,7 +511,7 @@ func TestService_TinkoffGetBaseShareFutureValute(t *testing.T) {
 
 		tinkoff := NewTinkoffClients(mockInstruments, nil, nil)
 
-		service := NewService(logger, tinkoff, nil, nil, nil)
+		service := NewService(logger, tinkoff, nil, nil, nil, nil)
 
 		_, err := service.TinkoffGetBaseShareFutureValute(ctx, positionUid)
 
@@ -533,7 +542,7 @@ func TestService_TinkoffGetBaseShareFutureValute(t *testing.T) {
 
 		tinkoff := NewTinkoffClients(mockInstruments, nil, nil)
 
-		service := NewService(logger, tinkoff, nil, nil, nil)
+		service := NewService(logger, tinkoff, nil, nil, nil, nil)
 
 		_, err := service.TinkoffGetBaseShareFutureValute(ctx, positionUid)
 
@@ -572,6 +581,7 @@ func TestService_TinkoffFindBy(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 		)
 
 		got, err := service.TinkoffFindBy(ctx, query)
@@ -586,6 +596,7 @@ func TestService_TinkoffFindBy(t *testing.T) {
 		service := NewService(
 			logger,
 			NewTinkoffClients(nil, nil, nil),
+			nil,
 			nil,
 			nil,
 			nil,
@@ -616,6 +627,7 @@ func TestService_TinkoffFindBy(t *testing.T) {
 		service := NewService(
 			logger,
 			tinkoff,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -658,6 +670,7 @@ func TestService_TinkoffGetLastPriceInPersentageToNominal(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 		)
 
 		got, err := service.TinkoffGetLastPriceInPersentageToNominal(ctx, instrumentUid)
@@ -672,6 +685,7 @@ func TestService_TinkoffGetLastPriceInPersentageToNominal(t *testing.T) {
 		service := NewService(
 			logger,
 			NewTinkoffClients(nil, nil, nil),
+			nil,
 			nil,
 			nil,
 			nil,
@@ -702,6 +716,7 @@ func TestService_TinkoffGetLastPriceInPersentageToNominal(t *testing.T) {
 		service := NewService(
 			logger,
 			tinkoff,
+			nil,
 			nil,
 			nil,
 			nil,

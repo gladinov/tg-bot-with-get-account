@@ -2,6 +2,7 @@ package postgreSQL
 
 import (
 	"bonds-report-service/internal/models/domain"
+	"bonds-report-service/internal/utils/logging"
 	"context"
 	"errors"
 	"fmt"
@@ -29,18 +30,7 @@ type Storage struct {
 func NewStorage(logger *slog.Logger, postgresConfig config.Config) (_ *Storage, err error) {
 	const op = "postgreSQL.NewStorage"
 
-	start := time.Now()
-	logg := logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-
-		err = e.WrapIfErr("could create new postgreSQL storage", err)
-	}()
+	defer logging.LogOperation_Debug(context.Background(), logger, op, &err)()
 
 	postgresHost, err := postgresConfig.PostgresHost.GetStringHost()
 	if err != nil {
@@ -60,17 +50,8 @@ func (s *Storage) CloseDB() {
 func (s *Storage) InitDB(ctx context.Context) (err error) {
 	const op = "postgreSQL.InitDB"
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("could not InitDB", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	err = s.createBondReportsTable(ctx)
 	if err != nil {
 		return err
@@ -137,18 +118,10 @@ func (s *Storage) createCurrenciesTable(ctx context.Context) error {
 
 func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID string) (_ time.Time, err error) {
 	const op = "postgreSQL.LastOperationTime"
+	ctx = context.Background() // TODO: Подобрать корректный timeout для БД
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("could not get LastOperationTime", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	q := "SELECT date FROM operations WHERE chatId = $1 AND broker_account_id = $2 ORDER BY DATE DESC LIMIT 1"
 
 	var date time.Time
@@ -165,18 +138,10 @@ func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID s
 
 func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []domain.OperationWithoutCustomTypes) (err error) {
 	const op = "postgreSQL.SaveOperations"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("could not SaveOperations", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx failed: %w", err)
@@ -258,18 +223,10 @@ func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId stri
 
 func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) (_ []domain.OperationWithoutCustomTypes, err error) {
 	const op = "postgreSql.GetOperations"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("could not get operations", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	q := `select 
     name,
     date,
@@ -321,18 +278,9 @@ from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 
 
 func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error) {
 	const op = "postgreSql.DeleteBondReport"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't delete bond report by chatId and accountId", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	q := `DELETE FROM bond_reports WHERE chatId = $1 AND broker_account_id = $2`
 	if _, err := s.db.Exec(ctx,
@@ -345,18 +293,9 @@ func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId st
 
 func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []domain.BondReport) (err error) {
 	const op = "postgreSql.SaveBondReport"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't save bond report", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -425,18 +364,9 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
 
 func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accountId string) (err error) {
 	const op = "postgreSql.SaveBondReport"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't delete general bond report by chatId and accountId", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	q := `DELETE FROM general_bond_report WHERE chatId = $1 AND broker_account_id = $2`
 
@@ -450,18 +380,9 @@ func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accou
 
 func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []domain.GeneralBondReportPosition) (err error) {
 	const op = "postgreSql.SaveGeneralBondReport"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't save general bond report", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	batch := &pgx.Batch{}
 	tx, err := s.db.Begin(ctx)
@@ -533,18 +454,9 @@ func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, account
 
 func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err error) {
 	const op = "postgreSql.SaveUids"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't save uids", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	if len(uids) == 0 {
 		return errors.New("empty uids map")
@@ -594,18 +506,9 @@ func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err err
 
 func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
 	const op = "postgreSql.IsUpdatedUids"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't get update uids data", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	q := `SELECT update_time FROM uids LIMIT 1`
 
@@ -624,18 +527,10 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
 
 func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, err error) {
 	const op = "postgreSql.GetUid"
+	ctx = context.Background()
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't get uid", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
 	q := `SELECT asset_uid FROM uids WHERE instrument_uid = $1`
 	var asset_uid string
 	err = s.db.QueryRow(ctx, q, instrumentUid).Scan(&asset_uid)
@@ -651,17 +546,9 @@ func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, e
 
 func (s *Storage) SaveCurrency(ctx context.Context, currencies domain.CurrenciesCBR, date time.Time) (err error) {
 	const op = "postgreSql.SaveCurrency"
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't save currency", err)
-	}()
+	ctx = context.Background()
+
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -703,17 +590,8 @@ func (s *Storage) SaveCurrency(ctx context.Context, currencies domain.Currencies
 
 func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Time) (_ float64, err error) {
 	const op = "postgreSql.SaveCurrency"
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug(fmt.Sprintf("start %s", op))
-	defer func() {
-		logg.Debug("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't save currency", err)
-	}()
+	ctx = context.Background()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 	q := `
         SELECT vunit_rate
         FROM currencies

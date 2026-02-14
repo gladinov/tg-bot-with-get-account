@@ -4,6 +4,8 @@ import (
 	"bonds-report-service/internal/models/domain"
 	"bonds-report-service/internal/models/domain/mapper"
 	"bonds-report-service/internal/service/visualization"
+	"bonds-report-service/internal/utils"
+	"bonds-report-service/internal/utils/logging"
 	"context"
 	"errors"
 	"fmt"
@@ -63,7 +65,7 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 				"transformPositions err", slog.Any("error", err))
 			return err
 		}
-		err = s.Storage.DeleteBondReport(context.Background(), chatID, account.ID)
+		err = s.Storage.DeleteBondReport(ctx, chatID, account.ID)
 		if err != nil {
 			accountLogg.Debug(
 				"deleteBondReport err", slog.Any("error", err))
@@ -71,22 +73,28 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 		}
 		bondsInRub := make([]domain.BondReport, 0)
 
-		for _, v := range portfolioPositions {
+		for _, position := range portfolioPositions {
 			positionLogg := accountLogg.With(
-				slog.String("Asset_uid", v.AssetUid),
-				slog.String("Instrument_type", v.InstrumentType))
-			if v.InstrumentType == "bond" {
-				operationsDb, err := s.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.ID)
+				slog.String("Asset_uid", position.AssetUid),
+				slog.String("Instrument_type", position.InstrumentType))
+			if position.InstrumentType == "bond" {
+				operationsDb, err := s.Storage.GetOperations(ctx, chatID, position.AssetUid, account.ID)
 				if err != nil {
 					positionLogg.Debug(
 						"storage.GetOperation error", slog.Any("error", err))
 					return err
 				}
-				resultBondPosition, err := s.ProcessOperations(ctx, operationsDb)
+
+				reporLines, err := s.CreateNewReportLines(ctx, position, operationsDb)
+				if err != nil {
+					return e.WrapIfErr("failed to create new report lines", err)
+				}
+
+				resultBondPosition, err := s.ReportProcessor.ProcessOperations(ctx, reporLines)
 				if err != nil {
 					positionLogg.Debug(
 						"ProcessOperation error", slog.Any("error", err))
-					return err
+					return e.WrapIfErr("failed to process operation", err)
 				}
 				bondReport, err := s.CreateBondReport(ctx, *resultBondPosition)
 				if err != nil {
@@ -97,7 +105,8 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 				bondsInRub = append(bondsInRub, bondReport.BondsInRUB...)
 			}
 		}
-		err = s.Storage.SaveBondReport(context.Background(), chatID, account.ID, bondsInRub)
+		// TODO: Сдлеать это асинхронно, не дожидаясь завершения, выйти из функции
+		err = s.Storage.SaveBondReport(ctx, chatID, account.ID, bondsInRub)
 		if err != nil {
 			accountLogg.Debug(
 				"Storage.SaveBondReport error", slog.Any("error", err))
@@ -143,7 +152,7 @@ func (s *Service) GetBondReportsWithEachGeneralPosition(ctx context.Context, cha
 		if err != nil {
 			return err
 		}
-		err = s.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.ID)
+		err = s.Storage.DeleteGeneralBondReport(ctx, chatID, account.ID)
 		if err != nil {
 			return err
 		}
@@ -153,15 +162,20 @@ func (s *Service) GetBondReportsWithEachGeneralPosition(ctx context.Context, cha
 			ReplacedBondsReport: make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
 		}
 
-		for _, v := range portfolioPositions {
-			if v.InstrumentType == "bond" {
-				operationsDb, err := s.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.ID)
+		for _, position := range portfolioPositions {
+			if position.InstrumentType == "bond" {
+				operationsDb, err := s.Storage.GetOperations(ctx, chatID, position.AssetUid, account.ID)
 				if err != nil {
 					return err
 				}
-				resultBondPosition, err := s.ProcessOperations(ctx, operationsDb)
+				reporLines, err := s.CreateNewReportLines(ctx, position, operationsDb)
 				if err != nil {
-					return err
+					return e.WrapIfErr("failed to create new report lines", err)
+				}
+
+				resultBondPosition, err := s.ReportProcessor.ProcessOperations(ctx, reporLines)
+				if err != nil {
+					return e.WrapIfErr("failed to process operation", err)
 				}
 				totalAmount := portfolio.TotalAmount.ToFloat()
 
@@ -318,7 +332,7 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 			return domain.BondReportsResponce{}, err
 		}
 
-		err = s.Storage.DeleteGeneralBondReport(context.Background(), chatID, account.ID)
+		err = s.Storage.DeleteGeneralBondReport(ctx, chatID, account.ID)
 		if err != nil {
 			return domain.BondReportsResponce{}, err
 		}
@@ -328,15 +342,20 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 			ReplacedBondsReport: make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
 		}
 
-		for _, v := range portfolioPositions {
-			if v.InstrumentType == "bond" {
-				operationsDb, err := s.Storage.GetOperations(context.Background(), chatID, v.AssetUid, account.ID)
+		for _, position := range portfolioPositions {
+			if position.InstrumentType == "bond" {
+				operationsDb, err := s.Storage.GetOperations(ctx, chatID, position.AssetUid, account.ID)
 				if err != nil {
 					return domain.BondReportsResponce{}, err
 				}
-				resultBondPosition, err := s.ProcessOperations(ctx, operationsDb)
+				reporLines, err := s.CreateNewReportLines(ctx, position, operationsDb)
 				if err != nil {
-					return domain.BondReportsResponce{}, err
+					return domain.BondReportsResponce{}, e.WrapIfErr("failed to create new report lines", err)
+				}
+
+				resultBondPosition, err := s.ReportProcessor.ProcessOperations(ctx, reporLines)
+				if err != nil {
+					return domain.BondReportsResponce{}, e.WrapIfErr("failed to process operation", err)
 				}
 				totalAmount := portfolio.TotalAmount.ToFloat()
 
@@ -555,7 +574,7 @@ func (s *Service) updateOperations(ctx context.Context, chatID int, accountID st
 		err = e.WrapIfErr("can't updateOperations", err)
 	}()
 
-	fromDate, err := s.Storage.LastOperationTime(context.Background(), chatID, accountID)
+	fromDate, err := s.Storage.LastOperationTime(ctx, chatID, accountID)
 	// TODO: Если fromDate будет больше time.Now, то будет ошибка.
 	// Есть вероятность такой ошибки, поэтому при тестировании функции нужно придумать другой способ вызова функции по последней операции
 	fromDate = fromDate.Add(time.Microsecond * 1)
@@ -577,7 +596,7 @@ func (s *Service) updateOperations(ctx context.Context, chatID int, accountID st
 
 	operations := mapper.MapOperationToOperationWithoutCustomTypes(tinkoffOperations)
 
-	err = s.Storage.SaveOperations(context.Background(), chatID, accountID, operations)
+	err = s.Storage.SaveOperations(ctx, chatID, accountID, operations)
 	if err != nil {
 		return err
 	}
@@ -1029,22 +1048,22 @@ func (s *Service) ResponsePortfolioStructure(portfolio *domain.PortfolioByTypeAn
 
 	var bondsByCurrencies string
 	for k, v := range portfolio.BondsAssets.AssetsByCurrency {
-		bondsByCurr := RoundFloat(v.SumOfAssets, 2)
-		bondsByCurrInPers := RoundFloat(bondsByCurr/totalAmount*100, 2)
+		bondsByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		bondsByCurrInPers := utils.RoundFloat(bondsByCurr/totalAmount*100, 2)
 		bondsByCurrencies += "    " + fmt.Sprintf("Стоимость облигаций в %s: %.2f (%.2f%%от портфеля)\n", k, bondsByCurr, bondsByCurrInPers)
 	}
 
 	var sharesByCurrencies string
 	for k, v := range portfolio.SharesAssets.AssetsByCurrency {
-		AssetByCurr := RoundFloat(v.SumOfAssets, 2)
-		AssetByCurrInPers := RoundFloat(AssetByCurr/totalAmount*100, 2)
+		AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
 		sharesByCurrencies += "    " + fmt.Sprintf("Стоимость акций в %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
 	}
 
 	var etfsByCurrencies string
 	for k, v := range portfolio.EtfsAssets.AssetsByCurrency {
-		AssetByCurr := RoundFloat(v.SumOfAssets, 2)
-		AssetByCurrInPers := RoundFloat(AssetByCurr/totalAmount*100, 2)
+		AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
 		etfsByCurrencies += "    " + fmt.Sprintf("Стоимость Etf в %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
 	}
 
@@ -1056,8 +1075,8 @@ func (s *Service) ResponsePortfolioStructure(portfolio *domain.PortfolioByTypeAn
 
 		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на товары стоят: %.2f (%.2f%%от портфеля)\n", futuresWithCommodityBase, futuresWithCommodityBaseInPers)
 		for k, v := range portfolio.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency {
-			AssetByCurr := RoundFloat(v.SumOfAssets, 2)
-			AssetByCurrInPers := RoundFloat(AssetByCurr/totalAmount*100, 2)
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
 			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерса %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
 		}
 	}
@@ -1069,8 +1088,8 @@ func (s *Service) ResponsePortfolioStructure(portfolio *domain.PortfolioByTypeAn
 		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на валюты стоят: %.2f (%.2f%%от портфеля)\n", futuresWithcurrencyBase, futuresWithcurrencyBaseInPers)
 
 		for k, v := range portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency {
-			AssetByCurr := RoundFloat(v.SumOfAssets, 2)
-			AssetByCurrInPers := RoundFloat(AssetByCurr/totalAmount*100, 2)
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
 			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерса %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
 		}
 
@@ -1082,8 +1101,8 @@ func (s *Service) ResponsePortfolioStructure(portfolio *domain.PortfolioByTypeAn
 		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на акции стоят: %.2f (%.2f%%от портфеля)\n", futuresWithcurrencyBase, futuresWithcurrencyBaseInPers)
 
 		for k, v := range portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency {
-			AssetByCurr := RoundFloat(v.SumOfAssets, 2)
-			AssetByCurrInPers := RoundFloat(AssetByCurr/totalAmount*100, 2)
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
 			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерсов в %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
 		}
 	}
@@ -1095,15 +1114,15 @@ func (s *Service) ResponsePortfolioStructure(portfolio *domain.PortfolioByTypeAn
 		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на индексы стоят: %.2f (%.2f%%от портфеля)\n", futuresWithcurrencyBase, futuresWithcurrencyBaseInPers)
 		futuresByCurrencies += "    " + "Фьючерсы на индексы\n"
 		for k, v := range portfolio.FuturesAssets.AssetsByType.Index.AssetsByCurrency {
-			AssetByCurr := RoundFloat(v.SumOfAssets, 2)
-			AssetByCurrInPers := RoundFloat(AssetByCurr/totalAmount*100, 2)
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
 			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерса %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
 		}
 	}
 	var currenciesByCurrencies string
 	for k, v := range portfolio.CurrenciesAssets.AssetsByCurrency {
-		AssetByCurr := RoundFloat(v.SumOfAssets, 2)
-		AssetByCurrInPers := RoundFloat(AssetByCurr/totalAmount*100, 2)
+		AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
 		currenciesByCurrencies += "      " + fmt.Sprintf("Стоимость валюты %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
 	}
 
@@ -1234,4 +1253,50 @@ func (s *Service) UnionPortf(portfolios []*domain.PortfolioByTypeAndCurrency) (_
 		}
 	}
 	return unionPortf, nil
+}
+
+func (s *Service) CreateNewReportLines(ctx context.Context,
+	position domain.PortfolioPositionsWithAssetUid,
+	operationsDb []domain.OperationWithoutCustomTypes,
+) (_ *domain.ReportLine, err error) {
+	const op = "service.CreateNewReportLines"
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
+	// TODO : Распаралелить тинькофф
+	lastPrice, err := s.TinkoffGetLastPriceInPersentageToNominal(ctx, position.InstrumentUid)
+	if err != nil {
+		return nil, e.WrapIfErr("failed to get last proce", err)
+	}
+
+	bondActions, err := s.TinkoffGetBondActions(ctx, position.InstrumentUid)
+	if err != nil {
+		return nil, e.WrapIfErr("failed to get bond actions from tinkoff", err)
+	}
+
+	vunitRate, err := s.buildVunitRate(ctx, bondActions)
+	if err != nil {
+		return nil, err
+	}
+
+	reportLine := domain.NewReportLine(operationsDb, bondActions, lastPrice, vunitRate)
+
+	return &reportLine, nil
+}
+
+func (s *Service) buildVunitRate(ctx context.Context, bondActions domain.BondIdentIdentifiers) (domain.Rate, error) {
+	if !bondActions.Replaced {
+		return domain.Rate{}, nil
+	}
+
+	isoCurrName := bondActions.NominalCurrency
+
+	rate, err := s.GetCurrencyFromCB(ctx, isoCurrName, s.now())
+	if err != nil {
+		return domain.Rate{}, e.WrapIfErr("failed to get currency rate", err)
+	}
+
+	return domain.Rate{
+		IsoCurrencyName: isoCurrName,
+		Vunit_Rate:      domain.NewNullFloat64(rate, true, false),
+	}, nil
 }

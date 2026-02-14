@@ -26,7 +26,7 @@ func TestGetSpecificationsFromMoex(t *testing.T) {
 		want := factories.NewValuesMoex()
 		mockMoex := mocks.NewMoexClient(t)
 		externalApis := NewExternalApis(mockMoex, nil, nil)
-		srvs := NewService(logger, nil, externalApis, nil, nil)
+		srvs := NewService(logger, nil, externalApis, nil, nil, nil)
 		mockMoex.On("GetSpecifications", ctx, ticker, fixedTime).
 			Return(want, nil)
 
@@ -39,7 +39,7 @@ func TestGetSpecificationsFromMoex(t *testing.T) {
 
 		mockMoex := mocks.NewMoexClient(t)
 		externalApis := NewExternalApis(mockMoex, nil, nil)
-		srvs := NewService(logger, nil, externalApis, nil, nil)
+		srvs := NewService(logger, nil, externalApis, nil, nil, nil)
 
 		_, err := srvs.GetSpecificationsFromMoex(ctx, ticker, fixedTime)
 		assert.Error(t, err)
@@ -49,7 +49,7 @@ func TestGetSpecificationsFromMoex(t *testing.T) {
 		wanterr := "failed get spec"
 		mockMoex := mocks.NewMoexClient(t)
 		externalApis := NewExternalApis(mockMoex, nil, nil)
-		srvs := NewService(logger, nil, externalApis, nil, nil)
+		srvs := NewService(logger, nil, externalApis, nil, nil, nil)
 		mockMoex.On("GetSpecifications", ctx, ticker, fixedTime).
 			Return(domain.ValuesMoex{}, errors.New("failed get spec"))
 

@@ -23,6 +23,7 @@ func (s *Service) MapPositionsToPositionsWithAssetUid(ctx context.Context, portf
 		transformPosition := domain.PortfolioPositionsWithAssetUid{
 			InstrumentType: v.InstrumentType,
 			AssetUid:       assetUid,
+			InstrumentUid:  v.InstrumentUid,
 		}
 		portfolio = append(portfolio, transformPosition)
 	}

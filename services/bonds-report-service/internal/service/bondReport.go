@@ -2,6 +2,8 @@ package service
 
 import (
 	"bonds-report-service/internal/models/domain"
+	"bonds-report-service/internal/models/domain/report"
+	"bonds-report-service/internal/utils"
 	"context"
 	"errors"
 	"log/slog"
@@ -17,7 +19,12 @@ const (
 	daysInYear = 365
 )
 
-func (s *Service) CreateBondReport(ctx context.Context, reportPostions domain.ReportPositions) (_ domain.Report, err error) {
+const (
+	threeYearInHours = 26304 // Три года в часах
+	baseTaxRate      = 0.13  // Налог с продажи ЦБ
+)
+
+func (s *Service) CreateBondReport(ctx context.Context, reportPostions report.ReportPositions) (_ domain.Report, err error) {
 	const op = "service.CreateBondReport"
 
 	var resultReports domain.Report
@@ -43,7 +50,7 @@ func (s *Service) CreateBondReport(ctx context.Context, reportPostions domain.Re
 	return resultReports, nil
 }
 
-func (s *Service) CreateGeneralBondReport(ctx context.Context, resultBondPosition *domain.ReportPositions, totalAmount float64) (_ domain.GeneralBondReportPosition, err error) {
+func (s *Service) CreateGeneralBondReport(ctx context.Context, resultBondPosition *report.ReportPositions, totalAmount float64) (_ domain.GeneralBondReportPosition, err error) {
 	const op = "service.CreateGeneralBondReport"
 
 	start := time.Now()
@@ -87,12 +94,12 @@ func (s *Service) CreateGeneralBondReport(ctx context.Context, resultBondPositio
 		totalTax := getTotalTaxFromPosition(position, profitWithoutTax)
 		profit += getSecurityIncome(profitWithoutTax, totalTax)
 	}
-	BondReporPosition.PositionPrice = RoundFloat(sumOfPosition/sumOfQuantity, 2)
+	BondReporPosition.PositionPrice = utils.RoundFloat(sumOfPosition/sumOfQuantity, 2)
 	BondReporPosition.BuyDate = buyDate
 	BondReporPosition.Quantity = int64(sumOfQuantity)
-	BondReporPosition.Profit = RoundFloat(profit, 2)
-	BondReporPosition.ProfitInPercentage = RoundFloat((profit/sumOfPosition)*100, 2)
-	BondReporPosition.PercentOfPortfolio = RoundFloat((sumOfPosition/totalAmount)*100, 2)
+	BondReporPosition.Profit = utils.RoundFloat(profit, 2)
+	BondReporPosition.ProfitInPercentage = utils.RoundFloat((profit/sumOfPosition)*100, 2)
+	BondReporPosition.PercentOfPortfolio = utils.RoundFloat((sumOfPosition/totalAmount)*100, 2)
 
 	moexBuyDateData, err := s.GetSpecificationsFromMoex(ctx, BondReporPosition.Ticker, buyDate)
 	if err != nil {
@@ -184,7 +191,7 @@ func (s *Service) CreateGeneralBondReport(ctx context.Context, resultBondPositio
 	return BondReporPosition, nil
 }
 
-func (s *Service) createBondReportByCurrency(ctx context.Context, position domain.PositionByFIFO) (_ domain.BondReport, err error) {
+func (s *Service) createBondReportByCurrency(ctx context.Context, position report.PositionByFIFO) (_ domain.BondReport, err error) {
 	const op = "service.createBondReportByCurrency"
 
 	start := time.Now()
@@ -214,8 +221,8 @@ func (s *Service) createBondReportByCurrency(ctx context.Context, position domai
 		Name:         position.Name,
 		Ticker:       position.Ticker,
 		BuyDate:      position.BuyDate.Format(layout),
-		BuyPrice:     RoundFloat(position.BuyPrice, 2),
-		CurrentPrice: RoundFloat(position.SellPrice, 2),
+		BuyPrice:     utils.RoundFloat(position.BuyPrice, 2),
+		CurrentPrice: utils.RoundFloat(position.SellPrice, 2),
 		Nominal:      position.Nominal,
 	}
 
@@ -248,12 +255,12 @@ func (s *Service) createBondReportByCurrency(ctx context.Context, position domai
 
 	if moexBuyDateData.YieldToMaturity.IsHasValue() {
 		yieldToMaturityOnPurchase := moexBuyDateData.YieldToMaturity.Value
-		bondReport.YieldToMaturityOnPurchase = RoundFloat(yieldToMaturityOnPurchase, 2)
+		bondReport.YieldToMaturityOnPurchase = utils.RoundFloat(yieldToMaturityOnPurchase, 2)
 	}
 
 	if moexBuyDateData.YieldToOffer.IsHasValue() {
 		yieldToOfferOnPurchase := moexBuyDateData.YieldToOffer.Value
-		bondReport.YieldToOfferOnPurchase = RoundFloat(yieldToOfferOnPurchase, 2)
+		bondReport.YieldToOfferOnPurchase = utils.RoundFloat(yieldToOfferOnPurchase, 2)
 	}
 
 	profitInPercentage, err := getProfit(logg, position)
@@ -271,7 +278,7 @@ func (s *Service) createBondReportByCurrency(ctx context.Context, position domai
 	return bondReport, nil
 }
 
-func getProfit(logger *slog.Logger, sharePosition domain.PositionByFIFO) (_ float64, err error) {
+func getProfit(logger *slog.Logger, sharePosition report.PositionByFIFO) (_ float64, err error) {
 	const op = "service.getProfit"
 
 	start := time.Now()
@@ -295,7 +302,7 @@ func getProfit(logger *slog.Logger, sharePosition domain.PositionByFIFO) (_ floa
 	return profitInPercentage, nil
 }
 
-func getAnnualizedReturnInPercentage(logger *slog.Logger, p domain.PositionByFIFO) (_ float64, err error) {
+func getAnnualizedReturnInPercentage(logger *slog.Logger, p report.PositionByFIFO) (_ float64, err error) {
 	const op = "service.getAnnualizedReturnInPercentage"
 
 	start := time.Now()
@@ -327,7 +334,48 @@ func getAnnualizedReturnInPercentage(logger *slog.Logger, p domain.PositionByFIF
 	}
 	annualizedReturn := math.Pow((1+totalReturn), (1/timeDurationInYears)) - 1
 	annualizedReturnInPercentage := annualizedReturn * 100
-	annualizedReturnInPercentageRound := RoundFloat(annualizedReturnInPercentage, 2)
+	annualizedReturnInPercentageRound := utils.RoundFloat(annualizedReturnInPercentage, 2)
 
 	return annualizedReturnInPercentageRound, nil
+}
+
+// Доход по позиции до вычета налога
+func getSecurityIncomeWithoutTax(p report.PositionByFIFO) float64 {
+	// Для незакрытых позиций необходимо посчитать еще потенциальную комиссию при продаже
+	quantity := p.Quantity
+	buySellDifference := (p.SellPrice-p.BuyPrice)*quantity + p.SellAccruedInt - p.BuyAccruedInt
+	cashFlow := p.TotalCoupon + p.TotalDividend
+	positionProfit := buySellDifference + cashFlow + p.TotalComission + p.PartialEarlyRepayment
+	return positionProfit
+}
+
+// Расход полного налога по закрытой позиции
+func getTotalTaxFromPosition(p report.PositionByFIFO, profit float64) float64 {
+	// Рассчитываем срок владения
+	buyDate := p.BuyDate
+	sellDate := p.SellDate
+	timeDuration := sellDate.Sub(buyDate).Hours()
+	var tax float64
+	// Рассчитываем налог с продажи бумаги, если сумма продажи больше суммы покупки
+	if profit > 0 && timeDuration < float64(threeYearInHours) {
+		tax = profit * baseTaxRate
+	} else {
+		tax = 0
+	}
+	return tax
+}
+
+// Расчет прибыли после налогообложения
+func getSecurityIncome(profit, tax float64) float64 {
+	profitAfterTax := profit - tax
+	return profitAfterTax
+}
+
+func getProfitInPercentage(profit, buyPrice, quantity float64) (float64, error) {
+	if buyPrice != 0 && quantity != 0 {
+		profitInPercentage := utils.RoundFloat((profit/(buyPrice*quantity))*100, 2)
+		return profitInPercentage, nil
+	} else {
+		return 0, errors.New("divide by zero")
+	}
 }

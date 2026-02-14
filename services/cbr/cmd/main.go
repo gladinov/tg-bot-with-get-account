@@ -20,6 +20,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// TODO: реализовать паттерн: “Cache-as-a-service”. Убрать хэндлеры и просто добавлять информацию
+// по валюте раз в 12 часов в redis. И никаких запросов от других сервисов
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()

@@ -29,7 +29,7 @@ func TestGetCurrencyFromCB(t *testing.T) {
 		mockCbr := mocks.NewCbrClient(t)
 		externalApis := NewExternalApis(nil, mockCbr, nil)
 
-		srvs := NewService(logger, nil, externalApis, mockStorage, nil)
+		srvs := NewService(logger, nil, externalApis, mockStorage, nil, nil)
 
 		mockStorage.On("GetCurrency", ctx, charCode, fixedDate).Return(expectedRate, nil)
 
@@ -48,7 +48,7 @@ func TestGetCurrencyFromCB(t *testing.T) {
 		currencies := factories.NewCurrenciesCBR()
 		externalApis := NewExternalApis(nil, mockCbr, nil)
 
-		srvs := NewService(logger, nil, externalApis, mockStorage, nil)
+		srvs := NewService(logger, nil, externalApis, mockStorage, nil, nil)
 
 		mockStorage.On("GetCurrency", ctx, charCode, fixedDate).Return(0.0, domain.ErrNoCurrency)
 		mockCbr.On("GetAllCurrencies", ctx, fixedDate).Return(currencies, nil)
@@ -67,7 +67,7 @@ func TestGetCurrencyFromCB(t *testing.T) {
 		mockCbr := mocks.NewCbrClient(t)
 		externalApis := NewExternalApis(nil, mockCbr, nil)
 
-		srvs := NewService(logger, nil, externalApis, mockStorage, nil)
+		srvs := NewService(logger, nil, externalApis, mockStorage, nil, nil)
 
 		mockStorage.On("GetCurrency", ctx, charCode, fixedDate).Return(0.0, errors.New("db error"))
 
@@ -81,7 +81,7 @@ func TestGetCurrencyFromCB(t *testing.T) {
 		mockCbr := mocks.NewCbrClient(t)
 		externalApis := NewExternalApis(nil, mockCbr, nil)
 
-		srvs := NewService(logger, nil, externalApis, mockStorage, nil)
+		srvs := NewService(logger, nil, externalApis, mockStorage, nil, nil)
 
 		mockStorage.On("GetCurrency", ctx, charCode, fixedDate).Return(0.0, domain.ErrNoCurrency)
 		mockCbr.On("GetAllCurrencies", ctx, fixedDate).Return(domain.CurrenciesCBR{}, errors.New("CB error"))
@@ -99,7 +99,7 @@ func TestGetCurrencyFromCB(t *testing.T) {
 		currencies := factories.NewCurrenciesCBR()
 		externalApis := NewExternalApis(nil, mockCbr, nil)
 
-		srvs := NewService(logger, nil, externalApis, mockStorage, nil)
+		srvs := NewService(logger, nil, externalApis, mockStorage, nil, nil)
 
 		mockStorage.On("GetCurrency", ctx, charCode, fixedDate).Return(0.0, domain.ErrNoCurrency)
 		mockCbr.On("GetAllCurrencies", ctx, fixedDate).Return(currencies, nil)
@@ -119,7 +119,7 @@ func TestGetCurrencyFromCB(t *testing.T) {
 		currencies := factories.NewCurrenciesCBR()
 		externalApis := NewExternalApis(nil, mockCbr, nil)
 
-		srvs := NewService(logger, nil, externalApis, mockStorage, nil)
+		srvs := NewService(logger, nil, externalApis, mockStorage, nil, nil)
 
 		mockStorage.On("GetCurrency", ctx, charCode, fixedDate).Return(0.0, domain.ErrNoCurrency)
 		mockCbr.On("GetAllCurrencies", ctx, fixedDate).Return(currencies, nil)

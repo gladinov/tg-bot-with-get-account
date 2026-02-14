@@ -136,6 +136,7 @@ type PortfolioPosition struct {
 type PortfolioPositionsWithAssetUid struct {
 	InstrumentType string
 	AssetUid       string
+	InstrumentUid  string
 }
 
 type Bond struct {

@@ -46,41 +46,6 @@ type UsdResponce struct {
 	Usd float64
 }
 
-type ReportPositions struct {
-	Quantity         float64
-	CurrentPositions []PositionByFIFO
-}
-
-type PositionByFIFO struct {
-	Name                  string
-	Replaced              bool
-	CurrencyIfReplaced    string
-	BuyDate               time.Time
-	SellDate              time.Time
-	Quantity              float64
-	Figi                  string
-	InstrumentType        string
-	InstrumentUid         string
-	Ticker                string
-	ClassCode             string
-	Nominal               float64
-	BuyPrice              float64
-	SellPrice             float64 // Для открытых позиций.Текущая цена с биржи
-	BuyPayment            float64
-	SellPayment           float64
-	Currency              string
-	BuyAccruedInt         float64 // НКД при покупке
-	SellAccruedInt        float64
-	PartialEarlyRepayment float64 // Частичное досрочное гашение
-	TotalCoupon           float64
-	TotalDividend         float64
-	TotalComission        float64
-	PaidTax               float64 // Фактически уплаченный налог(Часть налога будет уплачена в конце года, либо при выводе средств)
-	TotalTax              float64 // Налог рассчитанный
-	PositionProfit        float64 // С учетом рассчитанных налогов(TotalTax)
-	ProfitInPercentage    float64 // В процентах строковая переменная
-}
-
 type Report struct {
 	BondsInRUB []BondReport
 	BondsInCNY []BondReport
@@ -242,4 +207,25 @@ func (r OperationsRequest) Validate(now time.Time) error {
 		return ErrInvalidFromDate
 	}
 	return nil
+}
+
+type ReportLine struct {
+	Operation  []OperationWithoutCustomTypes
+	Bond       BondIdentIdentifiers
+	LastPrice  LastPrice
+	Vunit_rate Rate
+}
+
+func NewReportLine(op []OperationWithoutCustomTypes, bond BondIdentIdentifiers, price LastPrice, vunit_rate Rate) ReportLine {
+	return ReportLine{
+		Operation:  op,
+		Bond:       bond,
+		LastPrice:  price,
+		Vunit_rate: vunit_rate,
+	}
+}
+
+type Rate struct {
+	IsoCurrencyName string
+	Vunit_Rate      NullFloat64
 }

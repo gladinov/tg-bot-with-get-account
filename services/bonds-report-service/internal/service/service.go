@@ -3,6 +3,7 @@ package service
 import (
 	"bonds-report-service/internal/clients/sber"
 	"bonds-report-service/internal/models/domain"
+	"bonds-report-service/internal/models/domain/report"
 	"context"
 	"log/slog"
 	"time"
@@ -38,6 +39,11 @@ const (
 	securityType  = "TYPE_SECURITY"
 	indexType     = "TYPE_INDEX"
 )
+
+//go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=ReportProcessor
+type ReportProcessor interface {
+	ProcessOperations(ctx context.Context, reportLine *domain.ReportLine) (_ *report.ReportPositions, err error)
+}
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=UidProvider
 type UidProvider interface {
@@ -115,12 +121,13 @@ func NewExternalApis(
 }
 
 type Service struct {
-	logger      *slog.Logger
-	Tinkoff     *TinkoffClients
-	External    *ExternalApis
-	Storage     service_storage.Storage
-	UidProvider UidProvider
-	now         func() time.Time
+	logger          *slog.Logger
+	Tinkoff         *TinkoffClients
+	External        *ExternalApis
+	Storage         service_storage.Storage
+	UidProvider     UidProvider
+	ReportProcessor ReportProcessor
+	now             func() time.Time
 }
 
 func NewService(
@@ -128,14 +135,16 @@ func NewService(
 	tinkoffClients *TinkoffClients,
 	externalApis *ExternalApis,
 	storage service_storage.Storage,
+	reportProcessor ReportProcessor,
 	uidProvider UidProvider,
 ) *Service {
 	return &Service{
-		logger:      logger,
-		Tinkoff:     tinkoffClients,
-		External:    externalApis,
-		Storage:     storage,
-		UidProvider: uidProvider,
-		now:         time.Now,
+		logger:          logger,
+		Tinkoff:         tinkoffClients,
+		External:        externalApis,
+		Storage:         storage,
+		UidProvider:     uidProvider,
+		ReportProcessor: reportProcessor,
+		now:             time.Now,
 	}
 }
