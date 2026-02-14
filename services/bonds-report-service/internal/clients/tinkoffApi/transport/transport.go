@@ -70,7 +70,7 @@ func (t *Transport) DoRequest(ctx context.Context,
 	if requestBody != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	reqWithTraceID, err := t.setHeaders(ctx, req) // TODO: Добавить кейс в тест
+	reqWithTraceID, err := t.setHeaders(ctx, req)
 	if err != nil {
 		errMsg := "failed to set headers"
 		logging.LoggHTTPError(ctx, logg, req, errMsg, op, err)

@@ -79,6 +79,14 @@ func TestDoRequest_Realistic(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "could not read body")
 	})
+	t.Run("Err: without chatID ctx header", func(t *testing.T) {
+		ctx := context.Background()
+
+		transport := NewTransport(logg, testHost)
+		_, err := transport.DoRequest(ctx, "/mock", url.Values{}, nil)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to set headers")
+	})
 }
 
 type faultyReader struct{}

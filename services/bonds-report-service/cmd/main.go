@@ -32,7 +32,7 @@ func main() {
 	_ = traceidgenerator.Must()
 
 	repo := repository.MustInitNewStorage(ctx, conf, logg)
-	// TODO: close db
+	defer repo.CloseDB()
 
 	tinkoffClient := app.InitTinkoffApiClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
 

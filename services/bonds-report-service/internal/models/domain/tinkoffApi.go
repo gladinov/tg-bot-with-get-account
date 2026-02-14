@@ -223,6 +223,18 @@ type OperationWithoutCustomTypes struct {
 	AssetUid          string
 }
 
+// TODO: Подумать как назвать адекватней.
+// TODO: Подумать стоит ли хранить струкутру и метод здесб
+func (op *OperationWithoutCustomTypes) ApplyValuesIfCurrentQuantityLessThanSellQuantity(proportion float64, currQuantity float64) {
+	// НКД
+	op.AccruedInt -= op.AccruedInt * proportion
+	// Плюсуем комиссию за продажу бумаг
+	op.Commission -= op.Commission * proportion
+
+	// Изменяем значение Quantity.Operation
+	op.QuantityDone -= currQuantity
+}
+
 type Account struct {
 	ID          string
 	Type        string

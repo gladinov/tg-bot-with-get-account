@@ -23,7 +23,7 @@ const (
 )
 
 func (p *ReportProcessor) ProcessOperations(ctx context.Context, reportLine *domain.ReportLine) (_ *report.ReportPositions, err error) {
-	const op = "service.ProcessOperations"
+	const op = "report.ProcessOperations"
 
 	defer logging.LogOperation_Debug(ctx, p.logger, op, &err)()
 
