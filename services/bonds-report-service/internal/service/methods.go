@@ -10,10 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
-	"path"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/gladinov/e"
@@ -111,183 +108,6 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 			accountLogg.Debug(
 				"Storage.SaveBondReport error", slog.Any("error", err))
 			return err
-		}
-	}
-	return nil
-}
-
-func (s *Service) GetBondReportsWithEachGeneralPosition(ctx context.Context, chatID int) (err error) {
-	const op = "service.GetBondReportsWithEachGeneralPosition"
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't get general bond report", err)
-	}()
-
-	accounts, err := s.Tinkoff.Portfolio.GetAccounts(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, account := range accounts {
-		err = s.updateOperations(ctx, chatID, account.ID, account.OpenedDate)
-		if err != nil {
-			return err
-		}
-		if account.Status != 2 {
-			continue
-		}
-		portfolio, err := s.TinkoffGetPortfolio(ctx, account)
-		if err != nil {
-			return err
-		}
-
-		portfolioPositions, err := s.MapPositionsToPositionsWithAssetUid(ctx, portfolio.Positions)
-		if err != nil {
-			return err
-		}
-		err = s.Storage.DeleteGeneralBondReport(ctx, chatID, account.ID)
-		if err != nil {
-			return err
-		}
-		generalBondReports := domain.GeneralBondReports{
-			RubBondsReport:      make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
-			EuroBondsReport:     make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
-			ReplacedBondsReport: make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
-		}
-
-		for _, position := range portfolioPositions {
-			if position.InstrumentType == "bond" {
-				operationsDb, err := s.Storage.GetOperations(ctx, chatID, position.AssetUid, account.ID)
-				if err != nil {
-					return err
-				}
-				reporLines, err := s.CreateNewReportLines(ctx, position, operationsDb)
-				if err != nil {
-					return e.WrapIfErr("failed to create new report lines", err)
-				}
-
-				resultBondPosition, err := s.ReportProcessor.ProcessOperations(ctx, reporLines)
-				if err != nil {
-					return e.WrapIfErr("failed to process operation", err)
-				}
-				totalAmount := portfolio.TotalAmount.ToFloat()
-
-				bondReport, err := s.CreateGeneralBondReport(ctx, resultBondPosition, totalAmount)
-				if err != nil {
-					return err
-				}
-				switch {
-				case bondReport.Replaced:
-					tickerTimeKey := domain.TickerTimeKey{
-						Ticker: bondReport.Ticker,
-						Time:   bondReport.BuyDate,
-					}
-					generalBondReports.ReplacedBondsReport[tickerTimeKey] = bondReport
-				case bondReport.Currencies != "rub":
-					tickerTimeKey := domain.TickerTimeKey{
-						Ticker: bondReport.Ticker,
-						Time:   bondReport.BuyDate,
-					}
-					generalBondReports.EuroBondsReport[tickerTimeKey] = bondReport
-				default:
-					tickerTimeKey := domain.TickerTimeKey{
-						Ticker: bondReport.Ticker,
-						Time:   bondReport.BuyDate,
-					}
-					generalBondReports.RubBondsReport[tickerTimeKey] = bondReport
-				}
-
-			}
-		}
-
-		err = Vizualization(logg, &generalBondReports, chatID, account.ID)
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
-}
-
-func Vizualization(logger *slog.Logger, generalBondReports *domain.GeneralBondReports, chatID int, accountID string) (err error) {
-	const op = "service.Vizualization"
-
-	start := time.Now()
-	logg := logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't do vizualization", err)
-	}()
-	reports := make([][]domain.GeneralBondReportPosition, 0)
-
-	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
-	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
-		return err
-	}
-	replacedBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.ReplacedBondsReport)
-	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
-		return err
-	}
-	euroBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.EuroBondsReport)
-	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
-		return err
-	}
-	reports = append(reports, rubbleBondReportSorted)
-	reports = append(reports, replacedBondReportSorted)
-	reports = append(reports, euroBondReportSorted)
-
-	for _, report := range reports {
-		if len(report) == 0 {
-			continue
-		}
-
-		var typeOfBonds string
-		switch {
-		case report[0].Replaced:
-			typeOfBonds = domain.ReplacedBonds
-		case report[0].Currencies != "rub":
-			typeOfBonds = domain.EuroBonds
-		default:
-			typeOfBonds = domain.RubBonds
-		}
-		pathDir := path.Join(reportPath, strconv.Itoa(chatID), accountID)
-		if _, err := os.Stat(pathDir); os.IsNotExist(err) {
-			err = os.MkdirAll(pathDir, 0755)
-			if err != nil {
-				return e.WrapIfErr("can't make directory", err)
-			}
-		}
-		count := 1
-		now := time.Now()
-		nameTime := now.Format(layoutTime)
-
-		for start := 0; start < len(report); start += 10 {
-			countName := strconv.Itoa(count)
-			fileName := nameTime + "_" + typeOfBonds + "_" + countName + ".png"
-			pathAndName := path.Join(pathDir, fileName)
-			end := start + 10
-			if end > len(report) {
-				end = len(report)
-			}
-			err := visualization.Vizualize(logg, report[start:end], pathAndName, typeOfBonds)
-			if err != nil {
-				return e.WrapIfErr("vizualize error", err)
-			}
-			count += 1
-
 		}
 	}
 	return nil
@@ -457,6 +277,7 @@ func (s *Service) PrepareToGenerateTablePNG(generalBondReports *domain.GeneralBo
 			if err != nil {
 				return nil, e.WrapIfErr("vizualize error", err)
 			}
+			// TODO: Есть желание вынести все, что связано с отображением в отдельный микросервис. А из этого отправлять только струкутуры данных
 			imageData := domain.NewImageData()
 			imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
 			imageData.Data = pngData
