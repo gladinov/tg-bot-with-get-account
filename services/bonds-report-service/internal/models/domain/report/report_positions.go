@@ -5,6 +5,8 @@ import (
 	"bonds-report-service/internal/utils/logging"
 	"context"
 	"log/slog"
+
+	"github.com/gladinov/e"
 )
 
 // TODO: Подумать как разбить адекватно эту мешанину из файлов
@@ -251,7 +253,7 @@ end:
 		case currentQuantity > sellQuantity:
 			err := currPosition.isCurrentQuantityGreaterThanSellQuantity(operation.QuantityDone)
 			if err != nil {
-				return err
+				return e.WrapIfErr("failed to isCurrentQuantityGreaterThanSellQuantity", err)
 			}
 			// Прерываем цикл
 			break end

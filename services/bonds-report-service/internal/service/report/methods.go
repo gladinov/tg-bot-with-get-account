@@ -5,6 +5,9 @@ import (
 	"bonds-report-service/internal/models/domain/report"
 	"bonds-report-service/internal/utils/logging"
 	"context"
+	"log/slog"
+
+	"github.com/gladinov/e"
 )
 
 const (
@@ -37,7 +40,7 @@ func (p *ReportProcessor) ProcessOperations(ctx context.Context, reportLine *dom
 				ctx,
 				p.logger,
 				operation); err != nil {
-				return nil, err
+				return nil, e.WrapIfErr("failed to Process Withholding Of Personal Income Tax On Coupons Or Dividends", err)
 			}
 
 			// 10	Частичное погашение облигаций.
@@ -92,7 +95,7 @@ func (p *ReportProcessor) ProcessOperations(ctx context.Context, reportLine *dom
 				p.logger,
 				operation)
 			if err != nil {
-				return nil, err
+				return nil, e.WrapIfErr("failed to Process Payment Of Dividends", err)
 			}
 			// 22	Продажа ЦБ.
 		case SaleOfSecurities:
@@ -106,7 +109,7 @@ func (p *ReportProcessor) ProcessOperations(ctx context.Context, reportLine *dom
 					p.logger,
 					&operation) // TODO: изменяем операцию . Надо здесь обдумать верна ли логика
 				if err != nil {
-					return nil, err
+					return nil, e.WrapIfErr("failed to Process Sell Of Securities", err)
 				}
 			}
 
@@ -118,7 +121,7 @@ func (p *ReportProcessor) ProcessOperations(ctx context.Context, reportLine *dom
 				operation,
 			)
 			if err != nil {
-				return nil, err
+				return nil, e.WrapIfErr("failed to Process Payment Of Coupons", err)
 			}
 
 			// 47	Гербовый сбор.
@@ -129,9 +132,10 @@ func (p *ReportProcessor) ProcessOperations(ctx context.Context, reportLine *dom
 				operation,
 			)
 			if err != nil {
-				return nil, err
+				return nil, e.WrapIfErr("failed to Process Stamp Duty", err)
 			}
 		default:
+			p.logger.WarnContext(ctx, "unkown opperation type", slog.String("op", op))
 			continue
 
 		}
