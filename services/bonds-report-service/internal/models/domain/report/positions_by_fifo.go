@@ -82,3 +82,4 @@ func (P *PositionByFIFO) isCurrentQuantityGreaterThanSellQuantity(
 	P.BuyAccruedInt = P.BuyAccruedInt * (1 - proportion)
 	return nil
 }
+

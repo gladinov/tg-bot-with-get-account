@@ -115,17 +115,7 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 
 func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.BondReportsResponce, err error) {
 	const op = "service.GetBondReports"
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't get general bond report", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	reportsInByteByAccounts := make([][]*domain.MediaGroup, 0)
 
@@ -161,22 +151,31 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 			EuroBondsReport:     make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
 			ReplacedBondsReport: make(map[domain.TickerTimeKey]domain.GeneralBondReportPosition),
 		}
-
+		// Итерируемся по позициям портфеля
+		// TODO: Возможно лучше итерироваться по указктелю
 		for _, position := range portfolioPositions {
+			// Проверяем, что бумага типа БОНД
 			if position.InstrumentType == "bond" {
+				// Получаем все операции по данной бумаге
 				operationsDb, err := s.Storage.GetOperations(ctx, chatID, position.AssetUid, account.ID)
 				if err != nil {
-					return domain.BondReportsResponce{}, err
+					return domain.BondReportsResponce{}, e.WrapIfErr("failed to get operations from strorge", err)
 				}
+				// Создаем струкуру ReportLine, которая вбирает в себя:
+				// список операций по бумаге в портфеле,
+				// идендификаторф бумаги, полученные с ТинькоффАпи
+				// последняя цена данной бумаги
+				// Курс валюты
 				reporLines, err := s.CreateNewReportLines(ctx, position, operationsDb)
 				if err != nil {
 					return domain.BondReportsResponce{}, e.WrapIfErr("failed to create new report lines", err)
 				}
-
+				// Обрабатываем операции и получаем открытые позиции по данной бумаге
 				resultBondPosition, err := s.ReportProcessor.ProcessOperations(ctx, reporLines)
 				if err != nil {
 					return domain.BondReportsResponce{}, e.WrapIfErr("failed to process operation", err)
 				}
+				// Общая стоимость портфеля
 				totalAmount := portfolio.TotalAmount.ToFloat()
 
 				bondReport, err := s.CreateGeneralBondReport(ctx, resultBondPosition, totalAmount)
@@ -207,7 +206,7 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 			}
 		}
 
-		reportsInByte, err := s.PrepareToGenerateTablePNG(&generalBondReports, chatID, account.ID)
+		reportsInByte, err := s.PrepareToGenerateTablePNG(ctx, &generalBondReports, chatID, account.ID)
 		if err != nil {
 			return domain.BondReportsResponce{}, err
 		}
@@ -218,32 +217,22 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 	return getBondReportsResponce, nil
 }
 
-func (s *Service) PrepareToGenerateTablePNG(generalBondReports *domain.GeneralBondReports, chatID int, accountID string) (_ []*domain.MediaGroup, err error) {
+func (s *Service) PrepareToGenerateTablePNG(ctx context.Context, generalBondReports *domain.GeneralBondReports, chatID int, accountID string) (_ []*domain.MediaGroup, err error) {
 	const op = "service.PrepareToGenerateTablePNG"
 
-	start := time.Now()
-	logg := s.logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("can't prepareToGeneratePNG", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	reports := make([][]domain.GeneralBondReportPosition, 0)
 
-	rubbleBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.RubBondsReport)
+	rubbleBondReportSorted, err := sortGeneralBondReports(s.logger, generalBondReports.RubBondsReport)
 	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return nil, err
 	}
-	replacedBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.ReplacedBondsReport)
+	replacedBondReportSorted, err := sortGeneralBondReports(s.logger, generalBondReports.ReplacedBondsReport)
 	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return nil, err
 	}
-	euroBondReportSorted, err := sortGeneralBondReports(logg, generalBondReports.EuroBondsReport)
+	euroBondReportSorted, err := sortGeneralBondReports(s.logger, generalBondReports.EuroBondsReport)
 	if err != nil && !errors.Is(err, domain.ErrEmptyReport) {
 		return nil, err
 	}
@@ -273,7 +262,7 @@ func (s *Service) PrepareToGenerateTablePNG(generalBondReports *domain.GeneralBo
 			if end > len(report) {
 				end = len(report)
 			}
-			pngData, err := visualization.GenerateTablePNG(logg, report[start:end], typeOfBonds)
+			pngData, err := visualization.GenerateTablePNG(ctx, s.logger, report[start:end], typeOfBonds)
 			if err != nil {
 				return nil, e.WrapIfErr("vizualize error", err)
 			}

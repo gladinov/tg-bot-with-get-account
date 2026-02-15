@@ -1,7 +1,8 @@
-package service
+package bondreport
 
 import (
 	"bonds-report-service/internal/models/domain"
+	bondreport "bonds-report-service/internal/models/domain/bondReport"
 	"bonds-report-service/internal/models/domain/report"
 	"bonds-report-service/internal/utils"
 	"bonds-report-service/internal/utils/logging"
@@ -10,6 +11,8 @@ import (
 	"log/slog"
 	"math"
 	"time"
+
+	"github.com/gladinov/e"
 )
 
 const (
@@ -23,7 +26,7 @@ const (
 	baseTaxRate      = 0.13  // Налог с продажи ЦБ
 )
 
-func (s *Service) CreateBondReport(ctx context.Context, reportPostions report.ReportPositions) (_ domain.Report, err error) {
+func (s *BondReporter) CreateBondReport(ctx context.Context, reportPostions report.ReportPositions) (_ domain.Report, err error) {
 	const op = "service.CreateBondReport"
 
 	var resultReports domain.Report
@@ -50,122 +53,84 @@ func (s *Service) CreateBondReport(ctx context.Context, reportPostions report.Re
 	return resultReports, nil
 }
 
-func (s *Service) CreateGeneralBondReport(ctx context.Context, resultBondPosition *report.ReportPositions, totalAmount float64) (_ domain.GeneralBondReportPosition, err error) {
+func (s *BondReporter) CreateGeneralBondReport(ctx context.Context, resultBondPosition *report.ReportPositions, totalAmount float64) (_ domain.GeneralBondReportPosition, err error) {
 	const op = "service.CreateGeneralBondReport"
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
-	// Получаем 
+	// Переменная ткущих позиций формата []report.PositionByFIFO
 	currentPostions := resultBondPosition.CurrentPositions
+	// Создаем переменные
 	var BondReporPosition domain.GeneralBondReportPosition
+	var name string
+	var duration int64
+	var yieldToMaturity float64
+
+	firstBondsBuyDate := currentPostions[0].BuyDate
 
 	if len(currentPostions) == 0 {
-		return BondReporPosition, errors.New("no input positions")
+		return domain.GeneralBondReportPosition{}, bondreport.ErrEmptyPositons
 	}
-	BondReporPosition.Ticker = currentPostions[0].Ticker
-	BondReporPosition.Currencies = currentPostions[0].Currency
-	BondReporPosition.Nominal = currentPostions[0].Nominal
-	BondReporPosition.CurrentPrice = currentPostions[0].SellPrice
-	BondReporPosition.Replaced = currentPostions[0].Replaced
 
-	var sumOfPosition float64
-	buyDate := currentPostions[0].BuyDate
-	var sumOfQuantity float64
-	var profit float64
+	ticker := currentPostions[0].Ticker
+	currency := currentPostions[0].Currency
+	nominal := currentPostions[0].Nominal
+	sellPrice := currentPostions[0].SellPrice
+	replaced := currentPostions[0].Replaced
 
-	for _, position := range currentPostions {
-		sumOfPosition += position.BuyPrice * position.Quantity
-		compareDate := position.BuyDate
-		if compareDate.Compare(buyDate) == -1 {
-			buyDate = compareDate
-		}
-		sumOfQuantity += position.Quantity
+	sumOfPositionsRes := GetSumOfPositions(currentPostions)
 
-		profitWithoutTax := getSecurityIncomeWithoutTax(position)
-		totalTax := getTotalTaxFromPosition(position, profitWithoutTax)
-		profit += getSecurityIncome(profitWithoutTax, totalTax)
-	}
-	BondReporPosition.PositionPrice = utils.RoundFloat(sumOfPosition/sumOfQuantity, 2)
-	BondReporPosition.BuyDate = buyDate
-	BondReporPosition.Quantity = int64(sumOfQuantity)
-	BondReporPosition.Profit = utils.RoundFloat(profit, 2)
-	BondReporPosition.ProfitInPercentage = utils.RoundFloat((profit/sumOfPosition)*100, 2)
-	BondReporPosition.PercentOfPortfolio = utils.RoundFloat((sumOfPosition/totalAmount)*100, 2)
+	positionsPrice := utils.RoundFloat(sumOfPositionsRes.SumOfPositions/sumOfPositionsRes.SumOfQuantity, 2)
+	quantity := int64(sumOfPositionsRes.SumOfQuantity)
+	profitOfAllPositions := utils.RoundFloat(sumOfPositionsRes.ProfitOfAllPositions, 2)
+	profitInPercentage := utils.RoundFloat((profitOfAllPositions/sumOfPositionsRes.SumOfPositions)*100, 2)
+	percentOfPortfolio := utils.RoundFloat((sumOfPositionsRes.SumOfPositions/totalAmount)*100, 2)
 
-	moexBuyDateData, err := s.GetSpecificationsFromMoex(ctx, BondReporPosition.Ticker, buyDate)
+	moexBuyDateData, err := s.GetSpecificationsFromMoex(ctx, ticker, firstBondsBuyDate)
 	if err != nil {
-		return BondReporPosition, err
+		return domain.GeneralBondReportPosition{}, err
 	}
-	date := s.now()
-	moexNowData, err := s.GetSpecificationsFromMoex(ctx, BondReporPosition.Ticker, date)
+	moexNowData, err := s.GetSpecificationsFromMoex(ctx, ticker, s.now())
 	if err != nil {
-		return BondReporPosition, err
+		return domain.GeneralBondReportPosition{}, err
 	}
 
 	if moexNowData.ShortName.IsHasValue() {
-		BondReporPosition.Name = moexNowData.ShortName.Value
+		name = moexNowData.ShortName.Value
 	} else {
-		BondReporPosition.Name = currentPostions[0].Name
+		name = currentPostions[0].Name
 	}
 
 	if moexNowData.Duration.IsHasValue() {
-		BondReporPosition.Duration = int64(moexNowData.Duration.Value)
+		duration = int64(moexNowData.Duration.Value)
 	}
 
 	if moexNowData.YieldToOffer.IsHasValue() {
-		BondReporPosition.YieldToMaturity = moexNowData.YieldToOffer.Value
+		yieldToMaturity = moexNowData.YieldToOffer.Value
 	} else {
 		if moexNowData.YieldToMaturity.IsHasValue() {
-			BondReporPosition.YieldToMaturity = moexNowData.YieldToMaturity.Value
+			yieldToMaturity = moexNowData.YieldToMaturity.Value
 		}
-	}
-	var maturityDate string
-	if moexNowData.MaturityDate.IsHasValue() {
-		maturityDate = moexNowData.MaturityDate.Value
 	}
 
-	var offerDate string
-	if moexNowData.OfferDate.IsHasValue() {
-		offerDate = moexNowData.OfferDate.Value
+	maturityDate, err := getFirstMuturityDate(moexNowData.BuybackDate, moexNowData.OfferDate, moexNowData.MaturityDate)
+	if err != nil {
+		return domain.GeneralBondReportPosition{}, nil
 	}
 
-	var buyBackDate string
-	if moexNowData.BuybackDate.IsHasValue() {
-		buyBackDate = moexNowData.BuybackDate.Value
-	}
-
-	switch {
-	case moexNowData.OfferDate.IsHasValue() && moexNowData.BuybackDate.IsHasValue():
-		offerDateConv, err := time.Parse(layout, offerDate)
-		if err != nil {
-			return BondReporPosition, err
-		}
-		buyBackDateConv, err := time.Parse(layout, buyBackDate)
-		if err != nil {
-			return BondReporPosition, err
-		}
-		if offerDateConv.Compare(buyBackDateConv) == -1 {
-			BondReporPosition.MaturityDate = offerDateConv
-		} else {
-			BondReporPosition.MaturityDate = buyBackDateConv
-		}
-	case moexNowData.OfferDate.IsHasValue():
-		offerDateConv, err := time.Parse(layout, offerDate)
-		if err != nil {
-			return BondReporPosition, err
-		}
-		BondReporPosition.MaturityDate = offerDateConv
-	case moexNowData.BuybackDate.IsHasValue():
-		buyBackDateConv, err := time.Parse(layout, buyBackDate)
-		if err != nil {
-			return BondReporPosition, err
-		}
-		BondReporPosition.MaturityDate = buyBackDateConv
-	case moexNowData.MaturityDate.IsHasValue():
-		maturityDateConv, err := time.Parse(layout, maturityDate)
-		if err != nil {
-			return BondReporPosition, err
-		}
-		BondReporPosition.MaturityDate = maturityDateConv
-	}
+	BondReporPosition.Ticker = ticker
+	BondReporPosition.Currencies = currency
+	BondReporPosition.Nominal = nominal
+	BondReporPosition.CurrentPrice = sellPrice
+	BondReporPosition.Replaced = replaced
+	BondReporPosition.PositionPrice = positionsPrice
+	BondReporPosition.BuyDate = firstBondsBuyDate
+	BondReporPosition.Quantity = quantity
+	BondReporPosition.Profit = profitOfAllPositions
+	BondReporPosition.ProfitInPercentage = profitInPercentage
+	BondReporPosition.PercentOfPortfolio = percentOfPortfolio
+	BondReporPosition.Name = name
+	BondReporPosition.Duration = duration
+	BondReporPosition.YieldToMaturity = yieldToMaturity
+	BondReporPosition.MaturityDate = maturityDate
 
 	if moexBuyDateData.YieldToOffer.IsHasValue() {
 		yieldToOfferOnPurchase := moexBuyDateData.YieldToOffer.Value
@@ -180,7 +145,30 @@ func (s *Service) CreateGeneralBondReport(ctx context.Context, resultBondPositio
 	return BondReporPosition, nil
 }
 
-func (s *Service) createBondReportByCurrency(ctx context.Context, position report.PositionByFIFO) (_ domain.BondReport, err error) {
+func GetSumOfPositions(positions []report.PositionByFIFO) *bondreport.SumOfPositions {
+	var firstBondsBuyDate time.Time
+	var sumOfPositions float64
+	var sumOfQuantity float64
+	var profitOfAllPositions float64
+	for _, position := range positions {
+		sumOfPositions += position.BuyPrice * position.Quantity
+		compareDate := position.BuyDate
+
+		if firstBondsBuyDate.After(compareDate) {
+			firstBondsBuyDate = compareDate
+		}
+		sumOfQuantity += position.Quantity
+
+		profitWithoutTax := getSecurityIncomeWithoutTax(position)
+		totalTax := getTotalTaxFromPosition(position, profitWithoutTax)
+		profitOfAllPositions += getSecurityIncome(profitWithoutTax, totalTax)
+	}
+	res := bondreport.NewSumOfPositons(firstBondsBuyDate, sumOfPositions, sumOfQuantity, profitOfAllPositions)
+
+	return res
+}
+
+func (s *BondReporter) createBondReportByCurrency(ctx context.Context, position report.PositionByFIFO) (_ domain.BondReport, err error) {
 	const op = "service.createBondReportByCurrency"
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
@@ -257,6 +245,7 @@ func (s *Service) createBondReportByCurrency(ctx context.Context, position repor
 	return bondReport, nil
 }
 
+// TODO: Сделать это методом структуры PositionByFIFO
 func getProfit(sharePosition report.PositionByFIFO) (_ float64, err error) {
 	const op = "service.getProfit"
 
@@ -334,4 +323,44 @@ func getProfitInPercentage(profit, buyPrice, quantity float64) (float64, error) 
 	} else {
 		return 0, errors.New("divide by zero")
 	}
+}
+
+func getFirstMuturityDate(buyBackDate, offerDate, maturityDate domain.NullString) (time.Time, error) {
+	var resDate time.Time
+
+	switch {
+	case offerDate.IsHasValue() && buyBackDate.IsHasValue():
+		offerDateConv, err := time.Parse(layout, offerDate.Value)
+		if err != nil {
+			return time.Time{}, e.WrapIfErr("failed to parse offerDate", err)
+		}
+		buyBackDateConv, err := time.Parse(layout, buyBackDate.Value)
+		if err != nil {
+			return time.Time{}, e.WrapIfErr("failed to parse buyBackDate", err)
+		}
+		if buyBackDateConv.After(offerDateConv) {
+			resDate = offerDateConv
+		} else {
+			resDate = buyBackDateConv
+		}
+	case offerDate.IsHasValue():
+		offerDateConv, err := time.Parse(layout, offerDate.Value)
+		if err != nil {
+			return time.Time{}, e.WrapIfErr("failed to parse offerDate", err)
+		}
+		resDate = offerDateConv
+	case buyBackDate.IsHasValue():
+		buyBackDateConv, err := time.Parse(layout, buyBackDate.Value)
+		if err != nil {
+			return time.Time{}, e.WrapIfErr("failed to parse buyBackDate", err)
+		}
+		resDate = buyBackDateConv
+	case maturityDate.IsHasValue():
+		maturityDateConv, err := time.Parse(layout, maturityDate.Value)
+		if err != nil {
+			return time.Time{}, e.WrapIfErr("failed to parse maturityDate", err)
+		}
+		resDate = maturityDateConv
+	}
+	return resDate, nil
 }

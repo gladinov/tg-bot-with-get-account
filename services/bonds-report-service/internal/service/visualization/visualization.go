@@ -2,15 +2,15 @@ package visualization
 
 import (
 	"bonds-report-service/internal/models/domain"
+	"bonds-report-service/internal/utils/logging"
 	"bytes"
+	"context"
 	"fmt"
 	"image/color"
 	"image/png"
 	"log/slog"
 	"strings"
 	"time"
-
-	"github.com/gladinov/e"
 
 	"github.com/fogleman/gg"
 	"golang.org/x/image/font/gofont/goregular"
@@ -21,20 +21,10 @@ const (
 	layout = "2006-01-02"
 )
 
-func GenerateTablePNG(logger *slog.Logger, reports []domain.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
+func GenerateTablePNG(ctx context.Context, logger *slog.Logger, reports []domain.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
 	const op = "visualization.GenerateTablePNG"
 
-	start := time.Now()
-	logg := logger.With(
-		slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("fineshed",
-			slog.Duration("duration", time.Since(start)),
-			slog.Any("error", err),
-		)
-		err = e.WrapIfErr("could not generate table png", err)
-	}()
+	defer logging.LogOperation_Debug(ctx, logger, op, &err)()
 
 	const (
 		width        = 1200 // Увеличим ширину для лучшего отображения
