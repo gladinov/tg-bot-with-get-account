@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"bonds-report-service/internal/service"
+	service "bonds-report-service/internal/application"
 	"context"
 	"log/slog"
 	"net/http"

@@ -2,10 +2,9 @@ package main
 
 import (
 	"bonds-report-service/internal/app"
+	service "bonds-report-service/internal/application"
 	config "bonds-report-service/internal/configs"
 	"bonds-report-service/internal/handlers"
-	"bonds-report-service/internal/repository"
-	"bonds-report-service/internal/service"
 	"context"
 	"log/slog"
 	"os"
@@ -31,7 +30,7 @@ func main() {
 
 	_ = traceidgenerator.Must()
 
-	repo := repository.MustInitNewStorage(ctx, conf, logg)
+	repo := app.MustInitNewStorage(ctx, conf, logg)
 	defer repo.CloseDB()
 
 	tinkoffClient := app.InitTinkoffApiClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
@@ -52,14 +51,20 @@ func main() {
 
 	reportProcessor := app.InitReportProcessor(logg)
 
+	bondReporter := app.InitBondReportProcessor(logg)
+
+	generalBondReporter := app.InitGeneralReportProcessor(logg)
+
 	logg.Info("initialize Service client")
 	serviceClient := service.NewService(
 		logg,
 		tinkoffClient,
 		externalApis,
 		repo,
+		uidProvider,
 		reportProcessor,
-		uidProvider)
+		bondReporter,
+		generalBondReporter)
 
 	logg.Info("initialize Handlers")
 	handl := handlers.NewHandlers(logg, serviceClient)

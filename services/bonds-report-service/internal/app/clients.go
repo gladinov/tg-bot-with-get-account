@@ -1,19 +1,19 @@
 package app
 
 import (
-	cbr "bonds-report-service/internal/clients/cbr/client"
-	cbrtransport "bonds-report-service/internal/clients/cbr/transport"
-	moex "bonds-report-service/internal/clients/moex/client"
-	moextransport "bonds-report-service/internal/clients/moex/transport"
-	"bonds-report-service/internal/clients/sber"
-	"bonds-report-service/internal/clients/tinkoffApi/client/analyticsclient"
-	"bonds-report-service/internal/clients/tinkoffApi/client/instrumentsclient"
-	"bonds-report-service/internal/clients/tinkoffApi/client/portfolioclient"
-	"bonds-report-service/internal/service"
+	service "bonds-report-service/internal/application"
+	cbr "bonds-report-service/internal/infrastructure/cbr/client"
+	cbrtransport "bonds-report-service/internal/infrastructure/cbr/transport"
+	moex "bonds-report-service/internal/infrastructure/moex/client"
+	moextransport "bonds-report-service/internal/infrastructure/moex/transport"
+	"bonds-report-service/internal/infrastructure/sber"
+	"bonds-report-service/internal/infrastructure/tinkoffApi/client/analyticsclient"
+	"bonds-report-service/internal/infrastructure/tinkoffApi/client/instrumentsclient"
+	"bonds-report-service/internal/infrastructure/tinkoffApi/client/portfolioclient"
 	"log/slog"
 
-	tinkofftransport "bonds-report-service/internal/clients/tinkoffApi/transport"
 	config "bonds-report-service/internal/configs"
+	tinkofftransport "bonds-report-service/internal/infrastructure/tinkoffApi/transport"
 )
 
 func InitCBRClient(logger *slog.Logger, host string) *cbr.Client {
