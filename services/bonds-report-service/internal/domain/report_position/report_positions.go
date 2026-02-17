@@ -8,28 +8,6 @@ import (
 
 // TODO: Подумать как разбить адекватно эту мешанину из файлов
 
-const (
-	WithholdingOfPersonalIncomeTaxOnCoupons        = 2  // 2	Удержание НДФЛ по купонам.
-	WithholdingOfPersonalIncomeTaxOnDividends      = 8  // 8    Удержание налога по дивидендам.
-	PartialRedemptionOfBonds                       = 10 // 10	Частичное погашение облигаций.
-	PurchaseOfSecurities                           = 15 // 15	Покупка ЦБ.
-	PurchaseOfSecuritiesWithACard                  = 16 // 16	Покупка ЦБ с карты.
-	TransferOfSecuritiesFromAnotherDepository      = 17 // 17	Перевод ценных бумаг из другого депозитария.
-	WithhouldingACommissionForTheTransaction       = 19 // 19	Удержание комиссии за операцию.
-	PaymentOfDividends                             = 21 // 21	Выплата дивидендов.
-	SaleOfSecurities                               = 22 // 22	Продажа ЦБ.
-	PaymentOfCoupons                               = 23 // 23 Выплата купонов.
-	StampDuty                                      = 47 // 47	Гербовый сбор.
-	TransferOfSecuritiesFromIISToABrokerageAccount = 57 // 57   Перевод ценных бумаг с ИИС на Брокерский счет
-)
-
-const (
-	EuroTransBuyCost       = 240 // Стоимость Евротранса при переводе из другого депозитария
-	EuroTransInstrumentUID = "02b2ea14-3c4b-47e8-9548-45a8dbcc8f8a"
-	threeYearInHours       = 26304 // Три года в часах
-	baseTaxRate            = 0.13  // Налог с продажи ЦБ
-)
-
 type ReportPositions struct {
 	Quantity         float64
 	CurrentPositions []PositionByFIFO
@@ -68,8 +46,12 @@ func (p *ReportPositions) Apply(
 
 		// 15	Покупка ЦБ.
 		// 16	Покупка ЦБ с карты.
+		// 17	Перевод ценных бумаг из другого депозитария.
 		// 57   Перевод ценных бумаг с ИИС на Брокерский счет
-	case PurchaseOfSecurities, PurchaseOfSecuritiesWithACard, TransferOfSecuritiesFromIISToABrokerageAccount:
+	case PurchaseOfSecurities,
+		PurchaseOfSecuritiesWithACard,
+		TransferOfSecuritiesFromIISToABrokerageAccount,
+		TransferOfSecuritiesFromAnotherDepository:
 		// Проверяем операцию на выполнение.
 		// Т.е. операция может быть неисполнена, когда по заявленой цене не было встречного предложения
 		if operation.QuantityDone == 0 {
@@ -81,20 +63,6 @@ func (p *ReportPositions) Apply(
 			lastPrice,
 			rate)
 		return nil
-		// 17	Перевод ценных бумаг из другого депозитария.
-	case TransferOfSecuritiesFromAnotherDepository:
-		// Проверяем операцию на выполнение.
-		// Т.е. операция может быть неисполнена, когда по заявленой цене не было встречного предложения
-		if operation.QuantityDone == 0 {
-			return ErrZeroQuantity
-		}
-		p.ProcessTransferOfSecuritiesFromAnotherDepository(
-			operation,
-			bond,
-			lastPrice,
-			rate)
-		return nil
-
 		// 19	Удержание комиссии за операцию.
 	case WithhouldingACommissionForTheTransaction:
 		// Посчитали комисссию в операции покупки(15,16.17,57) и операции продажи(22)
@@ -140,42 +108,23 @@ func (p *ReportPositions) Apply(
 // 8    Удержание налога по дивидендам.
 func (p *ReportPositions) ProcessWithholdingOfPersonalIncomeTaxOnCouponsOrDividends(
 	operation domain.OperationWithoutCustomTypes,
-) (err error) {
-	const op = "report.processWithholdingOfPersonalIncomeTaxOnCouponsOrDividends"
-
-	// Проверка на наличие бумаг на счете
-	if p.Quantity == 0 {
-		return ErrZeroQuantity
-	} else {
-		// Итерируемся по ReportPositions.CurrentPositions
-		for i := range p.CurrentPositions {
-			// Создаем переменную содержащую в себе ссылку на элемент массива текущих позиций positionByFIFO
-			currentPosition := &p.CurrentPositions[i] // TODO: Поинтересоваться у нейронки про экономию ресурсов. Корректно ли я вызвал элемент массива?
-			// Рассчитываем пропорцию от общего налога на текущую позицию.
-			proportion := currentPosition.Quantity / p.Quantity
-			// Плюсуем к уплаченному налогу по текущей позиции выплату по операции * пропорцию
-			currentPosition.PaidTax += operation.Payment * proportion
-		}
-	}
-	return nil
+) error {
+	return p.distributePayment(
+		operation.Payment,
+		func(pos *PositionByFIFO) *float64 {
+			return &pos.PaidTax
+		})
 }
 
 // 10	Частичное погашение облигаций.
 func (p *ReportPositions) ProcessPartialRedemptionOfBonds(
 	operation domain.OperationWithoutCustomTypes,
 ) (err error) {
-	const op = "report.processPartialRedemptionOfBonds"
-	// Описание шагов идентично методу ProcessWithholdingOfPersonalIncomeTaxOnCouponsOrDividends
-	if p.Quantity == 0 {
-		return ErrZeroQuantity
-	} else {
-		for i := range p.CurrentPositions {
-			currentPosition := &p.CurrentPositions[i]
-			proportion := currentPosition.Quantity / p.Quantity
-			currentPosition.PartialEarlyRepayment += operation.Payment * proportion
-		}
-	}
-	return nil
+	return p.distributePayment(
+		operation.Payment,
+		func(pos *PositionByFIFO) *float64 {
+			return &pos.PartialEarlyRepayment
+		})
 }
 
 // 15	Покупка ЦБ.
@@ -191,7 +140,13 @@ func (p *ReportPositions) ProcessPurchaseOfSecurities(
 
 	// TODO: при обработке фьючерсов и акций, где была маржтнальная позиция,
 	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
-	position := NewPositionByFIFOFromOperation(operation) // Создаем PositionByFIFO для операции покупки или перевода бумаги
+	position := NewPositionByFIFOFromOperation(operation)
+
+	// Для Евротранса исключение
+	// TODO: Это исключение только для одного аккаунта должно работать. Потенциальный баг
+	if operation.InstrumentUid == EuroTransInstrumentUID && operation.Type == TransferOfSecuritiesFromAnotherDepository {
+		position.BuyPrice = EuroTransBuyCost
+	}
 
 	position.ApplyBondMetadata(bondIdentifiers) // Применяем BondIdentifiers из ReportLine.Bond
 
@@ -209,97 +164,37 @@ func (p *ReportPositions) ProcessPurchaseOfSecurities(
 	p.Quantity += operation.QuantityDone
 }
 
-// 17	Перевод ценных бумаг из другого депозитария.
-func (p *ReportPositions) ProcessTransferOfSecuritiesFromAnotherDepository(
-	operation domain.OperationWithoutCustomTypes,
-	bondIdentifiers domain.BondIdentIdentifiers,
-	lastPrice domain.LastPrice,
-	vunitRate domain.Rate,
-) {
-	// Описание операций смотри выше
-	const op = "report.processTransferOfSecuritiesFromAnotherDepository"
-
-	// TODO: при обработке фьючерсов и акций, где была маржтнальная позиция,
-	//  функцию надо переделать так, чтобы проверялось наличие позиций с отрицательным количеством бумаг(коротких позиций)
-	position := NewPositionByFIFOFromOperation(operation)
-	// Для Евротранса исключение // TODO: Это исключение только для одного аккаунта должно работать. Потенциальный баг
-	if operation.InstrumentUid == EuroTransInstrumentUID {
-		position.BuyPrice = EuroTransBuyCost
-	}
-
-	position.ApplyBondMetadata(bondIdentifiers)
-
-	nominal := CalculateNominal(bondIdentifiers.Nominal, position.Replaced, vunitRate)
-
-	sellPrice := CalculateSellPrice(nominal, lastPrice)
-
-	position.Nominal = nominal
-	position.SellPrice = sellPrice
-
-	p.CurrentPositions = append(p.CurrentPositions, position)
-	p.Quantity += operation.QuantityDone
-}
-
 // 21	Выплата дивидендов.
 func (p *ReportPositions) ProcessPaymentOfDividends(
 	operation domain.OperationWithoutCustomTypes,
 ) (err error) {
-	const op = "report.processPaymentOfDividends"
-	// Описание шагов идентично методу ProcessWithholdingOfPersonalIncomeTaxOnCouponsOrDividends
-
-	if p.Quantity == 0 {
-		return ErrZeroQuantity
-	} else {
-		for i := range p.CurrentPositions {
-			currentPosition := &p.CurrentPositions[i]
-			proportion := currentPosition.Quantity / p.Quantity
-			// Минус, т.к. operation.Payment с отрицательным знаком в отчете
-			// TODO: Проверить высказывание выше
-			currentPosition.TotalDividend += operation.Payment * proportion
-		}
-	}
-	return nil
+	return p.distributePayment(
+		operation.Payment,
+		func(pos *PositionByFIFO) *float64 {
+			return &pos.TotalDividend
+		})
 }
 
 // 23 Выплата купонов.
 func (p *ReportPositions) ProcessPaymentOfCoupons(
 	operation domain.OperationWithoutCustomTypes,
 ) (err error) {
-	const op = "report.processPaymentOfCoupons"
-	// Описание шагов идентично методу ProcessWithholdingOfPersonalIncomeTaxOnCouponsOrDividends
-
-	if p.Quantity == 0 {
-		return ErrZeroQuantity
-	} else {
-		for i := range p.CurrentPositions {
-			currentPosition := &p.CurrentPositions[i]
-			proportion := currentPosition.Quantity / p.Quantity
-			// Минус, т.к. operation.Payment с отрицательным знаком в отчете
-			// TODO: Проверить высказывание выше
-			currentPosition.TotalCoupon += operation.Payment * proportion
-		}
-	}
-	return nil
+	return p.distributePayment(
+		operation.Payment,
+		func(pos *PositionByFIFO) *float64 {
+			return &pos.TotalCoupon
+		})
 }
 
 // 47	Гербовый сбор.
 func (p *ReportPositions) ProcessStampDuty(
 	operation domain.OperationWithoutCustomTypes,
 ) (err error) {
-	const op = "report.processStampDuty"
-	// Описание шагов идентично методу ProcessWithholdingOfPersonalIncomeTaxOnCouponsOrDividends
-
-	if p.Quantity == 0 {
-		return ErrZeroQuantity
-	} else {
-		for i := range p.CurrentPositions {
-			currentPosition := &p.CurrentPositions[i]
-			proportion := currentPosition.Quantity / p.Quantity
-			// Минус, т.к. operation.Payment с отрицательным знаком в отчете
-			currentPosition.TotalComission += operation.Payment * proportion
-		}
-	}
-	return nil
+	return p.distributePayment(
+		operation.Payment,
+		func(pos *PositionByFIFO) *float64 {
+			return &pos.TotalComission
+		})
 }
 
 // 22	Продажа ЦБ.
@@ -355,4 +250,21 @@ end:
 func (p *ReportPositions) isEqualCurrentQuantityAndSellQuantity() {
 	// Просто закрываем позицию , ведь сколько куплено, столько и продано
 	p.CurrentPositions = p.CurrentPositions[1:]
+}
+
+func (p *ReportPositions) distributePayment(
+	payment float64,
+	targetField func(*PositionByFIFO) *float64,
+) error {
+	if p.Quantity == 0 {
+		return ErrZeroQuantity
+	}
+
+	for i := range p.CurrentPositions {
+		pos := &p.CurrentPositions[i]
+		proportion := pos.Quantity / p.Quantity
+		*targetField(pos) += payment * proportion
+	}
+
+	return nil
 }

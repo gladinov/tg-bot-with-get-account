@@ -22,7 +22,7 @@ func (s *BondReporter) CreateBondReport(
 
 	for i := range currentPositions {
 		position := &currentPositions[i]
-		err := resultReports.Add(position, moexBuyDateData, moexNowData)
+		err := resultReports.Add(position, moexBuyDateData, moexNowData, s.now())
 		if err != nil {
 			return report.Report{}, err
 		}

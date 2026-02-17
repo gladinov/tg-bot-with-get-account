@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-func TestGetSecurityIncome(t *testing.T) {
+func TestGetNetProfit(t *testing.T) {
 	// Кейс 1: Обычная прибыль с налогом
 	t.Run("positive profit with tax", func(t *testing.T) {
 		profit := 1000.0
 		tax := 130.0
 		expected := 870.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
@@ -28,7 +28,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 0.0
 		expected := 0.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
@@ -41,7 +41,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 0.0 // налог с убытка не берется
 		expected := -500.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
@@ -54,7 +54,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 150.0
 		expected := -50.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
@@ -67,7 +67,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 500.0
 		expected := 0.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
@@ -80,7 +80,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 130.07
 		expected := 870.43
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		// Для float используем delta
 		delta := 0.0001
@@ -95,7 +95,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 130_000_000.0
 		expected := 870_000_000.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		delta := 0.01
 		if math.Abs(result-expected) > delta {
@@ -109,7 +109,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 0.000013
 		expected := 0.000087
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		delta := 0.000001
 		if math.Abs(result-expected) > delta {
@@ -123,7 +123,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 0.0
 		expected := 750.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
@@ -136,7 +136,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := -50.0 // возврат налога
 		expected := 1050.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
@@ -148,7 +148,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		profit := 1e308 // близко к max float64
 		tax := 1e307
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		// Проверяем, что не бесконечность
 		if math.IsInf(result, 0) {
@@ -166,7 +166,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		profit := math.NaN()
 		tax := 100.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		// Функция должна корректно обработать NaN
 		if !math.IsNaN(result) {
@@ -179,7 +179,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		profit := math.Inf(1)
 		tax := 100.0
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		// Бесконечность минус число = бесконечность
 		if !math.IsInf(result, 1) {
@@ -193,7 +193,7 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := 0.05
 		expected := 0.25
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		// Из-за погрешности float, используем разумную дельту
 		delta := 1e-15
@@ -208,317 +208,11 @@ func TestGetSecurityIncome(t *testing.T) {
 		tax := -130.0
 		expected := -870.0 // (-1000) - (-130) = -870
 
-		result := GetSecurityIncome(profit, tax)
+		result := GetNetProfit(profit, tax)
 
 		if result != expected {
 			t.Errorf("expected %f, got %f", expected, result)
 		}
-	})
-}
-
-func TestGetProfitInPercentage(t *testing.T) {
-	// Кейс 1: Обычная прибыль
-	t.Run("normal profit", func(t *testing.T) {
-		profit := 500.0
-		buyPrice := 1000.0
-		quantity := 10.0
-		expected := 5.00 // (500 / (1000*10)) * 100 = 5%
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 2: Нулевая прибыль
-	t.Run("zero profit", func(t *testing.T) {
-		profit := 0.0
-		buyPrice := 1000.0
-		quantity := 10.0
-		expected := 0.00
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 3: Отрицательная прибыль (убыток)
-	t.Run("negative profit (loss)", func(t *testing.T) {
-		profit := -250.0
-		buyPrice := 1000.0
-		quantity := 10.0
-		expected := -2.50 // (-250 / 10000) * 100 = -2.5%
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 4: Прибыль больше стоимости
-	t.Run("profit greater than cost", func(t *testing.T) {
-		profit := 15000.0
-		buyPrice := 1000.0
-		quantity := 10.0
-		expected := 150.00 // (15000 / 10000) * 100 = 150%
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 5: buyPrice = 0 (деление на ноль)
-	t.Run("zero buy price", func(t *testing.T) {
-		profit := 500.0
-		buyPrice := 0.0
-		quantity := 10.0
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-
-		if err == nil {
-			t.Error("expected error, got nil")
-		}
-		if result != 0 {
-			t.Errorf("expected 0, got %f", result)
-		}
-		if err.Error() != "divide by zero" {
-			t.Errorf("expected 'divide by zero' error, got '%v'", err)
-		}
-	})
-
-	// Кейс 6: quantity = 0 (деление на ноль)
-	t.Run("zero quantity", func(t *testing.T) {
-		profit := 500.0
-		buyPrice := 1000.0
-		quantity := 0.0
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-
-		if err == nil {
-			t.Error("expected error, got nil")
-		}
-		if result != 0 {
-			t.Errorf("expected 0, got %f", result)
-		}
-	})
-
-	// Кейс 7: buyPrice и quantity = 0 (деление на ноль)
-	t.Run("both zero", func(t *testing.T) {
-		profit := 500.0
-		buyPrice := 0.0
-		quantity := 0.0
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-
-		if err == nil {
-			t.Error("expected error, got nil")
-		}
-		if result != 0 {
-			t.Errorf("expected 0, got %f", result)
-		}
-	})
-
-	// Кейс 8: Дробные значения
-	t.Run("fractional values", func(t *testing.T) {
-		profit := 123.45
-		buyPrice := 987.65
-		quantity := 3.5
-		// (123.45 / (987.65*3.5)) * 100 = (123.45 / 3456.775) * 100 = 3.57%
-		expected := 3.57
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 9: Очень маленькая прибыль
-	t.Run("very small profit", func(t *testing.T) {
-		profit := 0.0001
-		buyPrice := 1000.0
-		quantity := 10.0
-		expected := 0.00 // (0.0001 / 10000) * 100 = 0.000001% -> RoundFloat = 0.00
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 10: Огромная прибыль
-	t.Run("huge profit", func(t *testing.T) {
-		profit := 1_000_000.0
-		buyPrice := 1000.0
-		quantity := 10.0
-		expected := 10000.00 // (1e6 / 10000) * 100 = 10000%
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 11: Отрицательный buyPrice (теоретически возможно?)
-	t.Run("negative buy price", func(t *testing.T) {
-		profit := 500.0
-		buyPrice := -1000.0
-		quantity := 10.0
-		expected := -5.00 // (500 / (-1000*10)) * 100 = -5%
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 12: Отрицательное quantity (теоретически возможно?)
-	t.Run("negative quantity", func(t *testing.T) {
-		profit := 500.0
-		buyPrice := 1000.0
-		quantity := -10.0
-		expected := -5.00 // (500 / (1000*-10)) * 100 = -5%
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 13: profit = 0, но buyPrice и quantity нормальные
-	t.Run("zero profit with valid inputs", func(t *testing.T) {
-		profit := 0.0
-		buyPrice := 1000.0
-		quantity := 10.0
-		expected := 0.00
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 14: Очень маленький buyPrice
-	t.Run("very small buy price", func(t *testing.T) {
-		profit := 0.001
-		buyPrice := 0.0001
-		quantity := 1.0
-		expected := 1000.00 // (0.001 / 0.0001) * 100 = 1000%
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != expected {
-			t.Errorf("expected %f, got %f", expected, result)
-		}
-	})
-
-	// Кейс 15: Проверка округления до 2 знаков
-	t.Run("rounding to 2 decimals", func(t *testing.T) {
-		tests := []struct {
-			profit   float64
-			expected float64
-		}{
-			{123.456, 1.23}, // (123.456 / 10000) * 100 = 1.23456% -> 1.23
-			{123.45, 1.23},  // (123.45 / 10000) * 100 = 1.2345% -> 1.23
-			{123.44, 1.23},  // (123.44 / 10000) * 100 = 1.2344% -> 1.23
-			{123.43, 1.23},  // (123.43 / 10000) * 100 = 1.2343% -> 1.23
-			{123.42, 1.23},  // (123.42 / 10000) * 100 = 1.2342% -> 1.23
-			{123.41, 1.23},  // (123.41 / 10000) * 100 = 1.2341% -> 1.23
-			{123.40, 1.23},  // (123.40 / 10000) * 100 = 1.2340% -> 1.23
-		}
-
-		buyPrice := 1000.0
-		quantity := 10.0
-
-		for _, tc := range tests {
-			t.Run("", func(t *testing.T) {
-				result, err := getProfitInPercentage(tc.profit, buyPrice, quantity)
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if result != tc.expected {
-					t.Errorf("profit=%f: expected %f, got %f", tc.profit, tc.expected, result)
-				}
-			})
-		}
-	})
-
-	// Кейс 16: Проверка с большими числами (возможное переполнение)
-	t.Run("large numbers overflow check", func(t *testing.T) {
-		profit := 1e100
-		buyPrice := 1e50
-		quantity := 1e50
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		// Проверяем, что не бесконечность
-		if math.IsInf(result, 0) {
-			t.Errorf("result is infinite: %f", result)
-		}
-	})
-
-	// Кейс 17: buyPrice = очень маленькое число, близкое к нулю
-	t.Run("buy price close to zero", func(t *testing.T) {
-		profit := 100.0
-		buyPrice := 1e-308 // очень маленькое, но не ноль
-		quantity := 1.0
-		// (100 / 1e-308) * 100 = 1e+310 * 100 = 1e+312 - может быть бесконечностью
-
-		_, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	// Кейс 18: Проверка точности при округлении .5
-	t.Run("rounding .5 cases", func(t *testing.T) {
-		profit := 123.45
-		buyPrice := 1000.0
-		quantity := 10.0
-		// (123.45 / 10000) * 100 = 1.2345 -> RoundFloat(1.2345, 2) должно быть 1.23 или 1.24?
-		// Зависит от реализации RoundFloat
-
-		result, err := getProfitInPercentage(profit, buyPrice, quantity)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		// Не проверяем конкретное значение, просто что нет ошибки
-		t.Logf("Rounding .5 test result: %f", result)
 	})
 }
 

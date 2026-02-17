@@ -2,8 +2,6 @@ package report
 
 import (
 	"bonds-report-service/internal/domain"
-	"bonds-report-service/internal/utils"
-	"errors"
 	"math"
 )
 
@@ -35,16 +33,7 @@ func CalculateSellPrice(
 }
 
 // Расчет прибыли после налогообложения
-func GetSecurityIncome(profit, tax float64) float64 {
+func GetNetProfit(profit, tax float64) float64 {
 	profitAfterTax := profit - tax
 	return profitAfterTax
-}
-
-func getProfitInPercentage(profit, buyPrice, quantity float64) (float64, error) {
-	if buyPrice != 0 && quantity != 0 {
-		profitInPercentage := utils.RoundFloat((profit/(buyPrice*quantity))*100, 2)
-		return profitInPercentage, nil
-	} else {
-		return 0, errors.New("divide by zero")
-	}
 }

@@ -3,15 +3,8 @@ package report
 import (
 	"bonds-report-service/internal/domain"
 	"bonds-report-service/internal/utils"
-	"errors"
 	"math"
 	"time"
-)
-
-const (
-	layout     = "2006-01-02"
-	hoursInDay = 24
-	daysInYear = 365
 )
 
 type PositionByFIFO struct {
@@ -92,37 +85,33 @@ func (p *PositionByFIFO) isCurrentQuantityGreaterThanSellQuantity(
 	return nil
 }
 
-func (p *PositionByFIFO) GetProfit() (_ float64, err error) {
-	const op = "service.getProfit"
-
-	profitWithoutTax := p.GetSecurityIncomeWithoutTax()
-	totalTax := p.GetTotalTaxFromPosition(profitWithoutTax)
-	profit := GetSecurityIncome(profitWithoutTax, totalTax)
-	profitInPercentage, err := getProfitInPercentage(profit, p.BuyPrice, p.Quantity)
-	if err != nil {
-		return profitInPercentage, err
+func (p *PositionByFIFO) GetProfit(profit float64) (_ float64, err error) {
+	totalInvest := p.BuyPrice * p.Quantity
+	if totalInvest == 0 {
+		return 0, ErrZeroDivision
 	}
+
+	profitInPercentage := utils.RoundFloat((profit/(totalInvest))*100, 2)
 	return profitInPercentage, nil
 }
 
-func (p *PositionByFIFO) GetAnnualizedReturnInPercentage() (_ float64, err error) {
-	const op = "service.getAnnualizedReturnInPercentage"
+func (p *PositionByFIFO) GetAnnualizedReturnInPercentage(netProfit float64, sellDate time.Time) (_ float64, err error) {
+	totalInvested := p.BuyPrice * p.Quantity
+	if totalInvested == 0 {
+		return 0, ErrZeroDivision
+	}
+	if p.BuyDate.After(sellDate) {
+		return 0, ErrInvalidDate
+	}
 
-	var totalReturn float64
-	profitWithoutTax := p.GetSecurityIncomeWithoutTax()
-	totalTax := p.GetTotalTaxFromPosition(profitWithoutTax)
-	profit := GetSecurityIncome(profitWithoutTax, totalTax)
+	totalReturn := netProfit / totalInvested
+
 	buyDate := p.BuyDate
-	// Костыль. Надо переписать , так как для закрытх позиций данная функция работать не будет
-	sellDate := time.Now()
+
 	timeDurationInDays := sellDate.Sub(buyDate).Hours() / float64(hoursInDay)
 	// Если покупка и продажа были совершены в один день, то берем минимум один день
 	timeDurationInYears := math.Max(1, timeDurationInDays) / float64(daysInYear)
-	if p.BuyPrice != 0 || p.Quantity != 0 {
-		totalReturn = profit / (p.BuyPrice * p.Quantity)
-	} else {
-		return 0, errors.New("service: getAnnualizedReturn : divide by zero")
-	}
+
 	annualizedReturn := math.Pow((1+totalReturn), (1/timeDurationInYears)) - 1
 	annualizedReturnInPercentage := annualizedReturn * 100
 	annualizedReturnInPercentageRound := utils.RoundFloat(annualizedReturnInPercentage, 2)
@@ -131,7 +120,7 @@ func (p *PositionByFIFO) GetAnnualizedReturnInPercentage() (_ float64, err error
 }
 
 // Доход по позиции до вычета налога
-func (p *PositionByFIFO) GetSecurityIncomeWithoutTax() float64 {
+func (p *PositionByFIFO) GetProfitBeforeTax() float64 {
 	// Для незакрытых позиций необходимо посчитать еще потенциальную комиссию при продаже
 	quantity := p.Quantity
 	buySellDifference := (p.SellPrice-p.BuyPrice)*quantity + p.SellAccruedInt - p.BuyAccruedInt
@@ -145,13 +134,18 @@ func (p *PositionByFIFO) GetTotalTaxFromPosition(profit float64) float64 {
 	// Рассчитываем срок владения
 	buyDate := p.BuyDate
 	sellDate := p.SellDate
-	timeDuration := sellDate.Sub(buyDate).Hours()
-	var tax float64
+
 	// Рассчитываем налог с продажи бумаги, если сумма продажи больше суммы покупки
-	if profit > 0 && timeDuration < float64(threeYearInHours) {
-		tax = profit * baseTaxRate
-	} else {
-		tax = 0
+	if profit < 0 || isHoldingPeriodMoreThanThreeYears(buyDate, sellDate) {
+		return 0
 	}
-	return tax
+	return profit * baseTaxRate
+}
+
+func isHoldingPeriodMoreThanThreeYears(buyDate time.Time, sellDate time.Time) bool {
+	threeYearAfterBuyDate := buyDate.AddDate(3, 0, 0)
+	if threeYearAfterBuyDate.After(sellDate) {
+		return false
+	}
+	return true
 }

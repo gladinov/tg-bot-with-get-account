@@ -57,9 +57,9 @@ func getSumOfPositions(positions []report.PositionByFIFO) *SumOfPositions {
 
 		sumOfQuantity += position.Quantity
 
-		profitWithoutTax := position.GetSecurityIncomeWithoutTax()
+		profitWithoutTax := position.GetProfitBeforeTax()
 		totalTax := position.GetTotalTaxFromPosition(profitWithoutTax)
-		profitOfAllPositions += report.GetSecurityIncome(profitWithoutTax, totalTax)
+		profitOfAllPositions += report.GetNetProfit(profitWithoutTax, totalTax)
 	}
 	res := NewSumOfPositons(sumOfPositions, sumOfQuantity, profitOfAllPositions)
 

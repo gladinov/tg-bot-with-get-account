@@ -5,6 +5,7 @@ import (
 	report_position "bonds-report-service/internal/domain/report_position"
 	"bonds-report-service/internal/utils"
 	"errors"
+	"time"
 
 	"github.com/gladinov/e"
 )
@@ -13,6 +14,7 @@ func (r *Report) Add(
 	position *report_position.PositionByFIFO,
 	moexBuyDateData domain.ValuesMoex,
 	moexNowData domain.ValuesMoex,
+	now time.Time,
 ) (err error) {
 	const op = "service.CreateBondReport"
 
@@ -20,13 +22,13 @@ func (r *Report) Add(
 
 	switch position.Currency {
 	case "rub":
-		err := bondReportPosition.createBondReportPosition(position, moexBuyDateData, moexNowData)
+		err := bondReportPosition.createBondReportPosition(position, moexBuyDateData, moexNowData, now)
 		if err != nil {
 			return e.WrapIfErr("failed to create Bond report position", err)
 		}
 		r.BondsInRUB = append(r.BondsInRUB, bondReportPosition)
 	case "cny":
-		err := bondReportPosition.createBondReportPosition(position, moexBuyDateData, moexNowData)
+		err := bondReportPosition.createBondReportPosition(position, moexBuyDateData, moexNowData, now)
 		if err != nil {
 			return e.WrapIfErr("failed to create Bond report position", err)
 		}
@@ -40,6 +42,7 @@ func (r *BondReport) createBondReportPosition(
 	position *report_position.PositionByFIFO,
 	moexBuyDateData domain.ValuesMoex,
 	moexNowData domain.ValuesMoex,
+	now time.Time,
 ) (err error) {
 	const op = "service.createBondReportByCurrency"
 
@@ -78,8 +81,6 @@ func (r *BondReport) createBondReportPosition(
 		yieldToOffer = moexNowData.YieldToOffer.Value
 	}
 
-	// -------------------
-
 	if moexBuyDateData.YieldToMaturity.IsHasValue() {
 		yieldToMaturityOnPurchase = moexBuyDateData.YieldToMaturity.Value
 	}
@@ -87,19 +88,21 @@ func (r *BondReport) createBondReportPosition(
 	if moexBuyDateData.YieldToOffer.IsHasValue() {
 		yieldToOfferOnPurchase = moexBuyDateData.YieldToOffer.Value
 	}
+	profitWithoutTax := position.GetProfitBeforeTax()
+	totalTax := position.GetTotalTaxFromPosition(profitWithoutTax)
+	profit := getNetProfit(profitWithoutTax, totalTax)
 
-	profitInPercentage, err := position.GetProfit()
+	profitInPercentage, err := position.GetProfit(profit)
 	if err != nil {
 		return errors.New("service: createBondReport" + err.Error())
 	}
 	r.Profit = profitInPercentage
 
-	annualizedReturn, err := position.GetAnnualizedReturnInPercentage()
+	annualizedReturn, err := position.GetAnnualizedReturnInPercentage(profit, now)
 	if err != nil {
 		return errors.New("service: createBondReport" + err.Error())
 	}
 	r.AnnualizedReturn = annualizedReturn
-
 	r.Name = name
 	r.Ticker = ticker
 	r.BuyDate = buyDate
