@@ -44,7 +44,7 @@ func (c *Transport) DoRequest(ctx context.Context, Path string, query url.Values
 		Path:   Path,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		errMsg := "could not create http.NewRequest"
 		logging.LoggHTTPError(ctx, logg, req, errMsg, op, err)

@@ -58,7 +58,7 @@ func (t *Transport) DoRequest(ctx context.Context,
 		method = http.MethodGet
 	}
 
-	req, err := http.NewRequest(method, u.String(), requestBody)
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), requestBody)
 	if err != nil {
 		errMsg := "could not create http.NewRequest"
 		logging.LoggHTTPError(ctx, logg, req, errMsg, op, err)

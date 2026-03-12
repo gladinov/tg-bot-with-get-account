@@ -251,7 +251,7 @@ func (c *Client) doMultipartRequest(ctx context.Context, method string, body *by
 		Path:   path.Join(c.basePath, method),
 	}
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), body)
 	if err != nil {
 		return nil, err
 	}
