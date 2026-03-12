@@ -7,7 +7,6 @@ require (
 	github.com/gladinov/cryptotoken v0.1.0
 	github.com/gladinov/e v0.2.0
 	github.com/gladinov/mylogger v0.3.3
-	github.com/gladinov/rootpathfinder v0.1.0
 	github.com/gladinov/traceidgenerator v0.1.0
 	github.com/gladinov/valuefromcontext v0.2.0
 	github.com/golang-migrate/migrate/v4 v4.19.0
