@@ -5,33 +5,11 @@ import (
 	"time"
 )
 
-type MediaGroup struct {
-	Reports []*ImageData
-}
-
-func NewMediaGroup() *MediaGroup {
-	return &MediaGroup{
-		Reports: make([]*ImageData, 0),
-	}
-}
-
-type ImageData struct {
-	Name    string
-	Data    []byte
-	Caption string
-}
-
-func NewImageData() *ImageData {
-	return &ImageData{}
-}
 
 type AccountListResponce struct {
 	Accounts string
 }
 
-type BondReportsResponce struct {
-	Media [][]*MediaGroup
-}
 
 type PortfolioStructureForEachAccountResponce struct {
 	PortfolioStructures []string

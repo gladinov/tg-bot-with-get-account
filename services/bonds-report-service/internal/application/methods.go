@@ -132,38 +132,38 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 	return nil
 }
 
-func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.BondReportsResponce, err error) {
+func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ BondReportsResponce, err error) {
 	const op = "service.GetBondReports"
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
-	reportsInByteByAccounts := make([][]*domain.MediaGroup, 0)
+	reportsInByteByAccounts := make([][]*visualization.MediaGroup, 0)
 
 	accounts, err := s.Tinkoff.Portfolio.GetAccounts(ctx)
 	if err != nil {
-		return domain.BondReportsResponce{}, err
+		return BondReportsResponce{}, err
 	}
 
 	for _, account := range accounts {
 		err = s.updateOperations(ctx, chatID, account.ID, account.OpenedDate)
 		if err != nil {
-			return domain.BondReportsResponce{}, err
+			return BondReportsResponce{}, err
 		}
 		if account.Status != 2 {
 			continue
 		}
 		portfolio, err := s.TinkoffGetPortfolio(ctx, account)
 		if err != nil {
-			return domain.BondReportsResponce{}, err
+			return BondReportsResponce{}, err
 		}
 
 		portfolioPositions, err := s.MapPositionsToPositionsWithAssetUid(ctx, portfolio.Positions)
 		if err != nil {
-			return domain.BondReportsResponce{}, err
+			return BondReportsResponce{}, err
 		}
 
 		err = s.Storage.DeleteGeneralBondReport(ctx, chatID, account.ID)
 		if err != nil {
-			return domain.BondReportsResponce{}, err
+			return BondReportsResponce{}, err
 		}
 		generalBondReports := generalbondreport.GeneralBondReports{
 			RubBondsReport:      make(map[generalbondreport.TickerTimeKey]generalbondreport.GeneralBondReportPosition),
@@ -178,7 +178,7 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 				// Получаем все операции по данной бумаге
 				operationsDb, err := s.Storage.GetOperations(ctx, chatID, position.AssetUid, account.ID)
 				if err != nil {
-					return domain.BondReportsResponce{}, e.WrapIfErr("failed to get operations from strorge", err)
+					return BondReportsResponce{}, e.WrapIfErr("failed to get operations from strorge", err)
 				}
 				// Создаем струкуру ReportLine, которая вбирает в себя:
 				// список операций по бумаге в портфеле,
@@ -187,12 +187,12 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 				// Курс валюты
 				reporLines, err := s.CreateNewReportLines(ctx, position, operationsDb)
 				if err != nil {
-					return domain.BondReportsResponce{}, e.WrapIfErr("failed to create new report lines", err)
+					return BondReportsResponce{}, e.WrapIfErr("failed to create new report lines", err)
 				}
 				// Обрабатываем операции и получаем открытые позиции по данной бумаге
 				resultBondPosition, err := s.ReportProcessor.ProcessOperations(ctx, reporLines)
 				if err != nil {
-					return domain.BondReportsResponce{}, e.WrapIfErr("failed to process operation", err)
+					return BondReportsResponce{}, e.WrapIfErr("failed to process operation", err)
 				}
 				// Общая стоимость портфеля
 				totalAmount := portfolio.TotalAmount.ToFloat()
@@ -209,11 +209,11 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 
 				moexBuyDateData, err := s.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
 				if err != nil {
-					return domain.BondReportsResponce{}, err
+					return BondReportsResponce{}, err
 				}
 				moexNowData, err := s.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, s.now())
 				if err != nil {
-					return domain.BondReportsResponce{}, err
+					return BondReportsResponce{}, err
 				}
 
 				bondReport, err := s.GeneralBondReportProcessor.GetGeneralBondReportPosition(
@@ -223,7 +223,7 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 					moexBuyDateData,
 					moexNowData, firstBuyDate)
 				if err != nil {
-					return domain.BondReportsResponce{}, err
+					return BondReportsResponce{}, err
 				}
 				switch {
 				case bondReport.Replaced:
@@ -251,16 +251,16 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ domain.Bond
 
 		reportsInByte, err := s.PrepareToGenerateTablePNG(ctx, &generalBondReports, chatID, account.ID)
 		if err != nil {
-			return domain.BondReportsResponce{}, err
+			return BondReportsResponce{}, err
 		}
 		reportsInByteByAccounts = append(reportsInByteByAccounts, reportsInByte)
 
 	}
-	getBondReportsResponce := domain.BondReportsResponce{Media: reportsInByteByAccounts}
+	getBondReportsResponce := BondReportsResponce{Media: reportsInByteByAccounts}
 	return getBondReportsResponce, nil
 }
 
-func (s *Service) PrepareToGenerateTablePNG(ctx context.Context, generalBondReports *generalbondreport.GeneralBondReports, chatID int, accountID string) (_ []*domain.MediaGroup, err error) {
+func (s *Service) PrepareToGenerateTablePNG(ctx context.Context, generalBondReports *generalbondreport.GeneralBondReports, chatID int, accountID string) (_ []*visualization.MediaGroup, err error) {
 	const op = "service.PrepareToGenerateTablePNG"
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
@@ -282,9 +282,9 @@ func (s *Service) PrepareToGenerateTablePNG(ctx context.Context, generalBondRepo
 	reports = append(reports, rubbleBondReportSorted)
 	reports = append(reports, replacedBondReportSorted)
 	reports = append(reports, euroBondReportSorted)
-	reportsInByte := make([]*domain.MediaGroup, 3)
+	reportsInByte := make([]*visualization.MediaGroup, 3)
 	for i, report := range reports {
-		reportsInByte[i] = domain.NewMediaGroup()
+		reportsInByte[i] = visualization.NewMediaGroup()
 		mediaGroup := reportsInByte[i]
 		if len(report) == 0 {
 			continue
@@ -310,7 +310,7 @@ func (s *Service) PrepareToGenerateTablePNG(ctx context.Context, generalBondRepo
 				return nil, e.WrapIfErr("vizualize error", err)
 			}
 			// TODO: Есть желание вынести все, что связано с отображением в отдельный микросервис. А из этого отправлять только струкутуры данных
-			imageData := domain.NewImageData()
+			imageData := visualization.NewImageData()
 			imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
 			imageData.Data = pngData
 			imageData.Caption = typeOfBonds

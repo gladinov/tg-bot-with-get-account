@@ -6,12 +6,10 @@ import (
 	"bonds-report-service/internal/utils/logging"
 	"bytes"
 	"context"
-	"fmt"
 	"image/color"
 	"image/png"
 	"log/slog"
 	"strings"
-	"time"
 
 	"github.com/fogleman/gg"
 	"golang.org/x/image/font/gofont/goregular"
@@ -208,20 +206,4 @@ func EncodePNGToBuffer(dc *gg.Context) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-func formatFloat(value float64) string {
-	return fmt.Sprintf("%.2f", value)
-}
-
-func formatInt(value int64) string {
-	return fmt.Sprintf("%v", value)
-}
-
-func formatPercent(value float64) string {
-	return fmt.Sprintf("%.2f%%", value)
-}
-
-func formatTime(value time.Time) string {
-	return value.Format(layout)
 }

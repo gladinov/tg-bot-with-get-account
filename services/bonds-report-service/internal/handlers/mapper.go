@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	service "bonds-report-service/internal/application"
+	"bonds-report-service/internal/application/visualization"
 	"bonds-report-service/internal/domain"
 	httpmodels "bonds-report-service/internal/handlers/http"
 )
 
-func MapMediaGroupToHTTP(mg *domain.MediaGroup) *httpmodels.MediaGroup {
+func MapMediaGroupToHTTP(mg *visualization.MediaGroup) *httpmodels.MediaGroup {
 	if mg == nil {
 		return nil
 	}
@@ -17,7 +19,7 @@ func MapMediaGroupToHTTP(mg *domain.MediaGroup) *httpmodels.MediaGroup {
 	return httpMG
 }
 
-func MapImageDataToHTTP(img *domain.ImageData) *httpmodels.ImageData {
+func MapImageDataToHTTP(img *visualization.ImageData) *httpmodels.ImageData {
 	if img == nil {
 		return nil
 	}
@@ -37,7 +39,7 @@ func MapAccountListToHTTP(acc *domain.AccountListResponce) *httpmodels.AccountLi
 	}
 }
 
-func MapBondReportsToHTTP(br *domain.BondReportsResponce) *httpmodels.BondReportsResponce {
+func MapBondReportsToHTTP(br *service.BondReportsResponce) *httpmodels.BondReportsResponce {
 	if br == nil {
 		return nil
 	}
