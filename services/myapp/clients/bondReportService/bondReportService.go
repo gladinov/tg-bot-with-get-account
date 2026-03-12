@@ -49,7 +49,7 @@ func (c *Client) GetAccountsList(ctx context.Context) (AccountListResponce, erro
 		Host:   c.host,
 		Path:   pth,
 	}
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return AccountListResponce{}, fmt.Errorf("%s: %w", op, err)
 	}
@@ -106,7 +106,7 @@ func (c *Client) GetUsd(ctx context.Context) (UsdResponce, error) {
 		Path:   pth,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return UsdResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -164,7 +164,7 @@ func (c *Client) GetBondReportsByFifo(ctx context.Context) error {
 		Path:   pth,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return fmt.Errorf("%s:%w", op, err)
 	}
@@ -213,7 +213,7 @@ func (c *Client) GetBondReports(ctx context.Context) (BondReportsResponce, error
 		Host:   c.host,
 		Path:   pth,
 	}
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return BondReportsResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -268,7 +268,7 @@ func (c *Client) GetPortfolioStructure(ctx context.Context) (PortfolioStructureF
 		Path:   pth,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return PortfolioStructureForEachAccountResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -323,7 +323,7 @@ func (c *Client) GetUnionPortfolioStructure(ctx context.Context) (UnionPortfolio
 		Path:   pth,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return UnionPortfolioStructureResponce{}, fmt.Errorf("%s:%w", op, err)
 	}
@@ -378,7 +378,7 @@ func (c *Client) GetUnionPortfolioStructureWithSber(ctx context.Context) (UnionP
 		Path:   pth,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return UnionPortfolioStructureWithSberResponce{}, fmt.Errorf("%s:%w", op, err)
 	}

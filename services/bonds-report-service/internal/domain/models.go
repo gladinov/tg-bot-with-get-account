@@ -5,12 +5,6 @@ import (
 	"time"
 )
 
-
-type AccountListResponce struct {
-	Accounts string
-}
-
-
 type PortfolioStructureForEachAccountResponce struct {
 	PortfolioStructures []string
 }

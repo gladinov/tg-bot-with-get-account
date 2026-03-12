@@ -3,15 +3,18 @@ package visualization
 import (
 	"bonds-report-service/internal/domain"
 	"bonds-report-service/internal/domain/generalbondreport"
+	"bonds-report-service/internal/utils"
 	"bonds-report-service/internal/utils/logging"
 	"bytes"
 	"context"
+	"fmt"
 	"image/color"
 	"image/png"
 	"log/slog"
 	"strings"
 
 	"github.com/fogleman/gg"
+	"github.com/gladinov/e"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 )
@@ -20,7 +23,11 @@ const (
 	layout = "2006-01-02"
 )
 
-func GenerateTablePNG(ctx context.Context, logger *slog.Logger, reports []generalbondreport.GeneralBondReportPosition, typeOfBonds string) (_ []byte, err error) {
+func generateTablePNGInByte(ctx context.Context,
+	logger *slog.Logger,
+	reports []generalbondreport.GeneralBondReportPosition,
+	typeOfBonds string,
+) (_ []byte, err error) {
 	const op = "visualization.GenerateTablePNG"
 
 	defer logging.LogOperation_Debug(ctx, logger, op, &err)()
@@ -206,4 +213,178 @@ func EncodePNGToBuffer(dc *gg.Context) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func GenerateTablePNG(ctx context.Context, logger *slog.Logger,
+	reports [][]generalbondreport.GeneralBondReportPosition,
+	chatID int,
+	accountID string,
+) (_ []*MediaGroup, err error) {
+	const op = "service.PrepareToGenerateTablePNG"
+
+	defer logging.LogOperation_Debug(ctx, logger, op, &err)()
+
+	reportsInByte := make([]*MediaGroup, 3)
+	for i, report := range reports {
+		reportsInByte[i] = NewMediaGroup()
+		mediaGroup := reportsInByte[i]
+		if len(report) == 0 {
+			continue
+		}
+
+		var typeOfBonds string
+		switch {
+		case report[0].Replaced:
+			typeOfBonds = domain.ReplacedBonds
+		case report[0].Currencies != "rub":
+			typeOfBonds = domain.EuroBonds
+		default:
+			typeOfBonds = domain.RubBonds
+		}
+		count := 1
+		for start := 0; start < len(report); start += 10 {
+			end := start + 10
+			if end > len(report) {
+				end = len(report)
+			}
+			pngData, err := generateTablePNGInByte(ctx, logger, report[start:end], typeOfBonds)
+			if err != nil {
+				return nil, e.WrapIfErr("vizualize error", err)
+			}
+			// TODO: Есть желание вынести все, что связано с отображением в отдельный микросервис. А из этого отправлять только струкутуры данных
+			imageData := NewImageData()
+			imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
+			imageData.Data = pngData
+			imageData.Caption = typeOfBonds
+
+			mediaGroup.Reports = append(mediaGroup.Reports, imageData)
+			count += 1
+		}
+	}
+	return reportsInByte, nil
+}
+
+func ResponsePortfolioStructure(ctx context.Context, logger *slog.Logger, portfolio *domain.PortfolioByTypeAndCurrency) string {
+	const op = "service.ResponsePortfolioStructure"
+
+	defer logging.LogOperation_Debug(ctx, logger, op, nil)()
+
+	var output string
+	totalAmount := portfolio.AllAssets
+	totalBonds := portfolio.BondsAssets.SumOfAssets
+	totalShares := portfolio.SharesAssets.SumOfAssets
+	totalEtfs := portfolio.EtfsAssets.SumOfAssets
+	totalFutures := portfolio.FuturesAssets.SumOfAssets
+	totalCurrencies := portfolio.CurrenciesAssets.SumOfAssets
+	totalLeverageRatio := (totalBonds + totalShares + totalEtfs + totalFutures) / totalAmount
+
+	totalBondsInPerc := totalBonds / totalAmount * 100
+	totalSharesInPerc := totalShares / totalAmount * 100
+	totalEtfsInPerc := totalEtfs / totalAmount * 100
+	totalFuturesInPerc := totalFutures / totalAmount * 100
+	totalCurrenciesInPerc := totalCurrencies / totalAmount * 100
+	totalLeverageRatioInPers := totalLeverageRatio * 100
+
+	totalAmountOut := fmt.Sprintf("Общая стоимость портфеля составляет: %.2f\n", totalAmount)
+	totalBondsOut := fmt.Sprintf("  Стоимость облигаций: %.2f (%.2f%%от портфеля)\n", totalBonds, totalBondsInPerc)
+	totalSharesOut := fmt.Sprintf("  Стоимость акций: %.2f (%.2f%%от портфеля)\n", totalShares, totalSharesInPerc)
+	totalEtfsOut := fmt.Sprintf("  Стоимость ETF: %.2f (%.2f%%от портфеля)\n", totalEtfs, totalEtfsInPerc)
+	totalFuturesOut := fmt.Sprintf("  Стоимость фьючерсов: %.2f (%.2f%%от портфеля)\n", totalFutures, totalFuturesInPerc)
+	totalCurrenciesOut := fmt.Sprintf("  Стоимость валют: %.2f (%.2f%%от портфеля)\n", totalCurrencies, totalCurrenciesInPerc)
+	totalLeverageRatioOut := fmt.Sprintf("  Общий коэффициент левериджа: %.2f (%.2f%%от портфеля)\n", totalLeverageRatio, totalLeverageRatioInPers)
+
+	var bondsByCurrencies string
+	for k, v := range portfolio.BondsAssets.AssetsByCurrency {
+		bondsByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		bondsByCurrInPers := utils.RoundFloat(bondsByCurr/totalAmount*100, 2)
+		bondsByCurrencies += "    " + fmt.Sprintf("Стоимость облигаций в %s: %.2f (%.2f%%от портфеля)\n", k, bondsByCurr, bondsByCurrInPers)
+	}
+
+	var sharesByCurrencies string
+	for k, v := range portfolio.SharesAssets.AssetsByCurrency {
+		AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
+		sharesByCurrencies += "    " + fmt.Sprintf("Стоимость акций в %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
+	}
+
+	var etfsByCurrencies string
+	for k, v := range portfolio.EtfsAssets.AssetsByCurrency {
+		AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
+		etfsByCurrencies += "    " + fmt.Sprintf("Стоимость Etf в %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
+	}
+
+	var futuresByCurrencies string
+
+	if portfolio.FuturesAssets.AssetsByType.Commodity.SumOfAssets != 0 {
+		futuresWithCommodityBase := portfolio.FuturesAssets.AssetsByType.Commodity.SumOfAssets
+		futuresWithCommodityBaseInPers := futuresWithCommodityBase / totalAmount * 100
+
+		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на товары стоят: %.2f (%.2f%%от портфеля)\n", futuresWithCommodityBase, futuresWithCommodityBaseInPers)
+		for k, v := range portfolio.FuturesAssets.AssetsByType.Commodity.AssetsByCurrency {
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
+			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерса %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
+		}
+	}
+
+	if portfolio.FuturesAssets.AssetsByType.Currency.SumOfAssets != 0 {
+		futuresWithcurrencyBase := portfolio.FuturesAssets.AssetsByType.Currency.SumOfAssets
+		futuresWithcurrencyBaseInPers := futuresWithcurrencyBase / totalAmount * 100
+
+		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на валюты стоят: %.2f (%.2f%%от портфеля)\n", futuresWithcurrencyBase, futuresWithcurrencyBaseInPers)
+
+		for k, v := range portfolio.FuturesAssets.AssetsByType.Currency.AssetsByCurrency {
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
+			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерса %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
+		}
+
+	}
+	if portfolio.FuturesAssets.AssetsByType.Security.SumOfAssets != 0 {
+		futuresWithcurrencyBase := portfolio.FuturesAssets.AssetsByType.Security.SumOfAssets
+		futuresWithcurrencyBaseInPers := futuresWithcurrencyBase / totalAmount * 100
+
+		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на акции стоят: %.2f (%.2f%%от портфеля)\n", futuresWithcurrencyBase, futuresWithcurrencyBaseInPers)
+
+		for k, v := range portfolio.FuturesAssets.AssetsByType.Security.AssetsByCurrency {
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
+			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерсов в %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
+		}
+	}
+
+	if portfolio.FuturesAssets.AssetsByType.Index.SumOfAssets != 0 {
+		futuresWithcurrencyBase := portfolio.FuturesAssets.AssetsByType.Index.SumOfAssets
+		futuresWithcurrencyBaseInPers := futuresWithcurrencyBase / totalAmount * 100
+
+		futuresByCurrencies += "    " + fmt.Sprintf("Фьючерсы на индексы стоят: %.2f (%.2f%%от портфеля)\n", futuresWithcurrencyBase, futuresWithcurrencyBaseInPers)
+		futuresByCurrencies += "    " + "Фьючерсы на индексы\n"
+		for k, v := range portfolio.FuturesAssets.AssetsByType.Index.AssetsByCurrency {
+			AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+			AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
+			futuresByCurrencies += "      " + fmt.Sprintf("Стоимость фьючерса %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
+		}
+	}
+	var currenciesByCurrencies string
+	for k, v := range portfolio.CurrenciesAssets.AssetsByCurrency {
+		AssetByCurr := utils.RoundFloat(v.SumOfAssets, 2)
+		AssetByCurrInPers := utils.RoundFloat(AssetByCurr/totalAmount*100, 2)
+		currenciesByCurrencies += "      " + fmt.Sprintf("Стоимость валюты %s: %.2f (%.2f%%от портфеля)\n", k, AssetByCurr, AssetByCurrInPers)
+	}
+
+	output += totalAmountOut +
+		totalBondsOut +
+		bondsByCurrencies +
+		totalSharesOut +
+		sharesByCurrencies +
+		totalEtfsOut +
+		etfsByCurrencies +
+		totalFuturesOut +
+		futuresByCurrencies +
+		totalCurrenciesOut +
+		currenciesByCurrencies +
+		totalLeverageRatioOut
+
+	return output
 }

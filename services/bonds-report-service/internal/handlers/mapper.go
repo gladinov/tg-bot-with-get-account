@@ -30,7 +30,7 @@ func MapImageDataToHTTP(img *visualization.ImageData) *httpmodels.ImageData {
 	}
 }
 
-func MapAccountListToHTTP(acc *domain.AccountListResponce) *httpmodels.AccountListResponce {
+func MapAccountListToHTTP(acc *service.AccountListResponce) *httpmodels.AccountListResponce {
 	if acc == nil {
 		return nil
 	}
