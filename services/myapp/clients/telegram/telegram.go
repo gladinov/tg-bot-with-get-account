@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gladinov/e"
@@ -99,7 +100,7 @@ func (c *Client) doRequest(method string, query url.Values) (data []byte, err er
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, err
+		return nil, parseErr(err, c.basePath)
 	}
 
 	req.URL.RawQuery = query.Encode()
@@ -117,6 +118,15 @@ func (c *Client) doRequest(method string, query url.Values) (data []byte, err er
 	}
 
 	return body, nil
+}
+
+func parseErr(err error, token string) error {
+	if err == nil {
+		return nil
+	}
+	const hiddenToken = "bot_hidden_token"
+	msg := strings.ReplaceAll(err.Error(), token, hiddenToken)
+	return errors.New(msg)
 }
 
 func (c *Client) SendImageFromBuffer(ctx context.Context, chatID int, imageData []byte, caption string) error {
