@@ -14,7 +14,7 @@ import (
 	trace "github.com/gladinov/contracts/trace"
 )
 
-func (h *Client) ContextHeaderTraceIdMiddleWare() gin.HandlerFunc {
+func (h *Handler) ContextHeaderTraceIdMiddleWare() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "handlers.ContextHeaderTraceIdMiddleWare"
 		logg := h.logger.With(slog.String("op", op))
@@ -37,7 +37,7 @@ func (h *Client) ContextHeaderTraceIdMiddleWare() gin.HandlerFunc {
 	}
 }
 
-func (h *Client) AuthMiddleware() gin.HandlerFunc {
+func (h *Handler) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "handlers.AuthMiddleware"
 		logg := h.logger.With(slog.String("op", op))
@@ -53,7 +53,7 @@ func (h *Client) AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (h *Client) LoggerMiddleware() gin.HandlerFunc {
+func (h *Handler) LoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		logg := h.logger.With(
 			slog.String("component", "middleware/logger"),

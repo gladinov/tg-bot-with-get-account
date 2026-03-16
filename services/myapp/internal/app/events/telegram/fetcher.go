@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/gladinov/e"
@@ -21,9 +22,8 @@ func NewFetcher(logger *slog.Logger, client *telegram.Client) *Fetcher {
 	}
 }
 
-// Можно использовать для получения списка операций в Тинькофф Апи
-func (f *Fetcher) Fetch(limit int) ([]events.Event, error) {
-	updates, err := f.tg.Updates(f.offset, limit)
+func (f *Fetcher) Fetch(ctx context.Context, limit int) ([]events.Event, error) {
+	updates, err := f.tg.Updates(ctx, f.offset, limit)
 	if err != nil {
 		return nil, e.Wrap("can't get events", err)
 	}

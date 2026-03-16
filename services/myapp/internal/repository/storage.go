@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/gladinov/rootpathfinder"
 	"main.go/internal/config"
 	"main.go/internal/repository/postgres"
-	"main.go/internal/repository/sqlite"
 )
 
 const (
@@ -35,22 +33,7 @@ func NewStorage(ctx context.Context, config config.Config) (Storage, error) {
 		}
 
 		return storage, nil
-	case SQLite:
-		storageAbsolutPath, err := rootpathfinder.PathFromWD(config.RootPath, config.StorageSQLLitePath)
-		if err != nil {
-			return nil, err
-		}
-		storage, err := sqlite.New(storageAbsolutPath)
-		if err != nil {
-			return nil, err
-		}
-		err = storage.Init(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		return storage, nil
 	default:
-		return nil, errors.New("possible init only SQLite or PostgreSQL databases")
+		return nil, errors.New("possible init only PostgreSQL databases")
 	}
 }

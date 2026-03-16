@@ -96,7 +96,7 @@ func main() {
 	logg.Info("service started")
 	consumer := event_consumer.New(logg, fetcher, processor, batchSize)
 
-	if err := consumer.Start(); err != nil {
+	if err := consumer.Start(ctx); err != nil {
 		logg.Error("service is stopped")
 		return
 	}

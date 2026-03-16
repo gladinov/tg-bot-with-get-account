@@ -44,7 +44,7 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 		Path:   Path,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}
