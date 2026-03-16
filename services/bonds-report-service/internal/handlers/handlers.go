@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	service "bonds-report-service/internal/application"
+	"bonds-report-service/internal/application/usecases"
 	"context"
 	"log/slog"
 	"net/http"
@@ -14,10 +14,10 @@ import (
 
 type Handler struct {
 	logger  *slog.Logger
-	service *service.Service
+	service *usecases.Service
 }
 
-func NewHandlers(logger *slog.Logger, service *service.Service) *Handler {
+func NewHandlers(logger *slog.Logger, service *usecases.Service) *Handler {
 	return &Handler{
 		logger:  logger,
 		service: service,

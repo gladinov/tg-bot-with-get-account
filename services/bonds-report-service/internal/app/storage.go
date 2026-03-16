@@ -1,7 +1,7 @@
 package app
 
 import (
-	service "bonds-report-service/internal/application"
+	"bonds-report-service/internal/application/ports"
 	config "bonds-report-service/internal/configs"
 	"bonds-report-service/internal/infrastructure/repository/postgreSQL"
 	"context"
@@ -9,7 +9,7 @@ import (
 	"log/slog"
 )
 
-func MustInitNewStorage(ctx context.Context, config config.Config, logg *slog.Logger) service.Storage {
+func MustInitNewStorage(ctx context.Context, config config.Config, logg *slog.Logger) ports.Storage {
 	const op = "repository.MustInitNewStorage"
 	logg.Debug(fmt.Sprintf("start %s", op))
 

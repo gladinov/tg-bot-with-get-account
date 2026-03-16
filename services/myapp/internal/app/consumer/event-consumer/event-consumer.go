@@ -28,7 +28,7 @@ func New(logger *slog.Logger, fetcher events.Fetcher, processor events.Processor
 	}
 }
 
-func (c Consumer) Start() error {
+func (c Consumer) Start(ctx context.Context) error {
 	const op = "event_consumer.Start"
 	logg := c.logger.With(
 		slog.String("op", op),
@@ -36,26 +36,31 @@ func (c Consumer) Start() error {
 	)
 	logg.Info("consumer started")
 	for {
-		gotEvents, err := c.fetcher.Fetch(c.bathcSize)
-		if err != nil {
-			logg.Warn("fetch events failed",
-				slog.Any("error", err),
-			)
-			continue
-		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			gotEvents, err := c.fetcher.Fetch(ctx, c.bathcSize)
+			if err != nil {
+				logg.Warn("fetch events failed",
+					slog.Any("error", err),
+				)
+				continue
+			}
 
-		if len(gotEvents) == 0 {
-			time.Sleep(1 * time.Second)
+			if len(gotEvents) == 0 {
+				time.Sleep(1 * time.Second)
 
-			continue
-		}
+				continue
+			}
 
-		if err := c.handleEvents(gotEvents); err != nil {
-			logg.Error("handle events failed",
-				slog.Any("error", err),
-				slog.Any("events count", len(gotEvents)))
+			if err := c.handleEvents(gotEvents); err != nil {
+				logg.Error("handle events failed",
+					slog.Any("error", err),
+					slog.Any("events count", len(gotEvents)))
 
-			continue
+				continue
+			}
 		}
 	}
 }

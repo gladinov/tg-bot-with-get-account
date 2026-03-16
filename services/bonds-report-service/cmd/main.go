@@ -2,7 +2,7 @@ package main
 
 import (
 	"bonds-report-service/internal/app"
-	service "bonds-report-service/internal/application"
+	"bonds-report-service/internal/application/usecases"
 	config "bonds-report-service/internal/configs"
 	"bonds-report-service/internal/handlers"
 	"context"
@@ -33,7 +33,7 @@ func main() {
 	repo := app.MustInitNewStorage(ctx, conf, logg)
 	defer repo.CloseDB()
 
-	tinkoffClient := app.InitTinkoffApiClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
+	tinkoffApiHelper := app.InitTinkoffApiHelper(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
 
 	moexClient := app.InitTiMoexClient(logg, conf.Clients.MoexClient.GetMoexAppAddress())
 
@@ -45,26 +45,47 @@ func main() {
 		return
 	}
 
-	externalApis := service.NewExternalApis(moexClient, cbrClient, sberClient)
-
-	uidProvider := app.InitUidProvider(logg, repo, tinkoffClient.Analytics)
-
-	reportProcessor := app.InitReportProcessor(logg)
-
 	bondReporter := app.InitBondReportProcessor(logg)
+
+	cbrCurrencyGetter := app.InitCBRCurrencyGetter(logg, cbrClient, repo)
 
 	generalBondReporter := app.InitGeneralReportProcessor(logg)
 
-	logg.Info("initialize Service client")
-	serviceClient := service.NewService(
-		logg,
-		tinkoffClient,
-		externalApis,
-		repo,
-		uidProvider,
+	moexSpecificationGetter := app.InitMoexSpecificationGetter(logg, moexClient)
+
+	reportProcessor := app.InitReportProcessor(logg)
+
+	uidProvider := app.InitUidProvider(logg, repo, tinkoffApiHelper.Analytics)
+
+	operationsUpdater := app.InitOperationsUpdater(logg, tinkoffApiHelper, repo)
+
+	positionProcessor := app.InitPositionProcessor(logg, uidProvider)
+
+	reportLineBuilder := app.InitReportLineBuilder(logg, tinkoffApiHelper, cbrCurrencyGetter)
+
+	dividerbyassettype := app.InitDividerByAssetType(logg, tinkoffApiHelper, cbrCurrencyGetter)
+
+	externalApis := usecases.NewExternalApis(moexClient, cbrClient, sberClient)
+
+	helpers := usecases.NewHelpers(bondReporter,
+		cbrCurrencyGetter,
+		generalBondReporter,
+		moexSpecificationGetter,
 		reportProcessor,
-		bondReporter,
-		generalBondReporter)
+		tinkoffApiHelper,
+		operationsUpdater,
+		positionProcessor,
+		reportLineBuilder,
+		dividerbyassettype,
+	)
+
+	logg.Info("initialize Service client")
+	serviceClient := usecases.NewService(
+		logg,
+		externalApis,
+		helpers,
+		repo,
+	)
 
 	logg.Info("initialize Handlers")
 	handl := handlers.NewHandlers(logg, serviceClient)

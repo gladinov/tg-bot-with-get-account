@@ -7,7 +7,6 @@
 COMPOSE_FILE = deployments/docker-compose.yml
 ENV_FILE = deployments/env/prod.env
 
-
 # =========================
 # Phony targets
 # =========================

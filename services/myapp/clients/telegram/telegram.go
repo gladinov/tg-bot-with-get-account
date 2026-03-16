@@ -47,7 +47,7 @@ func newBasePath(token string) string {
 	return "bot" + token
 }
 
-func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
+func (c *Client) Updates(ctx context.Context, offset int, limit int) (updates []Update, err error) {
 	defer func() { err = e.WrapIfErr("can`t get updates", err) }()
 
 	const op = "telegram.Updates"
@@ -56,7 +56,7 @@ func (c *Client) Updates(offset int, limit int) (updates []Update, err error) {
 	q.Add("offset", strconv.Itoa(offset))
 	q.Add("limit", strconv.Itoa(limit))
 
-	data, err := c.doRequest(getUpdatesMethod, q)
+	data, err := c.doRequest(ctx, getUpdatesMethod, q)
 	if err != nil {
 		return nil, err
 	}
@@ -80,14 +80,14 @@ func (c *Client) SendMessage(ctx context.Context, chatID int, text string) error
 	q.Add("chat_id", strconv.Itoa(chatID))
 	q.Add("text", text)
 
-	_, err := c.doRequest(sendUpdateMethod, q)
+	_, err := c.doRequest(ctx, sendUpdateMethod, q)
 	if err != nil {
 		return e.Wrap("can`t send message", err)
 	}
 	return nil
 }
 
-func (c *Client) doRequest(method string, query url.Values) (data []byte, err error) {
+func (c *Client) doRequest(ctx context.Context, method string, query url.Values) (data []byte, err error) {
 	defer func() { err = e.WrapIfErr("can`t do request", err) }()
 
 	const op = "telegram.doRequest"
@@ -98,7 +98,7 @@ func (c *Client) doRequest(method string, query url.Values) (data []byte, err er
 		Path:   path.Join(c.basePath, method),
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, parseErr(err, c.basePath)
 	}
@@ -253,7 +253,7 @@ func (c *Client) doMultipartRequest(ctx context.Context, method string, body *by
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), body)
 	if err != nil {
-		return nil, err
+		return nil, parseErr(err, c.basePath)
 	}
 
 	req.Header.Set("Content-Type", contentType)

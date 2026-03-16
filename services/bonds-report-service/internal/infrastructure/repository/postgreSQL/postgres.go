@@ -278,6 +278,64 @@ from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 
 	return operationRes, nil
 }
 
+func (s *Storage) GetAllOperations(ctx context.Context, chatId int, accountId string) (_ []domain.OperationWithoutCustomTypes, err error) {
+	const op = "postgreSql.GetOperations"
+	// TODO: Проблема с некоректным контекстом
+	ctx = context.Background()
+
+	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+
+	q := `select 
+    name,
+	asset_uid,
+    date,
+    type,
+    figi,
+    operation_id,
+    quantity_done,
+    instrument_type,
+    instrument_uid,
+    price,currency,
+    accrued_int,
+    commission,
+    payment
+from operations where chatId = $1 and broker_account_id = $2 order by date`
+
+	var operationRes []domain.OperationWithoutCustomTypes
+
+	rows, err := s.db.Query(ctx, q, chatId, accountId)
+	if err != nil {
+		return nil, fmt.Errorf("%s: query failed: %w", op, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var operation domain.OperationWithoutCustomTypes
+		err := rows.Scan(&operation.Name,
+			&operation.AssetUid,
+			&operation.Date,
+			&operation.Type,
+			&operation.Figi,
+			&operation.OperationID,
+			&operation.QuantityDone,
+			&operation.InstrumentType,
+			&operation.InstrumentUid,
+			&operation.Price,
+			&operation.Currency,
+			&operation.AccruedInt,
+			&operation.Commission,
+			&operation.Payment)
+		if err != nil {
+			return nil, fmt.Errorf("%s, row scan: %w", op, err)
+		}
+		operationRes = append(operationRes, operation)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s,rows iteration failed: %w", op, err)
+	}
+
+	return operationRes, nil
+}
+
 func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error) {
 	const op = "postgreSql.DeleteBondReport"
 	ctx = context.Background()
