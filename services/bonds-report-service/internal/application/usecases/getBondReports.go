@@ -32,39 +32,49 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ dto.BondRep
 		if account.Status != 2 {
 			continue
 		}
-		reportsInByte, err := s.processAccount(ctx, chatID, account)
+		generalBondReports, err := s.processAccount(ctx, chatID, account)
 		if err != nil {
 			return dto.BondReportsResponce{}, e.WrapIfErr("failed to procces account", err)
 		}
+
+		reportsInByte, err := presenter.GenerateTablePNG(ctx,
+			s.logger,
+			s.prepareToGenerateTablePNG(ctx, &generalBondReports),
+			chatID,
+			account.ID)
+		if err != nil {
+			return dto.BondReportsResponce{}, e.WrapIfErr("failed to GenerateTablePNG", err)
+		}
+
 		reportsInByteByAccounts = append(reportsInByteByAccounts, reportsInByte)
 	}
 	getBondReportsResponce := dto.BondReportsResponce{Media: reportsInByteByAccounts}
 	return getBondReportsResponce, nil
 }
 
-func (s *Service) processAccount(ctx context.Context, chatID int, account domain.Account) (_ []*dto.MediaGroup, err error) {
+func (s *Service) processAccount(ctx context.Context, chatID int, account domain.Account) (_ generalbondreport.GeneralBondReports, err error) {
 	const op = "service.processAccount"
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
 	err = s.Helpers.OperationsUpdater.UpdateOperations(ctx, chatID, account.ID, account.OpenedDate)
 	if err != nil {
-		return nil, e.WrapIfErr("failed to update operations", err)
+		return generalbondreport.GeneralBondReports{}, e.WrapIfErr("failed to update operations", err)
 	}
 	portfolio, err := s.Helpers.TinkoffHelper.TinkoffGetPortfolio(ctx, account)
 	if err != nil {
-		return nil, e.WrapIfErr("failed to get portfolio from tinkoff", err)
+		return generalbondreport.GeneralBondReports{}, e.WrapIfErr("failed to get portfolio from tinkoff", err)
 	}
 
 	totalAmount := portfolio.TotalAmount.ToFloat()
 
 	portfolioPositions, err := s.Helpers.PositionProcessor.ProcessPositionsToPositionsWithAssetUid(ctx, portfolio.Positions)
 	if err != nil {
-		return nil, e.WrapIfErr("failed to process position to postition with asset uid", err)
+		return generalbondreport.GeneralBondReports{}, e.WrapIfErr("failed to process position to postition with asset uid", err)
 	}
 
 	allOperations, err := s.Storage.GetAllOperations(ctx, chatID, account.ID)
 	if err != nil {
-		return nil, e.WrapIfErr("failed to get all operations from storage", err)
+		return generalbondreport.GeneralBondReports{}, e.WrapIfErr("failed to get all operations from storage", err)
 	}
 
 	operationsByAssetUid := make(map[string][]domain.OperationWithoutCustomTypes)
@@ -75,32 +85,62 @@ func (s *Service) processAccount(ctx context.Context, chatID int, account domain
 
 	generalBondReports := generalbondreport.NewGeneralBondReports()
 
+	ctx2, cancel := context.WithCancel(ctx)
+	defer cancel()
+	bondReportCh := make(chan generalbondreport.GeneralBondReportPosition)
+	errCh := make(chan error, 1)
+	var wg sync.WaitGroup
+
 	for _, position := range portfolioPositions {
 		if position.InstrumentType != "bond" {
 			continue
 		}
-		bondReport, err := s.processBondPosition(ctx, position, totalAmount, operationsByAssetUid[position.AssetUid])
-		if err != nil {
-			if errors.Is(err, ErrEmptyBondPositions) {
-				continue
+		wg.Add(1)
+		pos := position
+		go func(position domain.PortfolioPositionsWithAssetUid) {
+			defer wg.Done()
+
+			bondReport, er := s.processBondPosition(ctx2, position, totalAmount, operationsByAssetUid[position.AssetUid])
+			if er != nil {
+				if errors.Is(er, ErrEmptyBondPositions) {
+					return
+				}
+				select {
+				case errCh <- er:
+				case <-ctx2.Done():
+				}
+				return
 			}
-			return nil, e.WrapIfErr("failed to process bond position", err)
+			select {
+			case bondReportCh <- bondReport:
+			case <-ctx2.Done():
+				return
+			}
+		}(pos)
+
+	}
+
+	go func() {
+		wg.Wait()
+		close(bondReportCh)
+	}()
+
+loop:
+	for {
+		select {
+		case bondReport, ok := <-bondReportCh:
+			if !ok {
+				break loop
+			}
+			s.addBondReport(&generalBondReports, bondReport)
+		case er := <-errCh:
+			cancel()
+			return generalbondreport.GeneralBondReports{}, e.WrapIfErr("failed to process BondPosition", er)
+
 		}
-
-		s.addBondReport(&generalBondReports, bondReport)
-
 	}
 
-	reportsInByte, err := presenter.GenerateTablePNG(ctx,
-		s.logger,
-		s.prepareToGenerateTablePNG(ctx, &generalBondReports),
-		chatID,
-		account.ID)
-	if err != nil {
-		return nil, e.WrapIfErr("failed to GenerateTablePNG", err)
-	}
-
-	return reportsInByte, nil
+	return generalBondReports, nil
 }
 
 func (s *Service) processBondPosition(ctx context.Context,
@@ -111,47 +151,53 @@ func (s *Service) processBondPosition(ctx context.Context,
 	const op = "service.processBondPosition"
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
-	reporLines, err := s.Helpers.ReportLineBuilder.CreateNewReportLines(ctx, position, operationsDb)
-	if err != nil {
-		return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to create new report lines", err)
-	}
-	// Обрабатываем операции и получаем открытые позиции по данной бумаге
-	resultBondPosition, err := s.Helpers.ReportProcessor.ProcessOperations(ctx, reporLines)
-	if err != nil {
-		return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to process operation", err)
-	}
-	// Общая стоимость портфеля
+	select {
+	case <-ctx.Done():
+		return generalbondreport.GeneralBondReportPosition{}, ctx.Err()
+	default:
 
-	if len(resultBondPosition.CurrentPositions) == 0 {
-		s.logger.WarnContext(
+		reporLines, err := s.Helpers.ReportLineBuilder.CreateNewReportLines(ctx, position, operationsDb)
+		if err != nil {
+			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to create new report lines", err)
+		}
+		// Обрабатываем операции и получаем открытые позиции по данной бумаге
+		resultBondPosition, err := s.Helpers.ReportProcessor.ProcessOperations(ctx, reporLines)
+		if err != nil {
+			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to process operation", err)
+		}
+		// Общая стоимость портфеля
+
+		if len(resultBondPosition.CurrentPositions) == 0 {
+			s.logger.WarnContext(
+				ctx,
+				"len of result bond positions is empty. But in portfolio request to TinkoffApi position in portfolio",
+				slog.Any("postion", position))
+			return generalbondreport.GeneralBondReportPosition{}, ErrEmptyBondPositions
+		}
+
+		firstBuyDate := resultBondPosition.CurrentPositions[0].BuyDate
+
+		// TODO : Кэшифрование запросов в MOEX
+		moexBuyDateData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
+		if err != nil {
+			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specification from MOEX for buy date", err)
+		}
+		moexNowData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, s.now())
+		if err != nil {
+			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specification from MOEX for current date", err)
+		}
+
+		bondReport, err := s.Helpers.GeneralBondReportProcessor.GetGeneralBondReportPosition(
 			ctx,
-			"len of result bond positions is empty. But in portfolio request to TinkoffApi position in portfolio",
-			slog.Any("postion", position))
-		return generalbondreport.GeneralBondReportPosition{}, ErrEmptyBondPositions
+			resultBondPosition.CurrentPositions,
+			totalAmount,
+			moexBuyDateData,
+			moexNowData, firstBuyDate)
+		if err != nil {
+			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get general bond report position", err)
+		}
+		return bondReport, nil
 	}
-
-	firstBuyDate := resultBondPosition.CurrentPositions[0].BuyDate
-
-	// TODO : Кэшифрование запросов в MOEX
-	moexBuyDateData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
-	if err != nil {
-		return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specification from MOEX for buy date", err)
-	}
-	moexNowData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, s.now())
-	if err != nil {
-		return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specification from MOEX for current date", err)
-	}
-
-	bondReport, err := s.Helpers.GeneralBondReportProcessor.GetGeneralBondReportPosition(
-		ctx,
-		resultBondPosition.CurrentPositions,
-		totalAmount,
-		moexBuyDateData,
-		moexNowData, firstBuyDate)
-	if err != nil {
-		return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get general bond report position", err)
-	}
-	return bondReport, nil
 }
 
 func (s *Service) prepareToGenerateTablePNG(ctx context.Context,
