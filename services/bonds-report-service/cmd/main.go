@@ -82,6 +82,7 @@ func main() {
 	logg.Info("initialize Service client")
 	serviceClient := usecases.NewService(
 		logg,
+		conf.WorkersNubmer,
 		externalApis,
 		helpers,
 		repo,

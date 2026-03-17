@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"runtime"
 	"sort"
 	"sync"
 
@@ -86,7 +85,8 @@ func (s *Service) processAccount(ctx context.Context, chatID int, account domain
 
 	generalBondReports := generalbondreport.NewGeneralBondReports()
 
-	workers := runtime.NumCPU()
+	// TODO: add workers in config
+	workers := s.WorkersNubmer
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 	workList := make(chan domain.PortfolioPositionsWithAssetUid, workers)

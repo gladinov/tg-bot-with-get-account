@@ -94,24 +94,27 @@ func NewHelpers(
 }
 
 type Service struct {
-	logger   *slog.Logger
-	External *ExternalApis
-	Helpers  *Helpers
-	Storage  ports.Storage
-	now      func() time.Time
+	logger        *slog.Logger
+	WorkersNubmer int
+	External      *ExternalApis
+	Helpers       *Helpers
+	Storage       ports.Storage
+	now           func() time.Time
 }
 
 func NewService(
 	logger *slog.Logger,
+	workersNumber int,
 	externalApis *ExternalApis,
 	helpers *Helpers,
 	storage ports.Storage,
 ) *Service {
 	return &Service{
-		logger:   logger,
-		External: externalApis,
-		Helpers:  helpers,
-		Storage:  storage,
-		now:      time.Now,
+		logger:        logger,
+		WorkersNubmer: workersNumber,
+		External:      externalApis,
+		Helpers:       helpers,
+		Storage:       storage,
+		now:           time.Now,
 	}
 }
