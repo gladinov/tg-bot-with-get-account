@@ -231,44 +231,50 @@ func GenerateTablePNG(ctx context.Context, logger *slog.Logger,
 
 	defer logging.LogOperation_Debug(ctx, logger, op, &err)()
 
-	reportsInByte := make([]*dto.MediaGroup, 3)
-	for i, report := range reports {
-		reportsInByte[i] = dto.NewMediaGroup()
-		mediaGroup := reportsInByte[i]
-		if len(report) == 0 {
-			continue
-		}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
 
-		var typeOfBonds string
-		switch {
-		case report[0].Replaced:
-			typeOfBonds = domain.ReplacedBonds
-		case report[0].Currencies != "rub":
-			typeOfBonds = domain.EuroBonds
-		default:
-			typeOfBonds = domain.RubBonds
-		}
-		count := 1
-		for start := 0; start < len(report); start += 10 {
-			end := start + 10
-			if end > len(report) {
-				end = len(report)
+		reportsInByte := make([]*dto.MediaGroup, 3)
+		for i, report := range reports {
+			reportsInByte[i] = dto.NewMediaGroup()
+			mediaGroup := reportsInByte[i]
+			if len(report) == 0 {
+				continue
 			}
-			pngData, err := generateTablePNGInByte(ctx, logger, report[start:end], typeOfBonds)
-			if err != nil {
-				return nil, e.WrapIfErr("vizualize error", err)
-			}
-			// TODO: Есть желание вынести все, что связано с отображением в отдельный микросервис. А из этого отправлять только струкутуры данных
-			imageData := dto.NewImageData()
-			imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
-			imageData.Data = pngData
-			imageData.Caption = typeOfBonds
 
-			mediaGroup.Reports = append(mediaGroup.Reports, imageData)
-			count += 1
+			var typeOfBonds string
+			switch {
+			case report[0].Replaced:
+				typeOfBonds = domain.ReplacedBonds
+			case report[0].Currencies != "rub":
+				typeOfBonds = domain.EuroBonds
+			default:
+				typeOfBonds = domain.RubBonds
+			}
+			count := 1
+			for start := 0; start < len(report); start += 10 {
+				end := start + 10
+				if end > len(report) {
+					end = len(report)
+				}
+				pngData, err := generateTablePNGInByte(ctx, logger, report[start:end], typeOfBonds)
+				if err != nil {
+					return nil, e.WrapIfErr("vizualize error", err)
+				}
+				// TODO: Есть желание вынести все, что связано с отображением в отдельный микросервис. А из этого отправлять только струкутуры данных
+				imageData := dto.NewImageData()
+				imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
+				imageData.Data = pngData
+				imageData.Caption = typeOfBonds
+
+				mediaGroup.Reports = append(mediaGroup.Reports, imageData)
+				count += 1
+			}
 		}
+		return reportsInByte, nil
 	}
-	return reportsInByte, nil
 }
 
 func ResponsePortfolioStructure(ctx context.Context, logger *slog.Logger, portfolio *domain.PortfolioByTypeAndCurrency, title int, accountName string) string {
