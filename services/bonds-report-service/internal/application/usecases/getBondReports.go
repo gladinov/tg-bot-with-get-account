@@ -15,6 +15,11 @@ import (
 	"github.com/gladinov/e"
 )
 
+type reportJob struct {
+	GeneralBondReport generalbondreport.GeneralBondReports
+	AccountID         string
+}
+
 var ErrEmptyBondPositions = errors.New("len of result bond positions is empty")
 
 func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ dto.BondReportsResponce, err error) {
@@ -30,73 +35,40 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ dto.BondRep
 	ctxWorkers, cancel := context.WithCancel(ctx)
 	defer cancel()
 	bufSize := min(len(accounts), s.WorkersNubmer)
-	jobCh := make(chan domain.Account, bufSize)
-	reportCH := make(chan []*dto.MediaGroup, bufSize)
+	accountsCh := make(chan domain.Account, s.WorkersNubmer)
+	reportsCh := make(chan reportJob, s.WorkersNubmer)
+	mediaGroupsCh := make(chan []*dto.MediaGroup, s.WorkersNubmer*2)
 	errCh := make(chan error, 1)
-	var wg sync.WaitGroup
+	var wgStage1 sync.WaitGroup
 
 	for i := 0; i < bufSize; i++ {
-		wg.Add(1)
+		wgStage1.Add(1)
 		go func() {
-			defer wg.Done()
-			for account := range jobCh {
-				select {
-				case <-ctxWorkers.Done():
-					return
-				default:
-					generalBondReports, err := s.processAccount(ctxWorkers, chatID, account)
-					if err != nil {
-						select {
-						case errCh <- e.WrapIfErr("failed to procces account", err):
-						case <-ctxWorkers.Done():
-						}
-						return
+			defer wgStage1.Done()
+			s.fetchReportsWorker(ctxWorkers, accountsCh, errCh, reportsCh, chatID)
+		}()
+	}
 
-					}
-
-					reportsInByte, err := presenter.GenerateTablePNG(ctxWorkers,
-						s.logger,
-						s.prepareToGenerateTablePNG(ctxWorkers, &generalBondReports),
-						chatID,
-						account.ID)
-					if err != nil {
-						select {
-						case errCh <- e.WrapIfErr("failed to GenerateTablePNG", err):
-						case <-ctxWorkers.Done():
-						}
-						return
-					}
-
-					select {
-					case reportCH <- reportsInByte:
-					case <-ctxWorkers.Done():
-						return
-
-					}
-
-				}
-			}
+	var wgStage2 sync.WaitGroup
+	for i := 0; i < bufSize; i++ {
+		wgStage2.Add(1)
+		go func() {
+			defer wgStage2.Done()
+			s.renderReportsWorker(ctxWorkers, reportsCh, errCh, mediaGroupsCh, chatID)
 		}()
 	}
 
 	go func() {
-		wg.Wait()
-		close(reportCH)
+		wgStage1.Wait()
+		close(reportsCh)
 	}()
 
 	go func() {
-		defer close(jobCh)
-		for _, account := range accounts {
-			if account.Status != 2 {
-				continue
-			}
-			select {
-			case <-ctxWorkers.Done():
-				return
-			case jobCh <- account:
-			}
-		}
+		wgStage2.Wait()
+		close(mediaGroupsCh)
 	}()
+
+	go s.produceAccounts(ctxWorkers, accounts, accountsCh)
 
 loop:
 	for {
@@ -104,7 +76,7 @@ loop:
 		case er := <-errCh:
 			cancel()
 			return dto.BondReportsResponce{}, er
-		case reportsInByte, ok := <-reportCH:
+		case reportsInByte, ok := <-mediaGroupsCh:
 			if !ok {
 				break loop
 			}
@@ -114,6 +86,106 @@ loop:
 
 	getBondReportsResponce := dto.BondReportsResponce{Media: reportsInByteByAccounts}
 	return getBondReportsResponce, nil
+}
+
+func (s *Service) fetchReportsWorker(
+	ctx context.Context,
+	jobCh <-chan domain.Account,
+	errCh chan<- error,
+	generalBondReportsCh chan<- reportJob,
+	chatID int,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case account, ok := <-jobCh:
+			if !ok {
+				return
+			}
+
+			generalBondReports, err := s.processAccount(ctx, chatID, account)
+			if err != nil {
+				select {
+				case errCh <- e.WrapIfErr("failed to procces account", err):
+				case <-ctx.Done():
+				}
+				return
+
+			}
+
+			select {
+			case generalBondReportsCh <- reportJob{
+				GeneralBondReport: generalBondReports,
+				AccountID:         account.ID,
+			}:
+			case <-ctx.Done():
+				return
+			}
+
+		}
+	}
+}
+
+func (s *Service) renderReportsWorker(
+	ctx context.Context,
+	generalBondReportsCh <-chan reportJob,
+	errCh chan<- error,
+	reportCh chan<- []*dto.MediaGroup,
+	chatID int,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case genralBondReportWithAccount, ok := <-generalBondReportsCh:
+			if !ok {
+				return
+			}
+			reportsInByte, err := presenter.GenerateTablePNG(ctx,
+				s.logger,
+				s.prepareToGenerateTablePNG(ctx, &genralBondReportWithAccount.GeneralBondReport),
+				chatID,
+				genralBondReportWithAccount.AccountID)
+			if err != nil {
+				select {
+				case errCh <- e.WrapIfErr("failed to GenerateTablePNG", err):
+				case <-ctx.Done():
+				}
+				return
+			}
+			select {
+			case reportCh <- reportsInByte:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+}
+
+func (s *Service) produceAccounts(
+	ctx context.Context,
+	accounts map[string]domain.Account,
+	accountsCh chan<- domain.Account,
+) {
+	defer close(accountsCh)
+	for _, account := range accounts {
+		if isNonActiveAccounts(account) {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case accountsCh <- account:
+		}
+	}
+}
+
+func isNonActiveAccounts(account domain.Account) bool {
+	if account.Status == 2 {
+		return true
+	}
+	return false
 }
 
 func (s *Service) processAccount(ctx context.Context, chatID int, account domain.Account) (_ generalbondreport.GeneralBondReports, err error) {
@@ -238,16 +310,22 @@ func (s *Service) producePositions(
 	defer close(out)
 
 	for _, position := range positions {
-		if position.InstrumentType != "bond" {
+		if isNotBondType(position) {
 			continue
 		}
-
 		select {
 		case out <- position:
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func isNotBondType(position domain.PortfolioPositionsWithAssetUid) bool {
+	if position.InstrumentType != "bond" {
+		return true
+	}
+	return false
 }
 
 func (s *Service) processBondPosition(ctx context.Context,
