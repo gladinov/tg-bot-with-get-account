@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
 	"sort"
 	"sync"
 
@@ -85,40 +86,25 @@ func (s *Service) processAccount(ctx context.Context, chatID int, account domain
 
 	generalBondReports := generalbondreport.NewGeneralBondReports()
 
+	workers := runtime.NumCPU()
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
-	bondReportCh := make(chan generalbondreport.GeneralBondReportPosition)
+	workList := make(chan domain.PortfolioPositionsWithAssetUid, workers)
+	bondReportCh := make(chan generalbondreport.GeneralBondReportPosition, workers)
 	errCh := make(chan error, 1)
 	var wg sync.WaitGroup
 
-	for _, position := range portfolioPositions {
-		if position.InstrumentType != "bond" {
-			continue
-		}
+	// Создаю N Воркеров
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
-		pos := position
-		go func(position domain.PortfolioPositionsWithAssetUid) {
+		go func() {
 			defer wg.Done()
-
-			bondReport, er := s.processBondPosition(ctx2, position, totalAmount, operationsByAssetUid[position.AssetUid])
-			if er != nil {
-				if errors.Is(er, ErrEmptyBondPositions) {
-					return
-				}
-				select {
-				case errCh <- er:
-				case <-ctx2.Done():
-				}
-				return
-			}
-			select {
-			case bondReportCh <- bondReport:
-			case <-ctx2.Done():
-				return
-			}
-		}(pos)
+			s.bondWorker(ctx2, workList, bondReportCh, errCh, totalAmount, operationsByAssetUid)
+		}()
 
 	}
+	// 1. Начинаем скармливать работу вокрерам
+	go s.producePositions(ctx, portfolioPositions, workList)
 
 	go func() {
 		wg.Wait()
@@ -141,6 +127,57 @@ loop:
 	}
 
 	return generalBondReports, nil
+}
+
+func (s *Service) bondWorker(
+	ctx context.Context,
+	workList <-chan domain.PortfolioPositionsWithAssetUid,
+	resultCh chan<- generalbondreport.GeneralBondReportPosition,
+	errCh chan<- error,
+	totalAmount float64,
+	operationsByAssetUid map[string][]domain.OperationWithoutCustomTypes,
+) {
+	for position := range workList {
+		bondReport, er := s.processBondPosition(ctx,
+			position,
+			totalAmount,
+			operationsByAssetUid[position.AssetUid])
+		if er != nil {
+			if errors.Is(er, ErrEmptyBondPositions) {
+				continue
+			}
+			select {
+			case errCh <- er:
+			case <-ctx.Done():
+			}
+			return
+		}
+		select {
+		case resultCh <- bondReport:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *Service) producePositions(
+	ctx context.Context,
+	positions []domain.PortfolioPositionsWithAssetUid,
+	out chan<- domain.PortfolioPositionsWithAssetUid,
+) {
+	defer close(out)
+
+	for _, position := range positions {
+		if position.InstrumentType != "bond" {
+			continue
+		}
+
+		select {
+		case out <- position:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (s *Service) processBondPosition(ctx context.Context,
