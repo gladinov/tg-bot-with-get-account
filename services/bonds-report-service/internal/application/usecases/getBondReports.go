@@ -170,7 +170,7 @@ func (s *Service) produceAccounts(
 ) {
 	defer close(accountsCh)
 	for _, account := range accounts {
-		if isNonActiveAccounts(account) {
+		if !isActiveAccounts(account) {
 			continue
 		}
 		select {
@@ -181,7 +181,7 @@ func (s *Service) produceAccounts(
 	}
 }
 
-func isNonActiveAccounts(account domain.Account) bool {
+func isActiveAccounts(account domain.Account) bool {
 	if account.Status == 2 {
 		return true
 	}
