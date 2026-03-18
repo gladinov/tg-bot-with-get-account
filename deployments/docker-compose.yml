@@ -105,6 +105,7 @@ services:
   bond-report-service:
     build: ../services/bonds-report-service
     restart: unless-stopped
+    stop_grace_period: 15s
     container_name: bond-report-service-app
     depends_on:
       postgres-service-db:
