@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sort"
 	"sync"
 
 	"github.com/gladinov/e"
@@ -144,7 +143,7 @@ func (s *Service) renderReportsWorker(
 			}
 			reportsInByte, err := presenter.GenerateTablePNG(ctx,
 				s.logger,
-				s.prepareToGenerateTablePNG(ctx, &genralBondReportWithAccount.GeneralBondReport),
+				&genralBondReportWithAccount.GeneralBondReport,
 				chatID,
 				genralBondReportWithAccount.AccountID)
 			if err != nil {
@@ -383,63 +382,6 @@ func (s *Service) processBondPosition(ctx context.Context,
 		}
 		return bondReport, nil
 	}
-}
-
-func (s *Service) prepareToGenerateTablePNG(ctx context.Context,
-	generalBondReports *generalbondreport.GeneralBondReports,
-) (_ [][]generalbondreport.GeneralBondReportPosition) {
-	const op = "service.PrepareToGenerateTablePNG"
-
-	defer logging.LogOperation_Debug(ctx, s.logger, op, nil)()
-	var wg sync.WaitGroup
-	reports := make([][]generalbondreport.GeneralBondReportPosition, 3)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reports[0] = s.sortGeneralBondReports(ctx, generalBondReports.RubBondsReport)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reports[1] = s.sortGeneralBondReports(ctx, generalBondReports.ReplacedBondsReport)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reports[2] = s.sortGeneralBondReports(ctx, generalBondReports.EuroBondsReport)
-	}()
-
-	wg.Wait()
-
-	return reports
-}
-
-func (s *Service) sortGeneralBondReports(ctx context.Context,
-	report map[generalbondreport.TickerTimeKey]generalbondreport.GeneralBondReportPosition,
-) (_ []generalbondreport.GeneralBondReportPosition) {
-	const op = "service.sortGeneralBondReports"
-
-	defer logging.LogOperation_Debug(ctx, s.logger, op, nil)()
-
-	keys := make([]generalbondreport.TickerTimeKey, 0, len(report))
-	for k := range report {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].Time.Equal(keys[j].Time) {
-			return keys[i].Ticker < keys[j].Ticker
-		}
-		return keys[i].Time.Before(keys[j].Time)
-	})
-	result := make([]generalbondreport.GeneralBondReportPosition, len(keys))
-	for i, k := range keys {
-		result[i] = report[k]
-	}
-
-	return result
 }
 
 func (s *Service) addBondReport(generalBondReports *generalbondreport.GeneralBondReports, bondReport generalbondreport.GeneralBondReportPosition) {
