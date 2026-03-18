@@ -227,10 +227,10 @@ func (s *Service) processAccount(ctx context.Context, chatID int, account domain
 
 		// TODO: add workers in config
 		workers := s.WorkersNubmer
-		ctx2, cancel := context.WithCancel(ctx)
+		ctxWorkers, cancel := context.WithCancel(ctx)
 		defer cancel()
-		workList := make(chan domain.PortfolioPositionsWithAssetUid, workers)
-		bondReportCh := make(chan generalbondreport.GeneralBondReportPosition, workers)
+		workList := make(chan domain.PortfolioPositionsWithAssetUid, workers*2)
+		bondReportCh := make(chan generalbondreport.GeneralBondReportPosition, workers*2)
 		errCh := make(chan error, 1)
 		var wg sync.WaitGroup
 
@@ -239,12 +239,12 @@ func (s *Service) processAccount(ctx context.Context, chatID int, account domain
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				s.bondWorker(ctx2, workList, bondReportCh, errCh, totalAmount, operationsByAssetUid)
+				s.bondWorker(ctxWorkers, workList, bondReportCh, errCh, totalAmount, operationsByAssetUid)
 			}()
 
 		}
 		// 1. Начинаем скармливать работу вокрерам
-		go s.producePositions(ctx, portfolioPositions, workList)
+		go s.producePositions(ctxWorkers, portfolioPositions, workList)
 
 		go func() {
 			wg.Wait()
@@ -309,7 +309,7 @@ func (s *Service) producePositions(
 	defer close(out)
 
 	for _, position := range positions {
-		if isNotBondType(position) {
+		if !isBondType(position) {
 			continue
 		}
 		select {
@@ -320,11 +320,11 @@ func (s *Service) producePositions(
 	}
 }
 
-func isNotBondType(position domain.PortfolioPositionsWithAssetUid) bool {
+func isBondType(position domain.PortfolioPositionsWithAssetUid) bool {
 	if position.InstrumentType != "bond" {
-		return true
+		return false
 	}
-	return false
+	return true
 }
 
 func (s *Service) processBondPosition(ctx context.Context,
@@ -362,13 +362,44 @@ func (s *Service) processBondPosition(ctx context.Context,
 		firstBuyDate := resultBondPosition.CurrentPositions[0].BuyDate
 
 		// TODO : Кэшифрование запросов в MOEX
-		moexBuyDateData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
-		if err != nil {
-			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specification from MOEX for buy date", err)
-		}
-		moexNowData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, s.now())
-		if err != nil {
-			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specification from MOEX for current date", err)
+		var moexBuyDateData, moexNowData domain.ValuesMoex
+
+		errCh := make(chan error, 2)
+		doneCh := make(chan struct{})
+
+		go func() {
+			var errGo error
+			moexBuyDateData, errGo = s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
+			if errGo != nil {
+				select {
+				case errCh <- e.WrapIfErr("failed to get specification from MOEX for buy date", errGo):
+				case <-ctx.Done():
+				}
+			}
+			doneCh <- struct{}{}
+		}()
+
+		go func() {
+			var errGo error
+			moexNowData, errGo = s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, s.now())
+			if errGo != nil {
+				select {
+				case errCh <- e.WrapIfErr("failed to get specification from MOEX for now time", errGo):
+				case <-ctx.Done():
+				}
+			}
+			doneCh <- struct{}{}
+		}()
+
+		for i := 0; i < 2; i++ {
+			select {
+			case <-doneCh:
+				continue
+			case err := <-errCh:
+				return generalbondreport.GeneralBondReportPosition{}, err
+			case <-ctx.Done():
+				return generalbondreport.GeneralBondReportPosition{}, ctx.Err()
+			}
 		}
 
 		bondReport, err := s.Helpers.GeneralBondReportProcessor.GetGeneralBondReportPosition(
