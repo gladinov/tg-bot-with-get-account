@@ -29,16 +29,16 @@ type Storage struct {
 	db     *pgxpool.Pool
 }
 
-func NewStorage(logger *slog.Logger, postgresConfig config.Config) (_ *Storage, err error) {
+func NewStorage(ctx context.Context, logger *slog.Logger, postgresConfig config.Config) (_ *Storage, err error) {
 	const op = "postgreSQL.NewStorage"
 
-	defer logging.LogOperation_Debug(context.Background(), logger, op, &err)()
+	defer logging.LogOperation_Debug(ctx, logger, op, &err)()
 
 	postgresHost, err := postgresConfig.PostgresHost.GetStringHost()
 	if err != nil {
 		return nil, err
 	}
-	db, err := pgxpool.New(context.Background(), postgresHost)
+	db, err := pgxpool.New(ctx, postgresHost)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,6 @@ func (s *Storage) createCurrenciesTable(ctx context.Context) error {
 
 func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID string) (_ time.Time, err error) {
 	const op = "postgreSQL.LastOperationTime"
-	ctx = context.Background() // TODO: Подобрать корректный timeout для БД
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -140,7 +139,6 @@ func (s *Storage) LastOperationTime(ctx context.Context, chatID int, accountID s
 
 func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId string, operations []domain.OperationWithoutCustomTypes) (err error) {
 	const op = "postgreSQL.SaveOperations"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -225,7 +223,6 @@ func (s *Storage) SaveOperations(ctx context.Context, chatID int, accountId stri
 
 func (s *Storage) GetOperations(ctx context.Context, chatId int, assetUid string, accountId string) (_ []domain.OperationWithoutCustomTypes, err error) {
 	const op = "postgreSql.GetOperations"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -280,8 +277,6 @@ from operations where chatId = $1 and broker_account_id = $2 and asset_uid = $3 
 
 func (s *Storage) GetAllOperations(ctx context.Context, chatId int, accountId string) (_ []domain.OperationWithoutCustomTypes, err error) {
 	const op = "postgreSql.GetOperations"
-	// TODO: Проблема с некоректным контекстом
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -338,7 +333,6 @@ from operations where chatId = $1 and broker_account_id = $2 order by date`
 
 func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId string) (err error) {
 	const op = "postgreSql.DeleteBondReport"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -353,7 +347,6 @@ func (s *Storage) DeleteBondReport(ctx context.Context, chatID int, accountId st
 
 func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId string, bondReport []report.BondReport) (err error) {
 	const op = "postgreSql.SaveBondReport"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -424,7 +417,6 @@ func (s *Storage) SaveBondReport(ctx context.Context, chatID int, accountId stri
 
 func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accountId string) (err error) {
 	const op = "postgreSql.SaveBondReport"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -440,7 +432,6 @@ func (s *Storage) DeleteGeneralBondReport(ctx context.Context, chatID int, accou
 
 func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, accountId string, positions []generalbondreport.GeneralBondReportPosition) (err error) {
 	const op = "postgreSql.SaveGeneralBondReport"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -514,7 +505,6 @@ func (s *Storage) SaveGeneralBondReport(ctx context.Context, chatID int, account
 
 func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err error) {
 	const op = "postgreSql.SaveUids"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -566,7 +556,6 @@ func (s *Storage) SaveUids(ctx context.Context, uids map[string]string) (err err
 
 func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
 	const op = "postgreSql.IsUpdatedUids"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -587,7 +576,6 @@ func (s *Storage) IsUpdatedUids(ctx context.Context) (_ time.Time, err error) {
 
 func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, err error) {
 	const op = "postgreSql.GetUid"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
@@ -606,7 +594,6 @@ func (s *Storage) GetUid(ctx context.Context, instrumentUid string) (_ string, e
 
 func (s *Storage) SaveCurrency(ctx context.Context, currencies domain.CurrenciesCBR, date time.Time) (err error) {
 	const op = "postgreSql.SaveCurrency"
-	ctx = context.Background()
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 	tx, err := s.db.Begin(ctx)
@@ -650,7 +637,6 @@ func (s *Storage) SaveCurrency(ctx context.Context, currencies domain.Currencies
 
 func (s *Storage) GetCurrency(ctx context.Context, charCode string, date time.Time) (_ float64, err error) {
 	const op = "postgreSql.SaveCurrency"
-	ctx = context.Background()
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 	q := `
         SELECT vunit_rate
