@@ -2,14 +2,17 @@ package main
 
 import (
 	"bonds-report-service/internal/app"
+	"bonds-report-service/internal/application/ports"
 	"bonds-report-service/internal/application/usecases"
 	config "bonds-report-service/internal/configs"
 	"bonds-report-service/internal/handlers"
 	"context"
+	"errors"
 	"log/slog"
-	"os"
+	"net/http"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	sl "github.com/gladinov/mylogger"
@@ -17,7 +20,7 @@ import (
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 	conf := config.MustInitConfig()
 
@@ -31,7 +34,6 @@ func main() {
 	_ = traceidgenerator.Must()
 
 	repo := app.MustInitNewStorage(ctx, conf, logg)
-	defer repo.CloseDB()
 
 	tinkoffApiHelper := app.InitTinkoffApiHelper(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
 
@@ -63,7 +65,7 @@ func main() {
 
 	reportLineBuilder := app.InitReportLineBuilder(logg, tinkoffApiHelper, cbrCurrencyGetter)
 
-	dividerbyassettype := app.InitDividerByAssetType(logg, tinkoffApiHelper, cbrCurrencyGetter)
+	dividerByAssetType := app.InitDividerByAssetType(logg, tinkoffApiHelper, cbrCurrencyGetter)
 
 	externalApis := usecases.NewExternalApis(moexClient, cbrClient, sberClient)
 
@@ -76,7 +78,7 @@ func main() {
 		operationsUpdater,
 		positionProcessor,
 		reportLineBuilder,
-		dividerbyassettype,
+		dividerByAssetType,
 	)
 
 	logg.Info("initialize Service client")
@@ -108,6 +110,37 @@ func main() {
 	router.GET("/bondReportService/getUnionPortfolioStructureWithSber", handl.GetUnionPortfolioStructureWithSber)
 
 	address := conf.Clients.BondReportService.GetBondReportServiceAppAddress()
-	logg.Info("run bond-report-service", slog.String("address", address))
-	router.Run(address)
+
+	httpSrv := &http.Server{
+		Addr:    address,
+		Handler: router,
+	}
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		logg.Info("run bond-report-service", slog.String("address", address))
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		logg.InfoContext(ctx, "Shutdown signal received")
+	case err = <-errCh:
+		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
+	}
+	gracefulShutdown(ctx, logg, httpSrv, repo)
+}
+
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server, repo ports.Storage) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+	}
+	logg.InfoContext(ctx, "close DB")
+	repo.CloseDB()
+	logg.InfoContext(ctx, "Server exited gracefully")
 }
