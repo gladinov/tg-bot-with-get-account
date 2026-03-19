@@ -16,23 +16,33 @@ func (p *ReportProcessor) ProcessOperations(ctx context.Context, reportLine *dom
 
 	defer logging.LogOperation_Debug(ctx, p.logger, op, &err)()
 
-	processPosition := report.NewReportPositons()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		processPosition := report.NewReportPositons()
 
-	for _, operation := range reportLine.Operation {
-		if err := processPosition.Apply(
-			operation,
-			reportLine.Bond,
-			reportLine.LastPrice,
-			reportLine.Vunit_rate); err != nil {
-			if errors.Is(err, report.ErrUnknownOpp) {
-				p.logger.WarnContext(ctx, "unkown opperation type", slog.String("op", op))
-				continue
+		for _, operation := range reportLine.Operation {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+				if err := processPosition.Apply(
+					operation,
+					reportLine.Bond,
+					reportLine.LastPrice,
+					reportLine.Vunit_rate); err != nil {
+					if errors.Is(err, report.ErrUnknownOpp) {
+						p.logger.WarnContext(ctx, "unkown opperation type", slog.String("op", op))
+						continue
+					}
+					if errors.Is(err, report.ErrZeroQuantity) {
+						continue
+					}
+					return nil, e.WrapIfErr("failed to apply operation to processPosition", err)
+				}
 			}
-			if errors.Is(err, report.ErrZeroQuantity) {
-				continue
-			}
-			return nil, e.WrapIfErr("failed to apply operation to processPosition", err)
 		}
+		return processPosition, nil
 	}
-	return processPosition, nil
 }

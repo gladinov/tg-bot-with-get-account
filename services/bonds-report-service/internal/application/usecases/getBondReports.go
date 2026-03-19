@@ -217,15 +217,10 @@ func (s *Service) processAccount(ctx context.Context, chatID int, account domain
 			return generalbondreport.GeneralBondReports{}, e.WrapIfErr("failed to get all operations from storage", err)
 		}
 
-		operationsByAssetUid := make(map[string][]domain.OperationWithoutCustomTypes)
-
-		for _, op := range allOperations {
-			operationsByAssetUid[op.AssetUid] = append(operationsByAssetUid[op.AssetUid], op)
-		}
+		operationsByAssetUid := mapOperationsWithoutCustomTypesToMapByAssetUid(allOperations)
 
 		generalBondReports := generalbondreport.NewGeneralBondReports()
 
-		// TODO: add workers in config
 		workers := s.WorkersNubmer
 		ctxWorkers, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -362,44 +357,13 @@ func (s *Service) processBondPosition(ctx context.Context,
 		firstBuyDate := resultBondPosition.CurrentPositions[0].BuyDate
 
 		// TODO : Кэшифрование запросов в MOEX
-		var moexBuyDateData, moexNowData domain.ValuesMoex
-
-		errCh := make(chan error, 2)
-		doneCh := make(chan struct{})
-
-		go func() {
-			var errGo error
-			moexBuyDateData, errGo = s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
-			if errGo != nil {
-				select {
-				case errCh <- e.WrapIfErr("failed to get specification from MOEX for buy date", errGo):
-				case <-ctx.Done():
-				}
-			}
-			doneCh <- struct{}{}
-		}()
-
-		go func() {
-			var errGo error
-			moexNowData, errGo = s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, s.now())
-			if errGo != nil {
-				select {
-				case errCh <- e.WrapIfErr("failed to get specification from MOEX for now time", errGo):
-				case <-ctx.Done():
-				}
-			}
-			doneCh <- struct{}{}
-		}()
-
-		for i := 0; i < 2; i++ {
-			select {
-			case <-doneCh:
-				continue
-			case err := <-errCh:
-				return generalbondreport.GeneralBondReportPosition{}, err
-			case <-ctx.Done():
-				return generalbondreport.GeneralBondReportPosition{}, ctx.Err()
-			}
+		moexBuyDateData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
+		if err != nil {
+			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specifications from moex to buy date", err)
+		}
+		moexNowData, err := s.Helpers.MoexSpecificationGetter.GetSpecificationsFromMoex(ctx, reporLines.Bond.Ticker, firstBuyDate)
+		if err != nil {
+			return generalbondreport.GeneralBondReportPosition{}, e.WrapIfErr("failed to get specifications from moex to buy now", err)
 		}
 
 		bondReport, err := s.Helpers.GeneralBondReportProcessor.GetGeneralBondReportPosition(

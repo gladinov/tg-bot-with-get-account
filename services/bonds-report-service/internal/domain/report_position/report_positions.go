@@ -6,8 +6,6 @@ import (
 	"github.com/gladinov/e"
 )
 
-// TODO: Подумать как разбить адекватно эту мешанину из файлов
-
 type ReportPositions struct {
 	Quantity         float64
 	CurrentPositions []PositionByFIFO
