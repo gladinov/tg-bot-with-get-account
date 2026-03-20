@@ -181,7 +181,7 @@ func (s *Service) produceAccounts(
 }
 
 func isActiveAccounts(account domain.Account) bool {
-	if account.Status == 2 {
+	if account.Status == 2 { // TODO: Magic Number
 		return true
 	}
 	return false
