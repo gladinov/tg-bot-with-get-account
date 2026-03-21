@@ -24,8 +24,10 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 	defer cancel()
 	workers := s.WorkersNubmer
 	errCh := make(chan error, 1)
-	accountsCh := make(chan domain.Account, workers*2)
+
 	var wg sync.WaitGroup
+
+	accountsCh := s.produceAccounts(ctxWorkers, accounts)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -34,10 +36,6 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 			s.accountWorkerForBondReportByFifo(ctxWorkers, accountsCh, errCh, chatID)
 		}()
 	}
-
-	go func() {
-		s.produceAccountsForBondReportByFifo(ctxWorkers, accounts, accountsCh)
-	}()
 
 	go func() {
 		wg.Wait()
@@ -53,20 +51,6 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 		}
 		cancel()
 		return er
-	}
-}
-
-func (s *Service) produceAccountsForBondReportByFifo(ctx context.Context, accounts map[string]domain.Account, accountsCh chan<- domain.Account) {
-	defer close(accountsCh)
-	for _, account := range accounts {
-		if !isActiveAccounts(account) {
-			continue
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case accountsCh <- account:
-		}
 	}
 }
 

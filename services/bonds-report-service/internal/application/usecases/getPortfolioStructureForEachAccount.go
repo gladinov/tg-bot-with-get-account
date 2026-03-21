@@ -52,7 +52,7 @@ func (s *Service) GetPortfolioStructureForEachAccount(ctx context.Context) (_ do
 	pipeline := NewPipeline(ctxWorkers, cancel, errCh)
 	portfolioStructsCh := make(chan string, workers*2)
 
-	produceAccountCh := s.produceAccountsToPortfolioStructureForEachAccount(ctxWorkers, accounts)
+	produceAccountCh := s.produceAccounts(ctxWorkers, accounts)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -85,28 +85,6 @@ loop:
 	return response, nil
 }
 
-func (s *Service) produceAccountsToPortfolioStructureForEachAccount(ctx context.Context, accounts map[string]domain.Account) <-chan domain.Account {
-	out := make(chan domain.Account, s.WorkersNubmer*2)
-
-	go func() {
-		defer close(out)
-		for _, account := range accounts {
-
-			if !isActiveAccounts(account) {
-				continue
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case out <- account:
-			}
-		}
-	}()
-
-	return out
-}
-
 func (s *Service) portfolioStructureWorker(p *pipeline, accountCh <-chan domain.Account, reportCh chan<- string) {
 	for account := range accountCh {
 		report, err := s.getPortfolioStructure(p.ctx, account)
@@ -128,17 +106,22 @@ func (s *Service) getPortfolioStructure(ctx context.Context, account domain.Acco
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
-	portfolio, err := s.Helpers.TinkoffHelper.TinkoffGetPortfolio(ctx, account)
-	if err != nil {
-		return "", e.WrapIfErr("cant' get portfolio from Tinkoff", err)
-	}
-	positions := portfolio.Positions
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+		portfolio, err := s.Helpers.TinkoffHelper.TinkoffGetPortfolio(ctx, account)
+		if err != nil {
+			return "", e.WrapIfErr("cant' get portfolio from Tinkoff", err)
+		}
+		positions := portfolio.Positions
 
-	potfolioStructure, err := s.Helpers.DividerByAssetType.DivideByType(ctx, positions)
-	if err != nil {
-		return "", e.WrapIfErr("couldnot divide by type", err)
-	}
-	response := presenter.ResponsePortfolioStructure(ctx, s.logger, potfolioStructure, dto.EachPortf, account.Name)
+		potfolioStructure, err := s.Helpers.DividerByAssetType.DivideByType(ctx, positions)
+		if err != nil {
+			return "", e.WrapIfErr("couldnot divide by type", err)
+		}
+		response := presenter.ResponsePortfolioStructure(ctx, s.logger, potfolioStructure, dto.EachPortf, account.Name)
 
-	return response, nil
+		return response, nil
+	}
 }

@@ -34,11 +34,13 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ dto.BondRep
 	ctxWorkers, cancel := context.WithCancel(ctx)
 	defer cancel()
 	bufSize := min(len(accounts), s.WorkersNubmer)
-	accountsCh := make(chan domain.Account, s.WorkersNubmer)
+
 	reportsCh := make(chan reportJob, s.WorkersNubmer)
 	mediaGroupsCh := make(chan []*dto.MediaGroup, s.WorkersNubmer*2)
 	errCh := make(chan error, 1)
 	var wgStage1 sync.WaitGroup
+
+	accountsCh := s.produceAccounts(ctxWorkers, accounts)
 
 	for i := 0; i < bufSize; i++ {
 		wgStage1.Add(1)
@@ -67,8 +69,6 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ dto.BondRep
 		close(mediaGroupsCh)
 	}()
 
-	go s.produceAccounts(ctxWorkers, accounts, accountsCh)
-
 loop:
 	for {
 		select {
@@ -85,6 +85,28 @@ loop:
 
 	getBondReportsResponce := dto.BondReportsResponce{Media: reportsInByteByAccounts}
 	return getBondReportsResponce, nil
+}
+
+func (s *Service) produceAccounts(ctx context.Context, accounts map[string]domain.Account) <-chan domain.Account {
+	out := make(chan domain.Account, s.WorkersNubmer*2)
+
+	go func() {
+		defer close(out)
+		for _, account := range accounts {
+
+			if !isActiveAccounts(account) {
+				continue
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case out <- account:
+			}
+		}
+	}()
+
+	return out
 }
 
 func (s *Service) fetchReportsWorker(
@@ -158,24 +180,6 @@ func (s *Service) renderReportsWorker(
 			case <-ctx.Done():
 				return
 			}
-		}
-	}
-}
-
-func (s *Service) produceAccounts(
-	ctx context.Context,
-	accounts map[string]domain.Account,
-	accountsCh chan<- domain.Account,
-) {
-	defer close(accountsCh)
-	for _, account := range accounts {
-		if !isActiveAccounts(account) {
-			continue
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case accountsCh <- account:
 		}
 	}
 }
