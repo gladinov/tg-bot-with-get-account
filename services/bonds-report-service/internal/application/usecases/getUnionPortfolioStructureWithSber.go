@@ -18,15 +18,15 @@ var (
 	ErrpositionsClassCodeVariants = errors.New("positions class code variants are empty")
 )
 
-func (s *Service) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ domain.UnionPortfolioStructureWithSberResponce, err error) {
+func (s *Service) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ dto.UnionPortfolioStructureWithSberResponce, err error) {
 	const op = "service.GetUnionPortfolioStructureWithSber"
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
-	responce := domain.UnionPortfolioStructureWithSberResponce{}
+	responce := dto.UnionPortfolioStructureWithSberResponce{}
 	accounts, err := s.Helpers.TinkoffHelper.TinkoffGetAccounts(ctx)
 	if err != nil {
-		return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("cant' get accounts from tinkoff", err)
+		return dto.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("cant' get accounts from tinkoff", err)
 	}
 	positionsList := make([]*domain.PortfolioByTypeAndCurrency, 0)
 	for _, account := range accounts {
@@ -35,20 +35,20 @@ func (s *Service) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ dom
 		}
 		portfolio, err := s.Helpers.TinkoffHelper.TinkoffGetPortfolio(ctx, account)
 		if err != nil {
-			return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("cant' get portfolio from Tinkoff", err)
+			return dto.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("cant' get portfolio from Tinkoff", err)
 		}
 		positions := portfolio.Positions
 
 		potfolioStructure, err := s.Helpers.DividerByAssetType.DivideByType(ctx, positions)
 		if err != nil {
-			return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("couldnot divide by type", err)
+			return dto.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("couldnot divide by type", err)
 		}
 		positionsList = append(positionsList, potfolioStructure)
 	}
 
 	sberPortfolio, err := s.divideByTypeFromSber(ctx, s.External.Sber.Portfolio)
 	if err != nil {
-		return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("couldnot divide by type from sber", err)
+		return dto.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("couldnot divide by type from sber", err)
 	}
 
 	positionsList = append(positionsList, sberPortfolio)

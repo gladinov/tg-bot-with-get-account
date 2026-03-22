@@ -65,7 +65,7 @@ func main() {
 
 	reportLineBuilder := app.InitReportLineBuilder(logg, tinkoffApiHelper, cbrCurrencyGetter)
 
-	dividerByAssetType := app.InitDividerByAssetType(logg, tinkoffApiHelper, cbrCurrencyGetter)
+	dividerByAssetType := app.InitDividerByAssetType(logg, tinkoffApiHelper, cbrCurrencyGetter, conf.WorkersNubmer)
 
 	externalApis := usecases.NewExternalApis(moexClient, cbrClient, sberClient)
 

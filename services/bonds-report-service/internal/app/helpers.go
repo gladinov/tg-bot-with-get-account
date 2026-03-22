@@ -87,8 +87,8 @@ func InitReportLineBuilder(logger *slog.Logger, tinkoffHelper *tinkoffHelper.Tin
 	return reportlinebuiler
 }
 
-func InitDividerByAssetType(logger *slog.Logger, tinkoffHelper *tinkoffHelper.TinkoffHelper, cbrHelper ports.CbrCurrencyGetter) *dividerbyassettype.DividerByAssetType {
+func InitDividerByAssetType(logger *slog.Logger, tinkoffHelper *tinkoffHelper.TinkoffHelper, cbrHelper ports.CbrCurrencyGetter, workersNumber int) *dividerbyassettype.DividerByAssetType {
 	logger.Info("initialize divider by asset type")
-	dividerByAssetType := dividerbyassettype.NewDividerByAssetType(logger, tinkoffHelper, cbrHelper)
+	dividerByAssetType := dividerbyassettype.NewDividerByAssetType(logger, tinkoffHelper, cbrHelper, workersNumber)
 	return dividerByAssetType
 }

@@ -53,7 +53,7 @@ func (s *Service) getUnionPortfolioStructure(ctx context.Context, accounts map[s
 		wgStage1.Add(1)
 		go func() {
 			defer wgStage1.Done()
-			s.workers1(pipeline, accountsCh, portfolioCh)
+			s.portfolioWorkers(pipeline, accountsCh, portfolioCh)
 		}()
 	}
 
@@ -67,7 +67,7 @@ func (s *Service) getUnionPortfolioStructure(ctx context.Context, accounts map[s
 		wgStage2.Add(1)
 		go func() {
 			defer wgStage2.Done()
-			s.workers2(pipeline, portfolioCh, portfolioStructCh)
+			s.portfolioStructureWorkers(pipeline, portfolioCh, portfolioStructCh)
 		}()
 	}
 
@@ -98,7 +98,7 @@ loop:
 	return vizualizeUnionPositions, nil
 }
 
-func (s *Service) workers1(p *pipeline, in <-chan domain.Account, out chan<- domain.Portfolio) {
+func (s *Service) portfolioWorkers(p *pipeline, in <-chan domain.Account, out chan<- domain.Portfolio) {
 	for account := range in {
 		portfolio, err := s.Helpers.TinkoffHelper.TinkoffGetPortfolio(p.ctx, account)
 		if err != nil {
@@ -114,7 +114,7 @@ func (s *Service) workers1(p *pipeline, in <-chan domain.Account, out chan<- dom
 	}
 }
 
-func (s *Service) workers2(p *pipeline, in <-chan domain.Portfolio, out chan<- *domain.PortfolioByTypeAndCurrency) {
+func (s *Service) portfolioStructureWorkers(p *pipeline, in <-chan domain.Portfolio, out chan<- *domain.PortfolioByTypeAndCurrency) {
 	for portfolio := range in {
 		positions := portfolio.Positions
 		portfolioStructure, err := s.Helpers.DividerByAssetType.DivideByType(p.ctx, positions)

@@ -27,3 +27,7 @@ type ImageData struct {
 func NewImageData() *ImageData {
 	return &ImageData{}
 }
+
+type UnionPortfolioStructureWithSberResponce struct {
+	Report string
+}
