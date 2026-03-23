@@ -33,10 +33,10 @@ func (s *Service) GetBondReports(ctx context.Context, chatID int) (_ dto.BondRep
 	}
 	ctxWorkers, cancel := context.WithCancel(ctx)
 	defer cancel()
-	bufSize := min(len(accounts), s.WorkersNubmer)
+	bufSize := min(len(accounts), s.WorkersNumber)
 
-	reportsCh := make(chan reportJob, s.WorkersNubmer)
-	mediaGroupsCh := make(chan []*dto.MediaGroup, s.WorkersNubmer*2)
+	reportsCh := make(chan reportJob, s.WorkersNumber)
+	mediaGroupsCh := make(chan []*dto.MediaGroup, s.WorkersNumber*2)
 	errCh := make(chan error, 1)
 	var wgStage1 sync.WaitGroup
 
@@ -88,7 +88,7 @@ loop:
 }
 
 func (s *Service) produceAccounts(ctx context.Context, accounts map[string]domain.Account) <-chan domain.Account {
-	out := make(chan domain.Account, s.WorkersNubmer*2)
+	out := make(chan domain.Account, s.WorkersNumber*2)
 
 	go func() {
 		defer close(out)
@@ -225,7 +225,7 @@ func (s *Service) processAccount(ctx context.Context, chatID int, account domain
 
 		generalBondReports := generalbondreport.NewGeneralBondReports()
 
-		workers := s.WorkersNubmer
+		workers := s.WorkersNumber
 		ctxWorkers, cancel := context.WithCancel(ctx)
 		defer cancel()
 		workList := make(chan domain.PortfolioPositionsWithAssetUid, workers*2)

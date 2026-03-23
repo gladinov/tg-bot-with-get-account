@@ -22,7 +22,7 @@ func (s *Service) GetBondReportsByFifo(ctx context.Context, chatID int) (err err
 
 	ctxWorkers, cancel := context.WithCancel(ctx)
 	defer cancel()
-	workers := s.WorkersNubmer
+	workers := s.WorkersNumber
 	errCh := make(chan error, 1)
 
 	var wg sync.WaitGroup
@@ -113,7 +113,7 @@ func (s *Service) processAccountForBondReportByFifo(ctx context.Context, chatID 
 		ctxWorkers, cancel := context.WithCancel(ctx)
 		defer cancel()
 		bondsInRub := make([]report.BondReport, 0)
-		workers := s.WorkersNubmer
+		workers := s.WorkersNumber
 		positionCh := make(chan domain.PortfolioPositionsWithAssetUid, workers*2)
 		bondReportCh := make(chan report.Report, workers*2)
 		errCh := make(chan error, 1)

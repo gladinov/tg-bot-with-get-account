@@ -95,7 +95,7 @@ func NewHelpers(
 
 type Service struct {
 	logger        *slog.Logger
-	WorkersNubmer int
+	WorkersNumber int
 	External      *ExternalApis
 	Helpers       *Helpers
 	Storage       ports.Storage
@@ -111,7 +111,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		logger:        logger,
-		WorkersNubmer: workersNumber,
+		WorkersNumber: workersNumber,
 		External:      externalApis,
 		Helpers:       helpers,
 		Storage:       storage,

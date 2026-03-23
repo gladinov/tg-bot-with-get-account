@@ -62,7 +62,6 @@ func (d *DividerByAssetType) DivideByType(ctx context.Context, positions []domai
 	const op = "service.DivideByType"
 
 	defer logging.LogOperation_Debug(ctx, d.logger, op, &err)()
-	// TODO: Сдесь нужно ограничить коли-во горутин семафором
 
 	select {
 	case <-ctx.Done():

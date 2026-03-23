@@ -40,7 +40,7 @@ func (s *Service) getUnionPortfolioStructure(ctx context.Context, accounts map[s
 
 	ctxWorkers, cancel := context.WithCancel(ctx)
 	defer cancel()
-	workers := s.WorkersNubmer
+	workers := s.WorkersNumber
 
 	portfolioCh := make(chan domain.Portfolio, workers*2) // TODO: what size i must do in chan?
 	portfolioStructCh := make(chan *domain.PortfolioByTypeAndCurrency, workers*2)

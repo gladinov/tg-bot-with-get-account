@@ -47,7 +47,7 @@ func (s *Service) GetPortfolioStructureForEachAccount(ctx context.Context) (_ do
 	ctxWorkers, cancel := context.WithCancel(ctx)
 	defer cancel()
 	errCh := make(chan error, 1)
-	workers := s.WorkersNubmer
+	workers := s.WorkersNumber
 	var wg sync.WaitGroup
 	pipeline := NewPipeline(ctxWorkers, cancel, errCh)
 	portfolioStructsCh := make(chan string, workers*2)
