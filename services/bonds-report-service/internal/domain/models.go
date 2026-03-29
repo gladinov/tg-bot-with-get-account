@@ -13,10 +13,6 @@ type UnionPortfolioStructureResponce struct {
 	Report string
 }
 
-type UnionPortfolioStructureWithSberResponce struct {
-	Report string
-}
-
 type UsdResponce struct {
 	Usd float64
 }
@@ -30,9 +26,58 @@ type PortfolioByTypeAndCurrency struct {
 	CurrenciesAssets CurrenciesAssets
 }
 
+func NewPortfolioByTypeAndCurrency() *PortfolioByTypeAndCurrency {
+	return &PortfolioByTypeAndCurrency{
+		BondsAssets:      NewBondAssets(),
+		SharesAssets:     NewSharesAssets(),
+		EtfsAssets:       NewEtfsAssets(),
+		FuturesAssets:    NewFutureAssets(),
+		CurrenciesAssets: NewCurrenciesAssets(),
+	}
+}
+
+func (first *PortfolioByTypeAndCurrency) SumWithPortfolio(second *PortfolioByTypeAndCurrency) {
+	if second == nil {
+		return
+	}
+	first.AllAssets += second.AllAssets
+	first.BondsAssets.SumWithBondAssets(second.BondsAssets)
+	first.SharesAssets.SumWithSharesAssets(second.SharesAssets)
+	first.CurrenciesAssets.SumWithCurrenciesAssets(second.CurrenciesAssets)
+	first.EtfsAssets.SumWithEtfsAssets(second.EtfsAssets)
+	first.FuturesAssets.SumWithFutureAssets(second.FuturesAssets)
+}
+
 type BondsAssets struct {
 	SumOfAssets      float64
 	AssetsByCurrency map[string]*AssetByParam
+}
+
+func NewBondAssets() BondsAssets {
+	return BondsAssets{
+		AssetsByCurrency: NewAssetsByCurrency(),
+	}
+}
+
+func (first *BondsAssets) SumWithBondAssets(second BondsAssets) {
+	first.SumOfAssets += second.SumOfAssets
+	first.AssetsByCurrency = SumOfAssetsByCurrency(first.AssetsByCurrency, second.AssetsByCurrency)
+}
+
+func SumOfAssetsByCurrency(first, second map[string]*AssetByParam) map[string]*AssetByParam {
+	if second == nil {
+		return first
+	}
+	if first == nil {
+		return second
+	}
+
+	for key, value := range second {
+		if value != nil {
+			AddToMap(first, key, value.SumOfAssets)
+		}
+	}
+	return first
 }
 
 type AssetByParam struct {
@@ -43,9 +88,29 @@ func NewAssetsByParam() *AssetByParam {
 	return &AssetByParam{}
 }
 
+func AddToMap(assets map[string]*AssetByParam, field string, addValue float64) {
+	assetByParam, exist := assets[field]
+	if exist {
+		assetByParam.SumOfAssets += addValue
+	} else {
+		assets[field] = &AssetByParam{SumOfAssets: addValue}
+	}
+}
+
 type SharesAssets struct {
 	SumOfAssets      float64
 	AssetsByCurrency map[string]*AssetByParam
+}
+
+func (first *SharesAssets) SumWithSharesAssets(second SharesAssets) {
+	first.SumOfAssets += second.SumOfAssets
+	first.AssetsByCurrency = SumOfAssetsByCurrency(first.AssetsByCurrency, second.AssetsByCurrency)
+}
+
+func NewSharesAssets() SharesAssets {
+	return SharesAssets{
+		AssetsByCurrency: NewAssetsByCurrency(),
+	}
 }
 
 type EtfsAssets struct {
@@ -53,9 +118,34 @@ type EtfsAssets struct {
 	AssetsByCurrency map[string]*AssetByParam
 }
 
+func (first *EtfsAssets) SumWithEtfsAssets(second EtfsAssets) {
+	first.SumOfAssets += second.SumOfAssets
+	first.AssetsByCurrency = SumOfAssetsByCurrency(first.AssetsByCurrency, second.AssetsByCurrency)
+}
+
+func NewEtfsAssets() EtfsAssets {
+	return EtfsAssets{
+		AssetsByCurrency: NewAssetsByCurrency(),
+	}
+}
+
 type FuturesAssets struct {
 	SumOfAssets  float64
 	AssetsByType AssetsByType
+}
+
+func (first *FuturesAssets) SumWithFutureAssets(second FuturesAssets) {
+	first.SumOfAssets += second.SumOfAssets
+	first.AssetsByType.Commodity.SumWithFuturesType(second.AssetsByType.Commodity)
+	first.AssetsByType.Currency.SumWithFuturesType(second.AssetsByType.Currency)
+	first.AssetsByType.Security.SumWithFuturesType(second.AssetsByType.Security)
+	first.AssetsByType.Index.SumWithFuturesType(second.AssetsByType.Index)
+}
+
+func NewFutureAssets() FuturesAssets {
+	return FuturesAssets{
+		AssetsByType: NewAssetByType(),
+	}
 }
 
 type AssetsByType struct {
@@ -65,9 +155,29 @@ type AssetsByType struct {
 	Index     FuturesType
 }
 
+func NewAssetByType() AssetsByType {
+	return AssetsByType{
+		Commodity: NewFuturesType(),
+		Currency:  NewFuturesType(),
+		Security:  NewFuturesType(),
+		Index:     NewFuturesType(),
+	}
+}
+
 type FuturesType struct {
 	SumOfAssets      float64
 	AssetsByCurrency map[string]*AssetByParam
+}
+
+func (first *FuturesType) SumWithFuturesType(second FuturesType) {
+	first.SumOfAssets += second.SumOfAssets
+	first.AssetsByCurrency = SumOfAssetsByCurrency(first.AssetsByCurrency, second.AssetsByCurrency)
+}
+
+func NewFuturesType() FuturesType {
+	return FuturesType{
+		AssetsByCurrency: NewAssetsByCurrency(),
+	}
 }
 
 type CurrenciesAssets struct {
@@ -75,38 +185,19 @@ type CurrenciesAssets struct {
 	AssetsByCurrency map[string]*AssetByParam
 }
 
-func NewPortfolioByTypeAndCurrency() *PortfolioByTypeAndCurrency {
-	return &PortfolioByTypeAndCurrency{
-		AllAssets: 0,
-		BondsAssets: BondsAssets{
-			AssetsByCurrency: make(map[string]*AssetByParam),
-		},
-		SharesAssets: SharesAssets{
-			AssetsByCurrency: make(map[string]*AssetByParam),
-		},
-		EtfsAssets: EtfsAssets{
-			AssetsByCurrency: make(map[string]*AssetByParam),
-		},
-		FuturesAssets: FuturesAssets{
-			AssetsByType: AssetsByType{
-				Commodity: FuturesType{
-					AssetsByCurrency: make(map[string]*AssetByParam),
-				},
-				Currency: FuturesType{
-					AssetsByCurrency: make(map[string]*AssetByParam),
-				},
-				Security: FuturesType{
-					AssetsByCurrency: make(map[string]*AssetByParam),
-				},
-				Index: FuturesType{
-					AssetsByCurrency: make(map[string]*AssetByParam),
-				},
-			},
-		},
-		CurrenciesAssets: CurrenciesAssets{
-			AssetsByCurrency: make(map[string]*AssetByParam),
-		},
+func (first *CurrenciesAssets) SumWithCurrenciesAssets(second CurrenciesAssets) {
+	first.SumOfAssets += second.SumOfAssets
+	first.AssetsByCurrency = SumOfAssetsByCurrency(first.AssetsByCurrency, second.AssetsByCurrency)
+}
+
+func NewCurrenciesAssets() CurrenciesAssets {
+	return CurrenciesAssets{
+		AssetsByCurrency: NewAssetsByCurrency(),
 	}
+}
+
+func NewAssetsByCurrency() map[string]*AssetByParam {
+	return make(map[string]*AssetByParam)
 }
 
 type OperationsRequest struct {

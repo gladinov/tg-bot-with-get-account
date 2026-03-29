@@ -17,6 +17,7 @@ type Config struct {
 	SberConfigPath            string       `env:"SBER_CONFIG_PATH" env-required:"true"`
 	DbType                    string       `yaml:"dbType"`
 	ServiceStorageSQLLitePath string       `yaml:"serviceStorageSQLLitePath"`
+	WorkersNubmer             int          `yaml:"workersNumber"`
 	Clients                   Clients      `yaml:"clients"`
 	PostgresHost              PostgresHost `yaml:"postgresHost"`
 }
@@ -142,7 +143,8 @@ func InjectEnvs() (Envs, error) {
 		return Envs{}, errors.New("SBER_CONFIG_PATH environment variable is required")
 	}
 
-	envs := Envs{RootPath: rootPath,
+	envs := Envs{
+		RootPath:       rootPath,
 		ConfigPath:     configPath,
 		SberConfigPath: sberConfigPath,
 	}

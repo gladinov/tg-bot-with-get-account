@@ -75,7 +75,7 @@ func MapUnionPortfolioStructureToHTTP(u *domain.UnionPortfolioStructureResponce)
 	}
 }
 
-func MapUnionPortfolioStructureWithSberToHTTP(u *domain.UnionPortfolioStructureWithSberResponce) *httpmodels.UnionPortfolioStructureWithSberResponce {
+func MapUnionPortfolioStructureWithSberToHTTP(u *dto.UnionPortfolioStructureWithSberResponce) *httpmodels.UnionPortfolioStructureWithSberResponce {
 	if u == nil {
 		return nil
 	}

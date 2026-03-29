@@ -8,6 +8,7 @@ import (
 	"bonds-report-service/internal/utils/logging"
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/gladinov/e"
 )
@@ -18,40 +19,77 @@ var (
 	ErrpositionsClassCodeVariants = errors.New("positions class code variants are empty")
 )
 
-func (s *Service) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ domain.UnionPortfolioStructureWithSberResponce, err error) {
+func (s *Service) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ dto.UnionPortfolioStructureWithSberResponce, err error) {
 	const op = "service.GetUnionPortfolioStructureWithSber"
 
 	defer logging.LogOperation_Debug(ctx, s.logger, op, &err)()
 
-	responce := domain.UnionPortfolioStructureWithSberResponce{}
+	responce := dto.UnionPortfolioStructureWithSberResponce{}
 	accounts, err := s.Helpers.TinkoffHelper.TinkoffGetAccounts(ctx)
 	if err != nil {
-		return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("cant' get accounts from tinkoff", err)
-	}
-	positionsList := make([]*domain.PortfolioByTypeAndCurrency, 0)
-	for _, account := range accounts {
-		if account.Status != 2 {
-			continue
-		}
-		portfolio, err := s.Helpers.TinkoffHelper.TinkoffGetPortfolio(ctx, account)
-		if err != nil {
-			return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("cant' get portfolio from Tinkoff", err)
-		}
-		positions := portfolio.Positions
-
-		potfolioStructure, err := s.Helpers.DividerByAssetType.DivideByType(ctx, positions)
-		if err != nil {
-			return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("couldnot divide by type", err)
-		}
-		positionsList = append(positionsList, potfolioStructure)
+		return dto.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("cant' get accounts from tinkoff", err)
 	}
 
-	sberPortfolio, err := s.divideByTypeFromSber(ctx, s.External.Sber.Portfolio)
-	if err != nil {
-		return domain.UnionPortfolioStructureWithSberResponce{}, e.WrapIfErr("couldnot divide by type from sber", err)
+	ctxWorkers, cancel := context.WithCancel(ctx)
+	defer cancel()
+	errCh := make(chan error, 1)
+	pipeline := NewPipeline(ctxWorkers, cancel, errCh)
+	workers := s.WorkersNumber
+
+	accountsCh := s.produceAccounts(pipeline.ctx, accounts)
+	portfolioCh := make(chan *domain.PortfolioByTypeAndCurrency, workers*2)
+
+	var wgStage1 sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wgStage1.Add(1)
+		go func() {
+			defer wgStage1.Done()
+			s.worker(pipeline, accountsCh, portfolioCh)
+		}()
 	}
 
-	positionsList = append(positionsList, sberPortfolio)
+	wgStage1.Add(1)
+	go func() {
+		defer wgStage1.Done()
+		sberPortfolio, sberErr := s.divideByTypeFromSber(ctxWorkers, s.External.Sber.Portfolio)
+		if sberErr != nil {
+			pipeline.sendErr(e.WrapIfErr("couldnot divide by type from sber", sberErr))
+			return
+		}
+		select {
+		case portfolioCh <- sberPortfolio:
+		case <-ctxWorkers.Done():
+		}
+	}()
+
+	go func() {
+		wgStage1.Wait()
+		close(portfolioCh)
+	}()
+
+	positionsList := make([]*domain.PortfolioByTypeAndCurrency, 0, len(accounts)+1)
+loop:
+	for {
+		select {
+		case er := <-errCh:
+			return dto.UnionPortfolioStructureWithSberResponce{}, er
+		default:
+			select {
+			case <-ctxWorkers.Done():
+				return dto.UnionPortfolioStructureWithSberResponce{}, ctxWorkers.Err()
+			case portfolio, ok := <-portfolioCh:
+				if !ok {
+					break loop
+				}
+				if portfolio != nil {
+					positionsList = append(positionsList, portfolio)
+				}
+			case er := <-errCh:
+				return dto.UnionPortfolioStructureWithSberResponce{}, er
+
+			}
+		}
+	}
 
 	unionPositions := unionportf.UnionPortf(positionsList)
 
@@ -59,6 +97,28 @@ func (s *Service) GetUnionPortfolioStructureWithSber(ctx context.Context) (_ dom
 
 	responce.Report = vizualizeUnionPositions
 	return responce, nil
+}
+
+func (s *Service) worker(p *pipeline, in <-chan domain.Account, out chan<- *domain.PortfolioByTypeAndCurrency) {
+	for account := range in {
+		portfolio, err := s.Helpers.TinkoffHelper.TinkoffGetPortfolio(p.ctx, account)
+		if err != nil {
+			p.sendErr(e.WrapIfErr("cant' get portfolio from Tinkoff", err))
+			return
+		}
+		positions := portfolio.Positions
+
+		portfolioStructure, err := s.Helpers.DividerByAssetType.DivideByType(p.ctx, positions)
+		if err != nil {
+			p.sendErr(e.WrapIfErr("couldnot divide by type", err))
+			return
+		}
+		select {
+		case <-p.ctx.Done():
+			return
+		case out <- portfolioStructure:
+		}
+	}
 }
 
 func (s *Service) divideByTypeFromSber(ctx context.Context, positions map[string]float64) (_ *domain.PortfolioByTypeAndCurrency, err error) {

@@ -13,7 +13,7 @@ func MustInitNewStorage(ctx context.Context, config config.Config, logg *slog.Lo
 	const op = "repository.MustInitNewStorage"
 	logg.Debug(fmt.Sprintf("start %s", op))
 
-	serviceStorage, err := postgreSQL.NewStorage(logg, config)
+	serviceStorage, err := postgreSQL.NewStorage(ctx, logg, config)
 	if err != nil {
 		logg.Debug("failed to create PostgreSQL storage", "err", err)
 		panic(err)

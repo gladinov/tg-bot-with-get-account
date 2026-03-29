@@ -12,7 +12,9 @@ import (
 	"image/color"
 	"image/png"
 	"log/slog"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/fogleman/gg"
 	"github.com/gladinov/e"
@@ -29,6 +31,73 @@ const (
 	unionPortfWithSber
 	eachPortf
 )
+
+func EncodePNGToBuffer(dc *gg.Context) ([]byte, error) {
+	img := dc.Image()
+	var buf bytes.Buffer
+	err := png.Encode(&buf, img)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func GenerateTablePNG(ctx context.Context, logger *slog.Logger,
+	// reports [][]generalbondreport.GeneralBondReportPosition,
+	generalBondReports *generalbondreport.GeneralBondReports,
+	chatID int,
+	accountID string,
+) (_ []*dto.MediaGroup, err error) {
+	const op = "presenter.GenerateTablePNG"
+
+	defer logging.LogOperation_Debug(ctx, logger, op, &err)()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		prepearingReports := prepareToGenerateTablePNG(ctx, logger, generalBondReports)
+
+		reportsInByte := make([]*dto.MediaGroup, 3)
+		for i, report := range prepearingReports {
+			reportsInByte[i] = dto.NewMediaGroup()
+			mediaGroup := reportsInByte[i]
+			if len(report) == 0 {
+				continue
+			}
+
+			var typeOfBonds string
+			switch {
+			case report[0].Replaced:
+				typeOfBonds = domain.ReplacedBonds
+			case report[0].Currencies != "rub":
+				typeOfBonds = domain.EuroBonds
+			default:
+				typeOfBonds = domain.RubBonds
+			}
+			count := 1
+			for start := 0; start < len(report); start += 10 {
+				end := start + 10
+				if end > len(report) {
+					end = len(report)
+				}
+				pngData, err := generateTablePNGInByte(ctx, logger, report[start:end], typeOfBonds)
+				if err != nil {
+					return nil, e.WrapIfErr("vizualize error", err)
+				}
+				// TODO: Есть желание вынести все, что связано с отображением в отдельный микросервис. А из этого отправлять только струкутуры данных
+				imageData := dto.NewImageData()
+				imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
+				imageData.Data = pngData
+				imageData.Caption = typeOfBonds
+
+				mediaGroup.Reports = append(mediaGroup.Reports, imageData)
+				count += 1
+			}
+		}
+		return reportsInByte, nil
+	}
+}
 
 func generateTablePNGInByte(ctx context.Context,
 	logger *slog.Logger,
@@ -212,63 +281,63 @@ func generateTablePNGInByte(ctx context.Context,
 	return pngData, nil
 }
 
-func EncodePNGToBuffer(dc *gg.Context) ([]byte, error) {
-	img := dc.Image()
-	var buf bytes.Buffer
-	err := png.Encode(&buf, img)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+func prepareToGenerateTablePNG(ctx context.Context,
+	logger *slog.Logger,
+	generalBondReports *generalbondreport.GeneralBondReports,
+) (_ [][]generalbondreport.GeneralBondReportPosition) {
+	const op = "service.PrepareToGenerateTablePNG"
+
+	defer logging.LogOperation_Debug(ctx, logger, op, nil)()
+	var wg sync.WaitGroup
+	reports := make([][]generalbondreport.GeneralBondReportPosition, 3)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reports[0] = sortGeneralBondReports(ctx, logger, generalBondReports.RubBondsReport)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reports[1] = sortGeneralBondReports(ctx, logger, generalBondReports.ReplacedBondsReport)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reports[2] = sortGeneralBondReports(ctx, logger, generalBondReports.EuroBondsReport)
+	}()
+
+	wg.Wait()
+
+	return reports
 }
 
-func GenerateTablePNG(ctx context.Context, logger *slog.Logger,
-	reports [][]generalbondreport.GeneralBondReportPosition,
-	chatID int,
-	accountID string,
-) (_ []*dto.MediaGroup, err error) {
-	const op = "presenter.GenerateTablePNG"
+func sortGeneralBondReports(ctx context.Context,
+	logger *slog.Logger,
+	report map[generalbondreport.TickerTimeKey]generalbondreport.GeneralBondReportPosition,
+) (_ []generalbondreport.GeneralBondReportPosition) {
+	const op = "service.sortGeneralBondReports"
 
-	defer logging.LogOperation_Debug(ctx, logger, op, &err)()
+	defer logging.LogOperation_Debug(ctx, logger, op, nil)()
 
-	reportsInByte := make([]*dto.MediaGroup, 3)
-	for i, report := range reports {
-		reportsInByte[i] = dto.NewMediaGroup()
-		mediaGroup := reportsInByte[i]
-		if len(report) == 0 {
-			continue
-		}
-
-		var typeOfBonds string
-		switch {
-		case report[0].Replaced:
-			typeOfBonds = domain.ReplacedBonds
-		case report[0].Currencies != "rub":
-			typeOfBonds = domain.EuroBonds
-		default:
-			typeOfBonds = domain.RubBonds
-		}
-		count := 1
-		for start := 0; start < len(report); start += 10 {
-			end := start + 10
-			if end > len(report) {
-				end = len(report)
-			}
-			pngData, err := generateTablePNGInByte(ctx, logger, report[start:end], typeOfBonds)
-			if err != nil {
-				return nil, e.WrapIfErr("vizualize error", err)
-			}
-			// TODO: Есть желание вынести все, что связано с отображением в отдельный микросервис. А из этого отправлять только струкутуры данных
-			imageData := dto.NewImageData()
-			imageData.Name = fmt.Sprintf("file%s_%v", typeOfBonds, count)
-			imageData.Data = pngData
-			imageData.Caption = typeOfBonds
-
-			mediaGroup.Reports = append(mediaGroup.Reports, imageData)
-			count += 1
-		}
+	keys := make([]generalbondreport.TickerTimeKey, 0, len(report))
+	for k := range report {
+		keys = append(keys, k)
 	}
-	return reportsInByte, nil
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Time.Equal(keys[j].Time) {
+			return keys[i].Ticker < keys[j].Ticker
+		}
+		return keys[i].Time.Before(keys[j].Time)
+	})
+	result := make([]generalbondreport.GeneralBondReportPosition, len(keys))
+	for i, k := range keys {
+		result[i] = report[k]
+	}
+
+	return result
 }
 
 func ResponsePortfolioStructure(ctx context.Context, logger *slog.Logger, portfolio *domain.PortfolioByTypeAndCurrency, title int, accountName string) string {

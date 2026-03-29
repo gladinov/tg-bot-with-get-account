@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"moex/internal/clients/moex"
 	"moex/internal/configs"
@@ -51,19 +52,39 @@ func main() {
 
 	router.POST("/moex/specifications", handler.GetSpecifications)
 
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+	address := conf.Clients.MoexApiAppClient.GetMoexApiAppClientAddress()
 
-		if err := router.Shutdown(shutdownCtx); err != nil {
-			logg.Error("Failed to shutdown server:", slog.String("error", err.Error()))
+	httpSrv := &http.Server{
+		Addr:         address,
+		Handler:      router,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		logg.Info("run MOEX API App", slog.String("address", address))
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
 		}
 	}()
-	address := conf.Clients.MoexApiAppClient.GetMoexApiAppClientAddress()
-	logg.Info("run MOEX API App", slog.String("address", address))
-
-	if err := router.Start(address); err != nil && err != http.ErrServerClosed {
-		logg.Error("server start failed", slog.Any("error", err))
+	select {
+	case <-ctx.Done():
+		logg.InfoContext(ctx, "Shutdown signal received")
+	case err := <-errCh:
+		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
 	}
+	gracefulShutdown(ctx, logg, httpSrv)
+}
+
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+	}
+	logg.InfoContext(ctx, "Server exited gracefully")
 }
