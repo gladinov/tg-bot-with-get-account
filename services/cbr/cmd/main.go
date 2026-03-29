@@ -7,6 +7,7 @@ import (
 	"cbr/internal/service"
 	"cbr/internal/utils"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os/signal"
@@ -58,22 +59,40 @@ func main() {
 	router.HTTPErrorHandler = handlers.HTTPErrorHandler(logg)
 
 	router.POST("/cbr/currencies", handler.GetAllCurrencies)
+	address := conf.Clients.CbrAppApiClient.GetCbrAppServer()
+
+	httpSrv := &http.Server{
+		Addr:         address,
+		Handler:      router,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
 
 	go func() {
-		<-ctx.Done()
-
-		logg.Info("shutting down http server")
-
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := router.Shutdown(shutdownCtx); err != nil {
-			logg.Error("failed to shutdown server", slog.Any("error", err))
+		logg.Info("run cbr server", slog.String("address", address))
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
 		}
 	}()
-	address := conf.Clients.CbrAppApiClient.GetCbrAppServer()
-	logg.Info("run CBR App", slog.String("address", address))
-	if err := router.Start(address); err != nil && err != http.ErrServerClosed {
-		logg.Error("server stopped with error", slog.Any("error", err))
+
+	select {
+	case <-ctx.Done():
+		logg.InfoContext(ctx, "Shutdown signal received")
+	case err := <-errCh:
+		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
 	}
+	gracefulShutdown(ctx, logg, httpSrv)
+}
+
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+	}
+	logg.InfoContext(ctx, "Server exited gracefully")
 }

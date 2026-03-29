@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
@@ -64,36 +66,59 @@ func main() {
 	handlrs := handlers.NewHandlers(logg, serviceClient, tokenCrypter, redis)
 
 	logg.Info("initialize router echo")
-	e := echo.New()
+	router := echo.New()
 
-	e.Use(middleware.CORS())
-	e.Use(handlrs.ContextHeaderTraceIdMiddleWare)
-	e.Use(handlrs.LoggerMiddleWare)
-	e.Use(handlrs.CheckTokenFromRedisByChatIDMiddleWare)
+	router.Use(middleware.CORS())
+	router.Use(handlrs.ContextHeaderTraceIdMiddleWare)
+	router.Use(handlrs.LoggerMiddleWare)
+	router.Use(handlrs.CheckTokenFromRedisByChatIDMiddleWare)
 
-	e.GET("/tinkoff/checktoken", handlrs.CheckToken, handlrs.CheckTokenFromHeadersMiddleWare)
-	e.GET("/tinkoff/accounts", handlrs.GetAccounts)
-	e.POST("/tinkoff/portfolio", handlrs.GetPortfolio)
-	e.POST("/tinkoff/operations", handlrs.GetOperations)
-	e.GET("/tinkoff/allassetsuid", handlrs.GetAllAssetUids)
-	e.POST("/tinkoff/future", handlrs.GetFutureBy)
-	e.POST("/tinkoff/bond", handlrs.GetBondBy)
-	e.POST("/tinkoff/currency", handlrs.GetCurrencyBy)
-	e.POST("/tinkoff/share/currency", handlrs.GetShareCurrencyBy)
-	e.POST("/tinkoff/findby", handlrs.FindBy)
-	e.POST("/tinkoff/bondactions", handlrs.GetBondsActions)
-	e.POST("/tinkoff/lastprice", handlrs.GetLastPriceInPersentageToNominal)
+	router.GET("/tinkoff/checktoken", handlrs.CheckToken, handlrs.CheckTokenFromHeadersMiddleWare)
+	router.GET("/tinkoff/accounts", handlrs.GetAccounts)
+	router.POST("/tinkoff/portfolio", handlrs.GetPortfolio)
+	router.POST("/tinkoff/operations", handlrs.GetOperations)
+	router.GET("/tinkoff/allassetsuid", handlrs.GetAllAssetUids)
+	router.POST("/tinkoff/future", handlrs.GetFutureBy)
+	router.POST("/tinkoff/bond", handlrs.GetBondBy)
+	router.POST("/tinkoff/currency", handlrs.GetCurrencyBy)
+	router.POST("/tinkoff/share/currency", handlrs.GetShareCurrencyBy)
+	router.POST("/tinkoff/findby", handlrs.FindBy)
+	router.POST("/tinkoff/bondactions", handlrs.GetBondsActions)
+	router.POST("/tinkoff/lastprice", handlrs.GetLastPriceInPersentageToNominal)
+
+	address := confs.Config.GetTinkoffAppAddress()
+
+	httpSrv := &http.Server{
+		Addr:         address,
+		Handler:      router,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
 
 	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := e.Shutdown(shutdownCtx); err != nil {
-			logg.Error("Failed to shutdown server:", slog.String("error", err.Error()))
+		logg.Info("run bond-report-service", slog.String("address", address))
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
 		}
 	}()
-	address := confs.Config.GetTinkoffAppAddress()
-	logg.Info("run tinkoffApiApp", slog.String("address", address))
-	e.Start(address)
+	select {
+	case <-ctx.Done():
+		logg.InfoContext(ctx, "Shutdown signal received")
+	case err = <-errCh:
+		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
+	}
+	gracefulShutdown(ctx, logg, httpSrv)
+}
+
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+	}
+	logg.InfoContext(ctx, "Server exited gracefully")
 }
