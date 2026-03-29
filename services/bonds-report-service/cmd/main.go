@@ -112,8 +112,11 @@ func main() {
 	address := conf.Clients.BondReportService.GetBondReportServiceAppAddress()
 
 	httpSrv := &http.Server{
-		Addr:    address,
-		Handler: router,
+		Addr:         address,
+		Handler:      router,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	errCh := make(chan error, 1)
