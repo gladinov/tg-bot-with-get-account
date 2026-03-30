@@ -14,6 +14,8 @@ import (
 	"github.com/gladinov/contracts/trace"
 )
 
+const defaultTimeout = 10 * time.Second
+
 type Client struct {
 	logger *slog.Logger
 	host   string
@@ -25,7 +27,7 @@ func NewClient(logger *slog.Logger, host string) *Client {
 		logger: logger,
 		host:   host,
 		client: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: defaultTimeout,
 		},
 	}
 }

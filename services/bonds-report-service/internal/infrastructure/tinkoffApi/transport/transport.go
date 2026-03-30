@@ -16,6 +16,8 @@ import (
 	"github.com/gladinov/valuefromcontext"
 )
 
+const defaultTimeout = 10 * time.Second
+
 //go:generate go run github.com/vektra/mockery/v2@v2.53.5 --name=TransportClient
 type TransportClient interface {
 	DoRequest(ctx context.Context, path string, query url.Values, requestBody io.Reader) (*models.HTTPResponse, error)
@@ -32,7 +34,7 @@ func NewTransport(logger *slog.Logger, host string) *Transport {
 		logger: logger,
 		host:   host,
 		client: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: defaultTimeout,
 		},
 	}
 }
