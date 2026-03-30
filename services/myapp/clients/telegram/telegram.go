@@ -20,6 +20,8 @@ import (
 	bondreportservice "main.go/clients/bondReportService"
 )
 
+const defaultTimeout = 10 * time.Second
+
 type Client struct {
 	logger   *slog.Logger
 	host     string
@@ -39,7 +41,7 @@ func New(logger *slog.Logger, host string, token string) *Client {
 		logger:   logger,
 		host:     host,
 		basePath: newBasePath(token),
-		client:   http.Client{},
+		client:   http.Client{Timeout: defaultTimeout},
 	}
 }
 

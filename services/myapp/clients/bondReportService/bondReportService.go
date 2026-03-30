@@ -17,6 +17,8 @@ import (
 	"github.com/gladinov/valuefromcontext"
 )
 
+const defaultTimeout = 10 * time.Second
+
 type Client struct {
 	logger *slog.Logger
 	host   string
@@ -27,7 +29,9 @@ func New(logger *slog.Logger, host string) *Client {
 	return &Client{
 		logger: logger,
 		host:   host,
-		client: http.Client{},
+		client: http.Client{
+			Timeout: defaultTimeout,
+		},
 	}
 }
 
