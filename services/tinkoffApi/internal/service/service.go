@@ -143,6 +143,7 @@ func (c *PortfolioServiceClient) GetAccounts(client *investgo.Client) (map[strin
 	return accounts, nil
 }
 
+// TODO: Валидацию оставить в service, а вызовы перенести в clients
 func (c *PortfolioServiceClient) GetPortfolio(client *investgo.Client, request PortfolioRequest) (_ Portfolio, err error) {
 	const op = "service.GetPortfolio"
 	accountID := request.AccountID

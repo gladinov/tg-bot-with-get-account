@@ -20,7 +20,6 @@ func (h *Handlers) ContextHeaderTraceIdMiddleWare(next echo.HandlerFunc) echo.Ha
 	return func(c echo.Context) (err error) {
 		const op = "handlers.ContextHeaderTraceIdMiddleWare"
 		logg := h.logger.With(slog.String("op", op))
-		logg.Debug("start")
 
 		traceID := c.Request().Header.Get(httpheaders.HeaderTraceID)
 		if traceID == "" {
@@ -59,16 +58,19 @@ func (h *Handlers) LoggerMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
 		start := time.Now()
 
 		defer func() {
-			var status int
+			status := resp.Status
+			var internalErr error
 
 			if err != nil {
 				if he, ok := err.(*echo.HTTPError); ok {
 					status = he.Code
+					if eInt, ok := he.Internal.(error); ok {
+						internalErr = eInt
+					}
 				} else {
 					status = http.StatusInternalServerError
+					internalErr = err
 				}
-			} else {
-				status = resp.Status
 			}
 
 			attrs := []any{
@@ -77,16 +79,16 @@ func (h *Handlers) LoggerMiddleWare(next echo.HandlerFunc) echo.HandlerFunc {
 				slog.Duration("duration", time.Since(start)),
 			}
 
-			if err != nil {
+			if internalErr != nil {
 				entry.Error("request failed",
-					append(attrs, slog.Any("error", err))...,
+					append(attrs, slog.Any("error", internalErr))...,
 				)
 			} else {
 				entry.Info("request completed", attrs...)
 			}
 		}()
-		err = next(c)
 
+		err = next(c)
 		return err
 	}
 }

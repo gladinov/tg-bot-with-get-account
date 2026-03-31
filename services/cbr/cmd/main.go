@@ -1,11 +1,15 @@
 package main
 
 import (
+	"cbr/internal/clients/cbr"
 	"cbr/internal/configs"
 	"cbr/internal/handlers"
 	"cbr/internal/service"
+	"cbr/internal/utils"
 	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
@@ -17,6 +21,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// TODO: реализовать паттерн: “Cache-as-a-service”. Убрать хэндлеры и просто добавлять информацию
+// по валюте раз в 12 часов в redis. И никаких запросов от других сервисов
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
@@ -24,6 +31,8 @@ func main() {
 	_ = traceidgenerator.Must()
 
 	conf := configs.MustInitConfig()
+
+	timeLocation := utils.MustGetMoscowLocation()
 
 	logg := sl.NewLogger(conf.Env)
 
@@ -33,29 +42,57 @@ func main() {
 		slog.String("cbr_app_host", conf.Clients.CbrAppApiClient.Host),
 		slog.String("cbr_app_port", conf.Clients.CbrAppApiClient.Port))
 
-	logg.Info("initialize service.Transport")
-	transport := service.NewTransport(logg, conf.CbrHost)
-	logg.Info("initialize service client")
-	client := service.NewClient(logg, transport)
+	logg.Info("initialize cbr.Transport")
+	transport := cbr.NewTransport(logg, conf.CbrHost)
+	logg.Info("initialize cbr client")
+	client := cbr.NewClient(logg, transport)
 	logg.Info("initialize service")
-	service := service.NewService(logg, client)
+	service := service.NewService(logg, client, timeLocation)
 	logg.Info("initialize handlers")
-	handlers := handlers.NewHandlers(logg, service)
+	handler := handlers.NewHandlers(logg, service)
 
 	logg.Info("initialize router echo")
 	router := echo.New()
 	router.Use(middleware.CORS())
-	router.Use(handlers.ContextHeaderTraceIdMiddleWare)
-	router.Use(handlers.LoggerMiddleWare)
+	router.Use(handler.ContextHeaderTraceIdMiddleWare)
+	router.Use(handler.LoggerMiddleWare)
+	router.HTTPErrorHandler = handlers.HTTPErrorHandler(logg)
 
-	router.POST("/cbr/currencies", handlers.GetAllCurrencies)
+	router.POST("/cbr/currencies", handler.GetAllCurrencies)
+	address := conf.Clients.CbrAppApiClient.GetCbrAppServer()
+
+	httpSrv := &http.Server{
+		Addr:         address,
+		Handler:      router,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
 
 	go func() {
-		<-ctx.Done()
-		_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+		logg.Info("run cbr server", slog.String("address", address))
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
 	}()
-	address := conf.Clients.CbrAppApiClient.GetCbrAppServer()
-	logg.Info("run CBR App", slog.String("address", address))
-	router.Start(address)
+
+	select {
+	case <-ctx.Done():
+		logg.InfoContext(ctx, "Shutdown signal received")
+	case err := <-errCh:
+		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
+	}
+	gracefulShutdown(ctx, logg, httpSrv)
+}
+
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+	}
+	logg.InfoContext(ctx, "Server exited gracefully")
 }

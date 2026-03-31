@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"bonds-report-service/internal/service"
+	"bonds-report-service/internal/application/usecases"
 	"context"
 	"log/slog"
 	"net/http"
@@ -12,19 +12,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Client struct {
+type Handler struct {
 	logger  *slog.Logger
-	service *service.Client
+	service *usecases.Service
 }
 
-func NewHandlers(logger *slog.Logger, service *service.Client) *Client {
-	return &Client{
+func NewHandlers(logger *slog.Logger, service *usecases.Service) *Handler {
+	return &Handler{
 		logger:  logger,
 		service: service,
 	}
 }
 
-func (h *Client) GetAccountsList(c *gin.Context) {
+func (h *Handler) GetAccountsList(c *gin.Context) {
 	const op = "handlers.GetAccountsList"
 	ctx := c.Request.Context()
 	accountsResponce, err := h.service.GetAccountsList(ctx)
@@ -38,10 +38,12 @@ func (h *Client) GetAccountsList(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, accountsResponce)
+	accountsHTTP := MapAccountListToHTTP(&accountsResponce)
+
+	c.JSON(http.StatusOK, accountsHTTP)
 }
 
-func (h *Client) GetBondReportsByFifo(c *gin.Context) {
+func (h *Handler) GetBondReportsByFifo(c *gin.Context) {
 	const op = "handlers.GetBondReportsByFifo"
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
@@ -69,7 +71,7 @@ func (h *Client) GetBondReportsByFifo(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *Client) GetUSD(c *gin.Context) {
+func (h *Handler) GetUSD(c *gin.Context) {
 	const op = "handlers.GetUSD"
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
@@ -84,10 +86,13 @@ func (h *Client) GetUSD(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, usdResponce)
+
+	usdHTTP := MapUsdToHTTP(&usdResponce)
+
+	c.JSON(http.StatusOK, usdHTTP)
 }
 
-func (h *Client) GetBondReports(c *gin.Context) {
+func (h *Handler) GetBondReports(c *gin.Context) {
 	const op = "handlers.GetBondReports"
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
@@ -112,10 +117,12 @@ func (h *Client) GetBondReports(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, getBondReportsResponse)
+	bondResponceHTTP := MapBondReportsToHTTP(&getBondReportsResponse)
+
+	c.JSON(http.StatusOK, bondResponceHTTP)
 }
 
-func (h *Client) GetPortfolioStructure(c *gin.Context) {
+func (h *Handler) GetPortfolioStructure(c *gin.Context) {
 	const op = "handlers.GetPortfolioStructure"
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
@@ -130,15 +137,17 @@ func (h *Client) GetPortfolioStructure(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, portfolioStructuresResonce)
+
+	portfolioHTTP := MapPortfolioStructureForEachAccountToHTTP(&portfolioStructuresResonce)
+	c.JSON(http.StatusOK, portfolioHTTP)
 }
 
-func (h *Client) GetUnionPortfolioStructure(c *gin.Context) {
+func (h *Handler) GetUnionPortfolioStructure(c *gin.Context) {
 	const op = "handlers.GetUnionPortfolioStructure"
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
-	portgolioStructure, err := h.service.GetUnionPortfolioStructureForEachAccount(ctx)
+	portfolioStructure, err := h.service.GetUnionPortfolioStructureForEachAccount(ctx)
 	if err != nil {
 		h.logger.Error("internal server error",
 			slog.String("op", op),
@@ -148,15 +157,18 @@ func (h *Client) GetUnionPortfolioStructure(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, portgolioStructure)
+
+	portfolioHTTP := MapUnionPortfolioStructureToHTTP(&portfolioStructure)
+
+	c.JSON(http.StatusOK, portfolioHTTP)
 }
 
-func (h *Client) GetUnionPortfolioStructureWithSber(c *gin.Context) {
+func (h *Handler) GetUnionPortfolioStructureWithSber(c *gin.Context) {
 	const op = "handlers.GetUnionPortfolioStructureWithSber"
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
-	portgolioStructure, err := h.service.GetUnionPortfolioStructureWithSber(ctx)
+	portfolioStructure, err := h.service.GetUnionPortfolioStructureWithSber(ctx)
 	if err != nil {
 		h.logger.Error("internal server error",
 			slog.String("op", op),
@@ -166,5 +178,7 @@ func (h *Client) GetUnionPortfolioStructureWithSber(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, portgolioStructure)
+
+	portfolioHTTP := MapUnionPortfolioStructureWithSberToHTTP(&portfolioStructure)
+	c.JSON(http.StatusOK, portfolioHTTP)
 }

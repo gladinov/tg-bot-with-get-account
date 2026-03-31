@@ -1,19 +1,18 @@
 package main
 
 import (
-	"bonds-report-service/clients/cbr"
-	"bonds-report-service/clients/moex"
-	"bonds-report-service/clients/sber"
-	"bonds-report-service/clients/tinkoffApi"
+	"bonds-report-service/internal/app"
+	"bonds-report-service/internal/application/ports"
+	"bonds-report-service/internal/application/usecases"
 	config "bonds-report-service/internal/configs"
 	"bonds-report-service/internal/handlers"
-	"bonds-report-service/internal/repository"
-	"bonds-report-service/internal/service"
 	"context"
+	"errors"
 	"log/slog"
-	"os"
+	"net/http"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	sl "github.com/gladinov/mylogger"
@@ -21,7 +20,7 @@ import (
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 	conf := config.MustInitConfig()
 
@@ -34,33 +33,62 @@ func main() {
 
 	_ = traceidgenerator.Must()
 
-	repo := repository.MustInitNewStorage(ctx, conf, logg)
-	// TODO: close db
+	repo := app.MustInitNewStorage(ctx, conf, logg)
 
-	logg.Info("initialize Tinkoff client", slog.String("addres", conf.Clients.TinkoffClient.GetTinkoffApiAddress()))
-	tinkoffClient := tinkoffApi.NewClient(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
+	tinkoffApiHelper := app.InitTinkoffApiHelper(logg, conf.Clients.TinkoffClient.GetTinkoffApiAddress())
 
-	logg.Info("initialize Moex client", slog.String("addres", conf.Clients.MoexClient.GetMoexAppAddress()))
-	moexClient := moex.NewClient(logg, conf.Clients.MoexClient.GetMoexAppAddress())
+	moexClient := app.InitTiMoexClient(logg, conf.Clients.MoexClient.GetMoexAppAddress())
 
-	logg.Info("initialize CBR client", slog.String("addres", conf.Clients.CBRClient.GetCBRAppAddress()))
-	cbrClient := cbr.New(logg, conf.Clients.CBRClient.GetCBRAppAddress())
+	cbrClient := app.InitCBRClient(logg, conf.Clients.CBRClient.GetCBRAppAddress())
 
-	logg.Info("initialize Sber client", slog.String("addres", conf.SberConfigPath))
-	sberClient, err := sber.NewClient(conf.RootPath, conf.SberConfigPath)
+	sberClient, err := app.InitSberClient(logg, &conf)
 	if err != nil {
 		logg.Error("could not create sber client", slog.String("error", err.Error()))
 		return
 	}
 
+	bondReporter := app.InitBondReportProcessor(logg)
+
+	cbrCurrencyGetter := app.InitCBRCurrencyGetter(logg, cbrClient, repo)
+
+	generalBondReporter := app.InitGeneralReportProcessor(logg)
+
+	moexSpecificationGetter := app.InitMoexSpecificationGetter(logg, moexClient)
+
+	reportProcessor := app.InitReportProcessor(logg)
+
+	uidProvider := app.InitUidProvider(logg, repo, tinkoffApiHelper.Analytics)
+
+	operationsUpdater := app.InitOperationsUpdater(logg, tinkoffApiHelper, repo)
+
+	positionProcessor := app.InitPositionProcessor(logg, uidProvider)
+
+	reportLineBuilder := app.InitReportLineBuilder(logg, tinkoffApiHelper, cbrCurrencyGetter)
+
+	dividerByAssetType := app.InitDividerByAssetType(logg, tinkoffApiHelper, cbrCurrencyGetter, conf.WorkersNubmer)
+
+	externalApis := usecases.NewExternalApis(moexClient, cbrClient, sberClient)
+
+	helpers := usecases.NewHelpers(bondReporter,
+		cbrCurrencyGetter,
+		generalBondReporter,
+		moexSpecificationGetter,
+		reportProcessor,
+		tinkoffApiHelper,
+		operationsUpdater,
+		positionProcessor,
+		reportLineBuilder,
+		dividerByAssetType,
+	)
+
 	logg.Info("initialize Service client")
-	serviceClient := service.New(
+	serviceClient := usecases.NewService(
 		logg,
-		tinkoffClient,
-		moexClient,
-		cbrClient,
-		sberClient,
-		repo)
+		conf.WorkersNubmer,
+		externalApis,
+		helpers,
+		repo,
+	)
 
 	logg.Info("initialize Handlers")
 	handl := handlers.NewHandlers(logg, serviceClient)
@@ -82,6 +110,40 @@ func main() {
 	router.GET("/bondReportService/getUnionPortfolioStructureWithSber", handl.GetUnionPortfolioStructureWithSber)
 
 	address := conf.Clients.BondReportService.GetBondReportServiceAppAddress()
-	logg.Info("run bond-report-service", slog.String("address", address))
-	router.Run(address)
+
+	httpSrv := &http.Server{
+		Addr:         address,
+		Handler:      router,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		logg.Info("run bond-report-service", slog.String("address", address))
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		logg.InfoContext(ctx, "Shutdown signal received")
+	case err = <-errCh:
+		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
+	}
+	gracefulShutdown(ctx, logg, httpSrv, repo)
+}
+
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server, repo ports.Storage) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+	}
+	logg.InfoContext(ctx, "close DB")
+	repo.CloseDB()
+	logg.InfoContext(ctx, "Server exited gracefully")
 }

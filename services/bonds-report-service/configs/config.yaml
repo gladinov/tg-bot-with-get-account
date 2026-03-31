@@ -1,3 +1,4 @@
+workersNumber: 5
 dbType: "postgreSQL" # "postgreSQL" , "SQLite"
 serviceStorageSQLLitePath: "/data/sqlite/service_storage.db"
 postgresHost:

@@ -14,6 +14,8 @@ import (
 	"github.com/gladinov/contracts/trace"
 )
 
+const defaultTimeout = 10 * time.Second
+
 type Client struct {
 	logger *slog.Logger
 	host   string
@@ -25,7 +27,7 @@ func NewClient(logger *slog.Logger, host string) *Client {
 		logger: logger,
 		host:   host,
 		client: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: defaultTimeout,
 		},
 	}
 }
@@ -44,7 +46,7 @@ func (c *Client) CheckToken(ctx context.Context, tokenInBase64 string) error {
 		Path:   Path,
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return fmt.Errorf("op:%s, could not create http.NewRequest", op)
 	}

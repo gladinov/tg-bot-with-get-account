@@ -2,16 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
-	"main/internal/configs"
-	"main/internal/handlers"
-	"main/internal/service"
+	"moex/internal/clients/moex"
+	"moex/internal/configs"
+	"moex/internal/handlers"
+	"moex/internal/service"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
 	sl "github.com/gladinov/mylogger"
-	"github.com/gladinov/traceidgenerator"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -19,8 +21,6 @@ import (
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
-
-	_ = traceidgenerator.Must()
 
 	conf := configs.MustLoad()
 
@@ -32,31 +32,59 @@ func main() {
 		slog.String("cbr_app_host", conf.Clients.MoexApiAppClient.Host),
 		slog.String("cbr_app_port", conf.Clients.MoexApiAppClient.Port))
 
-	logg.Info("initialize SpecificationService")
-	service := service.NewSpecificationService(logg, conf.MoexHost)
+	logg.Info("initialize Transport")
+	transport := moex.NewTransport(logg, conf.MoexHost)
+	logg.Info("initialize client")
+	moexClient := moex.NewMoexClient(logg, transport)
+	logg.Info("initialize service")
+	service := service.NewServiceClient(logg, moexClient)
 
 	logg.Info("initialize handlers")
-	handlers := handlers.NewHandlers(logg, service)
+	handler := handlers.NewHandlers(logg, service)
 
 	logg.Info("initialize router echo")
-	e := echo.New()
+	router := echo.New()
 
-	e.Use(middleware.CORS())
-	e.Use(handlers.ContextHeaderTraceIdMiddleWare)
-	e.Use(handlers.LoggerMiddleWare)
+	router.Use(middleware.CORS())
+	router.Use(handler.ContextHeaderTraceIdMiddleWare)
+	router.Use(handler.LoggerMiddleWare)
+	router.HTTPErrorHandler = handlers.HTTPErrorHandler(logg)
 
-	e.POST("/moex/specifications", handlers.GetSpecifications)
+	router.POST("/moex/specifications", handler.GetSpecifications)
+
+	address := conf.Clients.MoexApiAppClient.GetMoexApiAppClientAddress()
+
+	httpSrv := &http.Server{
+		Addr:         address,
+		Handler:      router,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
 
 	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := e.Shutdown(shutdownCtx); err != nil {
-			logg.Error("Failed to shutdown server:", slog.String("error", err.Error()))
+		logg.Info("run MOEX API App", slog.String("address", address))
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
 		}
 	}()
-	address := conf.Clients.MoexApiAppClient.GetMoexApiAppClientAddress()
-	logg.Info("run MOEX API App", slog.String("address", address))
-	e.Start(address)
+	select {
+	case <-ctx.Done():
+		logg.InfoContext(ctx, "Shutdown signal received")
+	case err := <-errCh:
+		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
+	}
+	gracefulShutdown(ctx, logg, httpSrv)
+}
+
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+	}
+	logg.InfoContext(ctx, "Server exited gracefully")
 }
