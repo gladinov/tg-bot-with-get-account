@@ -90,13 +90,14 @@ func main() {
 	// TODO: Обернуть в app.MustInit
 	kafkaClient, err := kgo.NewClient(
 		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
-		kgo.ConsumeTopics(
-			kafka.ReportGenerated,
-			kafka.ReportFailed,
-			kafka.ReportRequested),
 	)
 	if err != nil {
 		logg.Error("haven't connect with kafka", slog.String("err", err.Error()))
+		return
+	}
+
+	if err := kafkaClient.Ping(ctx); err != nil {
+		logg.ErrorContext(ctx, "kafka not available", slog.Any("error", err))
 		return
 	}
 

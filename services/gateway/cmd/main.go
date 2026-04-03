@@ -14,6 +14,7 @@ import (
 	bondreportservice "main.go/clients/bondReportService"
 	tgClient "main.go/clients/telegram"
 	tinkoffapi "main.go/clients/tinkoffApi"
+	"main.go/internal/adapters/outbound/kafka"
 	event_consumer "main.go/internal/app/consumer/event-consumer"
 	"main.go/internal/app/events/telegram"
 	"main.go/internal/config"
@@ -50,17 +51,25 @@ func main() {
 	}
 	defer redis.Close()
 
-	kafka, err := kgo.NewClient(
+	kafkaClient, err := kgo.NewClient(
 		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
 	)
 	if err != nil {
 		logg.Error("haven't connect with kafka", slog.String("err", err.Error()))
 		return
 	}
+
+	if err := kafkaClient.Ping(ctx); err != nil {
+		logg.ErrorContext(ctx, "kafka not available", slog.Any("error", err))
+		return
+	}
+
 	defer func() {
-		kafka.LeaveGroupContext(ctx)
-		kafka.Close()
+		kafkaClient.LeaveGroupContext(ctx)
+		kafkaClient.Close()
 	}()
+
+	producer := kafka.NewProducer(logg, kafkaClient)
 
 	logg.Info("initialize TokenCrypter client")
 	tokenCrypter := cryptotoken.NewTokenCrypter(conf.Key)
@@ -104,7 +113,7 @@ func main() {
 		tinkoffApiClient,
 		bondReportServiceClient,
 		tokenAuthService,
-		kafka,
+		producer,
 	)
 
 	logg.Info("initialize Fetcher")

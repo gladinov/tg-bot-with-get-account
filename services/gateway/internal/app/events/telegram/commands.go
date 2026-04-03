@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 	contextkeys "github.com/gladinov/contracts/context"
 	"github.com/gladinov/contracts/trace"
 	"github.com/gladinov/e"
-	"github.com/twmb/franz-go/pkg/kgo"
 	tokenauth "main.go/internal/tokenAuth"
 	"main.go/internal/utils/logging"
 )
@@ -116,7 +114,7 @@ func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username
 	case GetBondReport:
 		return p.getBondReports(ctx, chatID)
 	case GetGeneralBondReport:
-		return p.produceBondRepotsWithPng(ctx, chatID)
+		return p.fetchBondRepotsWithPng(ctx, chatID)
 	case GetPortfolioStructure:
 		return p.GetPortfolioStructure(ctx, chatID)
 	case GetUnionPortfolioStructure:
@@ -201,7 +199,7 @@ func (p *Processor) getBondRepotsWithPng(ctx context.Context, chatID int) (err e
 	return nil
 }
 
-func (p *Processor) produceBondRepotsWithPng(ctx context.Context, chatID int) (err error) {
+func (p *Processor) fetchBondRepotsWithPng(ctx context.Context, chatID int) (err error) {
 	const op = "processor.requestBondRepotsWithPng"
 	logging.LogOperation_Debug(ctx, p.logger, op, &err)
 
@@ -212,20 +210,10 @@ func (p *Processor) produceBondRepotsWithPng(ctx context.Context, chatID int) (e
 		p.logger.WarnContext(ctx, "hasn't traceID in ctx")
 	}
 
-	request := kafkaRequest{
-		ReportKind: BondReportsWithPngKind,
-		ChatID:     chatIDStr,
-		TraceID:    traceID,
-	}
-	body, err := json.Marshal(request)
+	err = p.kafka.PublishRequest(ctx, BondReportsWithPngKind, chatIDStr, traceID)
 	if err != nil {
 		return p.tg.SendMessage(ctx, chatID, msgInternalErr)
 	}
-	record := kgo.Record{
-		Topic: ReportRequested,
-		Value: body,
-	}
-	p.kafka.Produce(ctx, &record, nil)
 	// TODO: Добавить отдельный генератор ID запроса за место traceID
 	return p.tg.SendMessage(ctx, chatID, msgKafka(traceID))
 }
@@ -267,10 +255,4 @@ func (p *Processor) sendHelp(ctx context.Context, chatID int) error {
 
 func (p *Processor) sendHello(ctx context.Context, chatID int) error {
 	return p.tg.SendMessage(ctx, chatID, msgHello)
-}
-
-type kafkaRequest struct {
-	ReportKind string `json:"reportkind"`
-	TraceID    string `json:"traceID"`
-	ChatID     string `json:"chatID"`
 }

@@ -6,7 +6,6 @@ import (
 	"log/slog"
 
 	"github.com/gladinov/e"
-	"github.com/twmb/franz-go/pkg/kgo"
 	bondreportservice "main.go/clients/bondReportService"
 	"main.go/clients/telegram"
 	"main.go/clients/tinkoffApi"
@@ -20,7 +19,16 @@ type Processor struct {
 	tinkoffApi        *tinkoffApi.Client
 	bondReportService *bondreportservice.Client
 	tokenAuthService  *tokenauth.TokenAuthService
-	kafka             *kgo.Client
+	kafka             Producer
+}
+
+type Producer interface {
+	PublishRequest(
+		ctx context.Context,
+		reportKind string,
+		chatID string,
+		traceID string,
+	) error
 }
 
 type Meta struct {
@@ -39,7 +47,7 @@ func NewProccesor(
 	tinkoffApiClient *tinkoffApi.Client,
 	bondReportServiceClient *bondreportservice.Client,
 	tokenAuthService *tokenauth.TokenAuthService,
-	kafka *kgo.Client,
+	kafka Producer,
 ) *Processor {
 	return &Processor{
 		logger:            logger,
