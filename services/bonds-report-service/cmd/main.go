@@ -1,11 +1,11 @@
 package main
 
 import (
+	handlers "bonds-report-service/internal/adapters/inbound/gateway"
 	"bonds-report-service/internal/app"
 	"bonds-report-service/internal/application/ports"
 	"bonds-report-service/internal/application/usecases"
 	config "bonds-report-service/internal/configs"
-	"bonds-report-service/internal/handlers"
 	"context"
 	"errors"
 	"log/slog"
@@ -18,6 +18,8 @@ import (
 	sl "github.com/gladinov/mylogger"
 	"github.com/gladinov/traceidgenerator"
 )
+
+// TODO: создать в internal/ adapters/inbound и adapters/outbound
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

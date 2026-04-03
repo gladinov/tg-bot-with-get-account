@@ -1,9 +1,9 @@
 package usecases
 
 import (
+	"bonds-report-service/internal/adapters/outbound/sber"
 	tinkoffHelper "bonds-report-service/internal/application/helpers/tinkoff"
 	"bonds-report-service/internal/application/ports"
-	"bonds-report-service/internal/infrastructure/sber"
 	"log/slog"
 	"time"
 )
