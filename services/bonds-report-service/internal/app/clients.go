@@ -35,3 +35,5 @@ func InitSberClient(logger *slog.Logger, conf *config.Config) (*sber.Client, err
 	logger.Info("initialize Sber client", slog.String("address", conf.SberConfigPath))
 	return sber.NewClient(conf.RootPath, conf.SberConfigPath)
 }
+
+// func InitKafkaConsumer()

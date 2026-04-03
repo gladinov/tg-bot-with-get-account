@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	httpmodels "bonds-report-service/internal/adapters/inbound/gateway/http"
 	"bonds-report-service/internal/application/dto"
 	"bonds-report-service/internal/domain"
-	httpmodels "bonds-report-service/internal/handlers/http"
 )
 
 func MapMediaGroupToHTTP(mg *dto.MediaGroup) *httpmodels.MediaGroup {

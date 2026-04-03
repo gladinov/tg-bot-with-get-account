@@ -2,8 +2,10 @@ package usecases
 
 import (
 	"bonds-report-service/internal/adapters/outbound/sber"
+	"bonds-report-service/internal/application/dto"
 	tinkoffHelper "bonds-report-service/internal/application/helpers/tinkoff"
 	"bonds-report-service/internal/application/ports"
+	"context"
 	"log/slog"
 	"time"
 )
@@ -99,7 +101,13 @@ type Service struct {
 	External      *ExternalApis
 	Helpers       *Helpers
 	Storage       ports.Storage
+	Producer      Producer
 	now           func() time.Time
+}
+
+type Producer interface {
+	PublishFailedBondReportWithPng(ctx context.Context, reportKind, chatID, traceID, errCode, errMesage string) error
+	PublishBondReportWithPng(ctx context.Context, reportKind, chatID, traceID string, bondReportsResponce dto.BondReportsResponce) error
 }
 
 func NewService(
@@ -108,6 +116,7 @@ func NewService(
 	externalApis *ExternalApis,
 	helpers *Helpers,
 	storage ports.Storage,
+	producer Producer,
 ) *Service {
 	return &Service{
 		logger:        logger,
@@ -115,6 +124,7 @@ func NewService(
 		External:      externalApis,
 		Helpers:       helpers,
 		Storage:       storage,
+		Producer:      producer,
 		now:           time.Now,
 	}
 }

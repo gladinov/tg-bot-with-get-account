@@ -2,6 +2,8 @@ package main
 
 import (
 	handlers "bonds-report-service/internal/adapters/inbound/gateway"
+	kafkaConsumer "bonds-report-service/internal/adapters/inbound/kafka"
+	"bonds-report-service/internal/adapters/outbound/kafka"
 	"bonds-report-service/internal/app"
 	"bonds-report-service/internal/application/ports"
 	"bonds-report-service/internal/application/usecases"
@@ -17,6 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 	sl "github.com/gladinov/mylogger"
 	"github.com/gladinov/traceidgenerator"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // TODO: создать в internal/ adapters/inbound и adapters/outbound
@@ -83,6 +86,22 @@ func main() {
 		dividerByAssetType,
 	)
 
+	// TODO: Обернуть в струкутру с клиентом и сделать интерфейс
+	// TODO: Обернуть в app.MustInit
+	kafkaClient, err := kgo.NewClient(
+		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
+		kgo.ConsumeTopics(
+			kafka.ReportGenerated,
+			kafka.ReportFailed,
+			kafka.ReportRequested),
+	)
+	if err != nil {
+		logg.Error("haven't connect with kafka", slog.String("err", err.Error()))
+		return
+	}
+
+	producer := kafka.NewProducer(logg, kafkaClient)
+
 	logg.Info("initialize Service client")
 	serviceClient := usecases.NewService(
 		logg,
@@ -90,7 +109,12 @@ func main() {
 		externalApis,
 		helpers,
 		repo,
+		producer,
 	)
+
+	handlerKafka := kafkaConsumer.NewHandler(logg, serviceClient)
+
+	consumer := kafkaConsumer.NewConsumer(logg, kafkaClient, handlerKafka)
 
 	logg.Info("initialize Handlers")
 	handl := handlers.NewHandlers(logg, serviceClient)
@@ -122,6 +146,7 @@ func main() {
 	}
 
 	errCh := make(chan error, 1)
+	errChConsumer := make(chan error, 1)
 
 	go func() {
 		logg.Info("run bond-report-service", slog.String("address", address))
@@ -129,22 +154,38 @@ func main() {
 			errCh <- err
 		}
 	}()
+
+	go func() {
+		logg.InfoContext(ctx, "run kafka consumer")
+		if err := consumer.Run(ctx); err != nil {
+			errChConsumer <- err
+		}
+	}()
 	select {
 	case <-ctx.Done():
 		logg.InfoContext(ctx, "Shutdown signal received")
+	case err = <-errChConsumer:
+		logg.ErrorContext(ctx, "consumer stopped with error", slog.Any("error", err))
 	case err = <-errCh:
 		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
 	}
-	gracefulShutdown(ctx, logg, httpSrv, repo)
+	gracefulShutdown(ctx, logg, httpSrv, repo, kafkaClient)
 }
 
-func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server, repo ports.Storage) {
+func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server, repo ports.Storage, kafkaClient *kgo.Client) {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
 		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
 	}
+
+	// TODO: стоит ли вынести закрытие кафки в отдельную горутину,
+	//  т.к. возможно ему ,как и серверу нежно 10 * time.Second для закрытия
+	logg.InfoContext(ctx, "close kafka")
+	kafkaClient.LeaveGroupContext(shutdownCtx)
+	kafkaClient.Close()
+
 	logg.InfoContext(ctx, "close DB")
 	repo.CloseDB()
 	logg.InfoContext(ctx, "Server exited gracefully")

@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"sync"
 
 	"github.com/gladinov/e"
@@ -85,6 +86,119 @@ loop:
 
 	getBondReportsResponce := dto.BondReportsResponce{Media: reportsInByteByAccounts}
 	return getBondReportsResponce, nil
+}
+
+func (s *Service) ProduceBondReports(ctx context.Context, reportKind, traceID, chatIDStr string) error {
+	const op = "service.GetBondReports"
+	var err error
+
+	defer func() {
+		logging.LogOperation_Debug(ctx, s.logger, op, &err)()
+	}()
+
+	chatID, err := strconv.Atoi(chatIDStr)
+	if err != nil {
+		errStr := "failed to convert chatID to int"
+		s.logger.ErrorContext(ctx, errStr, slog.Any("error", e.WrapIfErr(errStr, err)))
+		errPublish := s.Producer.PublishFailedBondReportWithPng(
+			ctx,
+			reportKind,
+			chatIDStr,
+			traceID,
+			string(dto.ErrInternal),
+			"internal err",
+		)
+		if errPublish != nil {
+			return e.WrapIfErr("failed to publish failed data", err)
+		}
+		return nil
+	}
+
+	reportsInByteByAccounts := make([][]*dto.MediaGroup, 0)
+
+	accounts, err := s.Helpers.TinkoffHelper.TinkoffGetAccounts(ctx)
+	if err != nil {
+		errStr := "failed to get accounts from Tinkoff"
+		s.logger.ErrorContext(ctx, errStr, slog.Any("error", e.WrapIfErr(errStr, err)))
+		errPublish := s.Producer.PublishFailedBondReportWithPng(
+			ctx,
+			reportKind,
+			chatIDStr,
+			traceID,
+			string(dto.ErrTinkoffAPI),
+			"tinkoff API err",
+		)
+		if errPublish != nil {
+			return e.WrapIfErr("failed to publish failed data", err)
+		}
+		return nil
+	}
+	ctxWorkers, cancel := context.WithCancel(ctx)
+	defer cancel()
+	bufSize := min(len(accounts), s.WorkersNumber)
+
+	reportsCh := make(chan reportJob, s.WorkersNumber)
+	mediaGroupsCh := make(chan []*dto.MediaGroup, s.WorkersNumber*2)
+	errCh := make(chan error, 1)
+	var wgStage1 sync.WaitGroup
+
+	accountsCh := s.produceAccounts(ctxWorkers, accounts)
+
+	for i := 0; i < bufSize; i++ {
+		wgStage1.Add(1)
+		go func() {
+			defer wgStage1.Done()
+			s.fetchReportsWorker(ctxWorkers, accountsCh, errCh, reportsCh, chatID)
+		}()
+	}
+
+	var wgStage2 sync.WaitGroup
+	for i := 0; i < bufSize; i++ {
+		wgStage2.Add(1)
+		go func() {
+			defer wgStage2.Done()
+			s.renderReportsWorker(ctxWorkers, reportsCh, errCh, mediaGroupsCh, chatID)
+		}()
+	}
+
+	go func() {
+		wgStage1.Wait()
+		close(reportsCh)
+	}()
+
+	go func() {
+		wgStage2.Wait()
+		close(mediaGroupsCh)
+	}()
+
+loop:
+	for {
+		select {
+		case er := <-errCh:
+			cancel()
+			s.logger.ErrorContext(ctx, er.Error(), slog.Any("error", e.WrapIfErr(er.Error(), err)))
+			errPublish := s.Producer.PublishFailedBondReportWithPng(
+				ctx,
+				reportKind,
+				chatIDStr,
+				traceID,
+				string(dto.ErrInternal),
+				"internal err",
+			)
+			if errPublish != nil {
+				return e.WrapIfErr("failed to publish failed data", err)
+			}
+			return nil
+		case reportsInByte, ok := <-mediaGroupsCh:
+			if !ok {
+				break loop
+			}
+			reportsInByteByAccounts = append(reportsInByteByAccounts, reportsInByte)
+		}
+	}
+	getBondReportsResponce := dto.BondReportsResponce{Media: reportsInByteByAccounts}
+
+	return s.Producer.PublishBondReportWithPng(ctx, reportKind, chatIDStr, traceID, getBondReportsResponce)
 }
 
 func (s *Service) produceAccounts(ctx context.Context, accounts map[string]domain.Account) <-chan domain.Account {

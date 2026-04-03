@@ -12,6 +12,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
+
 type HandlerClient struct {
 	logger  *slog.Logger
 	service Service

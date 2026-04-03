@@ -28,6 +28,16 @@ const (
 	GetUnionWithSber           = "/unionpswithsber"
 )
 
+// TODO: Вынести в отдельную библиотеку для взаимодействия между сервисами
+const (
+	BondReportsWithPngKind = "bondRepotsWithPng"
+)
+
+// TODO: Вынести в отдельную библиотеку для взаимодействия между сервисами
+const (
+	ReportRequested = "report.requested"
+)
+
 type TokenStatus int
 
 const (
@@ -106,7 +116,7 @@ func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username
 	case GetBondReport:
 		return p.getBondReports(ctx, chatID)
 	case GetGeneralBondReport:
-		return p.getBondRepotsWithPng(ctx, chatID)
+		return p.produceBondRepotsWithPng(ctx, chatID)
 	case GetPortfolioStructure:
 		return p.GetPortfolioStructure(ctx, chatID)
 	case GetUnionPortfolioStructure:
@@ -191,7 +201,7 @@ func (p *Processor) getBondRepotsWithPng(ctx context.Context, chatID int) (err e
 	return nil
 }
 
-func (p *Processor) requestBondRepotsWithPng(ctx context.Context, chatID int) (err error) {
+func (p *Processor) produceBondRepotsWithPng(ctx context.Context, chatID int) (err error) {
 	const op = "processor.requestBondRepotsWithPng"
 	logging.LogOperation_Debug(ctx, p.logger, op, &err)
 
@@ -203,16 +213,16 @@ func (p *Processor) requestBondRepotsWithPng(ctx context.Context, chatID int) (e
 	}
 
 	request := kafkaRequest{
-		reportKind: "bondRepotsWithPng",
-		chatID:     chatIDStr,
-		traceID:    traceID,
+		ReportKind: BondReportsWithPngKind,
+		ChatID:     chatIDStr,
+		TraceID:    traceID,
 	}
 	body, err := json.Marshal(request)
 	if err != nil {
 		return p.tg.SendMessage(ctx, chatID, msgInternalErr)
 	}
 	record := kgo.Record{
-		Topic: "report.requested",
+		Topic: ReportRequested,
 		Value: body,
 	}
 	p.kafka.Produce(ctx, &record, nil)
@@ -260,7 +270,7 @@ func (p *Processor) sendHello(ctx context.Context, chatID int) error {
 }
 
 type kafkaRequest struct {
-	reportKind string
-	traceID    string
-	chatID     string
+	ReportKind string `json:"reportkind"`
+	TraceID    string `json:"traceID"`
+	ChatID     string `json:"chatID"`
 }
