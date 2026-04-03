@@ -1,8 +1,8 @@
 
 services:
-  myapp:
-    build: ../services/myapp
-    container_name: myapp
+  gateway:
+    build: ../services/gateway
+    container_name: gateway
     restart: unless-stopped
     depends_on:
       postgres-user-db:
@@ -11,6 +11,7 @@ services:
         condition: service_healthy
     environment:
       ENV: ${ENV}
+      TELEGRAM_HOST: ${TELEGRAM_HOST}
       LOCAL_BOT_TOKEN: ${LOCAL_BOT_TOKEN}
       ROOT_PATH: "/usr/local/src"
       CONFIG_PATH: "/configs/config.yaml"
@@ -28,11 +29,12 @@ services:
       BOND_REPORT_SERVICE_PORT: ${BOND_REPORT_SERVICE_PORT}
       TINKOFF_API_HOST: tinkoffapi_app
       TINKOFF_API_PORT: ${TINKOFF_API_PORT}
-
+      KAFKA_EXTERNAL_PORT: ${KAFKA_EXTERNAL_PORT}
+      KAFKA_HOST: kafka
     volumes:
-      - ../services/myapp/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
+      - ../services/gateway/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
     ports:
-      - "${MYAPP_PORT}:8080"
+      - "${GATEWAY_PORT}:8080"
     networks:
       - myapp_network
 
@@ -123,7 +125,7 @@ services:
       PGUSER: ${USERS_PGUSER}
 
     volumes:
-      - ../migrations/myapp/postgres:/usr/local/src/migrations:ro
+      - ../migrations/gateway/postgres:/usr/local/src/migrations:ro
       - ../tools/migrator/config/config.yaml:/usr/local/src/config/config.yaml:ro
     networks:
       - myapp_network
@@ -240,7 +242,22 @@ services:
     networks:
       - myapp_network
   
-  
+  notification_service:
+    build: ../services/notification-service
+    container_name: notification-service
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV}
+      TELEGRAM_HOST: ${TELEGRAM_HOST}
+      LOCAL_BOT_TOKEN: ${LOCAL_BOT_TOKEN}
+      NOTIFICATION_SERVICE_PORT: ${NOTIFICATION_SERVICE_PORT}
+      NOTIFICATION_SERVICE_HOST: "localhost"
+      KAFKA_EXTERNAL_PORT: ${KAFKA_EXTERNAL_PORT}
+      KAFKA_HOST: kafka
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT}:8085"
+    networks:
+      - myapp_network
   
 
 networks:

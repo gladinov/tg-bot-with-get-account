@@ -22,6 +22,16 @@ type Config struct {
 	StorageSQLLitePath string          `yaml:"storageSQLLitePath"`
 	PostgresHost       PostgresHost    `yaml:"postgresHost"`
 	RedisHTTPServer    RedisHTTPServer `yaml:"redis"`
+	Kafka              Kafka
+}
+
+type Kafka struct {
+	Host string `env:"KAFKA_HOST" env-required:"true"`
+	Port string `env:"KAFKA_EXTERNAL_PORT" env-required:"true"`
+}
+
+func (k *Kafka) GetKafkaAddress() string {
+	return getAddress(k.Host, k.Port)
 }
 
 type PostgresHost struct {
@@ -39,7 +49,7 @@ type Clients struct {
 	BondReportServicePort string `env:"BOND_REPORT_SERVICE_PORT" env-required:"true"`
 	TinkoffApiHost        string `env:"TINKOFF_API_HOST" env-required:"true"`
 	TinkoffApiPort        string `env:"TINKOFF_API_PORT" env-required:"true"`
-	TelegramHost          string `yaml:"telegramHost"`
+	TelegramHost          string `env:"TELEGRAM_HOST" env-required:"true"`
 }
 
 func (r *Clients) GetTinkoffApiAddress() string {
@@ -150,8 +160,10 @@ func InjectEnvs() (Envs, error) {
 		return Envs{}, errors.New("CONFIG_PATH environment variable is required")
 	}
 
-	envs := Envs{RootPath: rootPath,
-		ConfigPath: configPath}
+	envs := Envs{
+		RootPath:   rootPath,
+		ConfigPath: configPath,
+	}
 
 	return envs, nil
 }

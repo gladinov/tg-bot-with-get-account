@@ -10,6 +10,7 @@ import (
 	"github.com/gladinov/cryptotoken"
 	"github.com/gladinov/mylogger"
 	"github.com/gladinov/traceidgenerator"
+	"github.com/twmb/franz-go/pkg/kgo"
 	bondreportservice "main.go/clients/bondReportService"
 	tgClient "main.go/clients/telegram"
 	tinkoffapi "main.go/clients/tinkoffApi"
@@ -25,6 +26,7 @@ const (
 	batchSize = 100
 )
 
+// TODO : Graceful shutdown
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -45,6 +47,19 @@ func main() {
 		logg.Error("haven't connect with redis", slog.String("err", err.Error()))
 		return
 	}
+	defer redis.Close()
+
+	kafka, err := kgo.NewClient(
+		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
+	)
+	if err != nil {
+		logg.Error("haven't connect with kafka", slog.String("err", err.Error()))
+		return
+	}
+	defer func() {
+		kafka.LeaveGroupContext(ctx)
+		kafka.Close()
+	}()
 
 	logg.Info("initialize TokenCrypter client")
 	tokenCrypter := cryptotoken.NewTokenCrypter(conf.Key)
@@ -88,6 +103,7 @@ func main() {
 		tinkoffApiClient,
 		bondReportServiceClient,
 		tokenAuthService,
+		kafka,
 	)
 
 	logg.Info("initialize Fetcher")

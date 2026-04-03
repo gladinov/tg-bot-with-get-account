@@ -1,5 +1,7 @@
 package telegram
 
+import "fmt"
+
 const msgHelp = `Я бот для получение аналитики с Т-Инвестиций. 
 В данный момент обладаю следующими командами:
 /start - для запуска тг-бота,
@@ -15,4 +17,9 @@ const (
 	msgNoToken        = "Не предоставлен токен. Для дальнейшей работы пришлите токен от Тинькофф АПИ 👾\n\n"
 	msgIncorrectToken = "Некорректный токен 👾\n\n"
 	msgTrueToken      = "Токен верный и сохранен для работы в этом чате"
+	msgInternalErr    = "Внутренняя ошибка. Попробуйте еще раз"
 )
+
+func msgKafka(traceId string) string {
+	return fmt.Sprintf("Запрос %s находится в обработке", traceId)
+}

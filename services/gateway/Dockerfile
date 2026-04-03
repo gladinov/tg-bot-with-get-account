@@ -9,10 +9,10 @@ COPY ["go.mod","go.sum","./"]
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -o ./bin/myapp ./cmd/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -o ./bin/gateway ./cmd/main.go
 
 FROM alpine AS runner
 
-COPY --from=builder /usr/local/src/bin/myapp /
+COPY --from=builder /usr/local/src/bin/gateway /
 
-CMD ["/myapp"]
+CMD ["/gateway"]

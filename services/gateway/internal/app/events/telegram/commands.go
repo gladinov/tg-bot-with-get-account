@@ -2,14 +2,18 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strconv"
 	"strings"
 
 	contextkeys "github.com/gladinov/contracts/context"
+	"github.com/gladinov/contracts/trace"
 	"github.com/gladinov/e"
+	"github.com/twmb/franz-go/pkg/kgo"
 	tokenauth "main.go/internal/tokenAuth"
+	"main.go/internal/utils/logging"
 )
 
 const (
@@ -55,7 +59,7 @@ func ContainsInConstantCommands(text string) bool {
 
 var ErrIncorrectToken = errors.New("incorrect token")
 
-func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username string) error {
+func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username string) (err error) {
 	const op = "telegram.doCmd"
 
 	logg := p.logger.With(
@@ -63,9 +67,10 @@ func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username
 		slog.String("username", username),
 		slog.Int("chatID", chatID),
 	)
-	logg.DebugContext(ctx, "start")
+
 	defer func() {
 		logg.InfoContext(ctx, "finished")
+		logging.LogOperation_Debug(ctx, logg, op, &err)()
 	}()
 
 	text = strings.TrimSpace(text)
@@ -86,6 +91,34 @@ func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username
 		return p.sendHello(ctx, chatID)
 	}
 
+	err = p.handleTokenAuth(ctx, text, username, chatID)
+	if err != nil {
+		return err
+	}
+
+	switch text {
+	case HelpCmd:
+		return p.sendHelp(ctx, chatID)
+	case AccountsCmd:
+		return p.sendAccounts(ctx, chatID)
+	case GetUSD:
+		return p.getUSD(ctx, chatID)
+	case GetBondReport:
+		return p.getBondReports(ctx, chatID)
+	case GetGeneralBondReport:
+		return p.getBondRepotsWithPng(ctx, chatID)
+	case GetPortfolioStructure:
+		return p.GetPortfolioStructure(ctx, chatID)
+	case GetUnionPortfolioStructure:
+		return p.GetUnionPortfolioStructure(ctx, chatID)
+	case GetUnionWithSber:
+		return p.GetUnionPortfolioStructureWithSber(ctx, chatID)
+	default:
+		return p.tg.SendMessage(ctx, chatID, msgUnknownCommand)
+	}
+}
+
+func (p *Processor) handleTokenAuth(ctx context.Context, text string, username string, chatID int) error {
 	tokenStatus, err := p.tokenAuthService.Auth(ctx, text, username)
 
 	switch {
@@ -99,27 +132,7 @@ func (p *Processor) doCmd(ctx context.Context, text string, chatID int, username
 			return p.tg.SendMessage(ctx, chatID, msgTrueToken)
 		}
 	}
-
-	switch text {
-	case HelpCmd:
-		return p.sendHelp(ctx, chatID)
-	case AccountsCmd:
-		return p.sendAccounts(ctx, chatID)
-	case GetBondReport:
-		return p.getBondReports(ctx, chatID)
-	case GetGeneralBondReport:
-		return p.getBondRepotsWithPng(ctx, chatID)
-	case GetUSD:
-		return p.getUSD(ctx, chatID)
-	case GetPortfolioStructure:
-		return p.GetPortfolioStructure(ctx, chatID)
-	case GetUnionPortfolioStructure:
-		return p.GetUnionPortfolioStructure(ctx, chatID)
-	case GetUnionWithSber:
-		return p.GetUnionPortfolioStructureWithSber(ctx, chatID)
-	default:
-		return p.tg.SendMessage(ctx, chatID, msgUnknownCommand)
-	}
+	return nil
 }
 
 func (p *Processor) getUSD(ctx context.Context, chatId int) error {
@@ -178,6 +191,35 @@ func (p *Processor) getBondRepotsWithPng(ctx context.Context, chatID int) (err e
 	return nil
 }
 
+func (p *Processor) requestBondRepotsWithPng(ctx context.Context, chatID int) (err error) {
+	const op = "processor.requestBondRepotsWithPng"
+	logging.LogOperation_Debug(ctx, p.logger, op, &err)
+
+	chatIDStr := strconv.Itoa(chatID)
+
+	traceID, ok := trace.TraceIDFromContext(ctx)
+	if !ok {
+		p.logger.WarnContext(ctx, "hasn't traceID in ctx")
+	}
+
+	request := kafkaRequest{
+		reportKind: "bondRepotsWithPng",
+		chatID:     chatIDStr,
+		traceID:    traceID,
+	}
+	body, err := json.Marshal(request)
+	if err != nil {
+		return p.tg.SendMessage(ctx, chatID, msgInternalErr)
+	}
+	record := kgo.Record{
+		Topic: "report.requested",
+		Value: body,
+	}
+	p.kafka.Produce(ctx, &record, nil)
+	// TODO: Добавить отдельный генератор ID запроса за место traceID
+	return p.tg.SendMessage(ctx, chatID, msgKafka(traceID))
+}
+
 func (p *Processor) GetPortfolioStructure(ctx context.Context, chatID int) (err error) {
 	portfolioStructures, err := p.bondReportService.GetPortfolioStructure(ctx)
 	if err != nil {
@@ -215,4 +257,10 @@ func (p *Processor) sendHelp(ctx context.Context, chatID int) error {
 
 func (p *Processor) sendHello(ctx context.Context, chatID int) error {
 	return p.tg.SendMessage(ctx, chatID, msgHello)
+}
+
+type kafkaRequest struct {
+	reportKind string
+	traceID    string
+	chatID     string
 }

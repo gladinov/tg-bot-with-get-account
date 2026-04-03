@@ -1,5 +1,3 @@
-clients:
-  telegramHost: "api.telegram.org"
 dbType: "postgreSQL" # "postgreSQL" , "SQLite"
 storageSQLLitePath: "/data/sqlite/storage.db"
 postgresHost:
