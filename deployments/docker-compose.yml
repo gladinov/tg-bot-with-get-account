@@ -9,6 +9,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       ENV: ${ENV}
       TELEGRAM_HOST: ${TELEGRAM_HOST}
@@ -102,8 +104,39 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - myapp_network
+
+
+  kafka-init:
+    image: apache/kafka:4.1.1
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - myapp_network
+    restart: "no"
+    command:
+      - bash
+      - -c
+      - |
+        echo "Waiting for Kafka..."
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do
+          sleep 2
+        done
+
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic report.requested --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic report.generated --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic report.failed --partitions 1 --replication-factor 1
+
+        echo "Kafka topics created"
 
 
   migrator:
@@ -137,6 +170,8 @@ services:
     container_name: bond-report-service-app
     depends_on:
       postgres-service-db:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     environment:
       ENV: ${ENV}
@@ -247,6 +282,9 @@ services:
   notification_service:
     build: ../services/notification-service
     container_name: notification-service
+    depends_on:
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
     environment:
       ENV: ${ENV}
