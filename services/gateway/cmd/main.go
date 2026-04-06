@@ -50,7 +50,7 @@ func main() {
 		return
 	}
 	defer redis.Close()
-
+	logg.InfoContext(ctx, "initialize kafka client", slog.Any("host", conf.Kafka.Host), slog.Any("port", conf.Kafka.Port))
 	kafkaClient, err := kgo.NewClient(
 		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
 	)
@@ -65,11 +65,9 @@ func main() {
 	}
 
 	defer func() {
-		kafkaClient.LeaveGroupContext(ctx)
 		kafkaClient.Close()
 	}()
 
-	logg.InfoContext(ctx, "initialize kafka client", slog.Any("host", conf.Kafka.Host), slog.Any("port", conf.Kafka.Port))
 	producer := kafka.NewProducer(logg, kafkaClient)
 
 	logg.Info("initialize TokenCrypter client")

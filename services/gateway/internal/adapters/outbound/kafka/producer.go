@@ -40,6 +40,20 @@ func (p *Producer) PublishRequest(
 		Value: body,
 	}
 	// TODO: ПОчитать как проверять и обрабатывать ошибку при отправке
-	p.kafka.Produce(ctx, &record, nil)
+	results := p.kafka.ProduceSync(ctx, &record)
+	if err := results.FirstErr(); err != nil {
+		p.logg.ErrorContext(ctx, "failed to produce kafka message",
+			slog.String("topic", ReportRequested),
+			slog.Any("error", err),
+		)
+		return e.WrapIfErr("failed to produce kafka message", err)
+	}
+
+	p.logg.InfoContext(ctx, "kafka message produced",
+		slog.String("topic", ReportRequested),
+		slog.String("chat_id", chatID),
+		slog.String("trace_id", traceID),
+	)
+
 	return nil
 }

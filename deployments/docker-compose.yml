@@ -31,7 +31,7 @@ services:
       BOND_REPORT_SERVICE_PORT: ${BOND_REPORT_SERVICE_PORT}
       TINKOFF_API_HOST: tinkoffapi_app
       TINKOFF_API_PORT: ${TINKOFF_API_PORT}
-      KAFKA_EXTERNAL_PORT: ${KAFKA_EXTERNAL_PORT}
+      KAFKA_PORT: 9092
       KAFKA_HOST: kafka
     volumes:
       - ../services/gateway/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
@@ -191,7 +191,7 @@ services:
       TINKOFF_API_PORT: ${TINKOFF_API_PORT}
       MOEX_API_HOST: moex_app
       MOEX_API_PORT: ${MOEX_API_PORT}
-      KAFKA_EXTERNAL_PORT: ${KAFKA_EXTERNAL_PORT}
+      KAFKA_PORT: 9092
       KAFKA_HOST: kafka
     volumes:
       - ../services/bonds-report-service/configs/config.yaml:/usr/local/src/configs/config.yaml:ro
@@ -292,7 +292,7 @@ services:
       LOCAL_BOT_TOKEN: ${LOCAL_BOT_TOKEN}
       NOTIFICATION_SERVICE_PORT: ${NOTIFICATION_SERVICE_PORT}
       NOTIFICATION_SERVICE_HOST: "localhost"
-      KAFKA_EXTERNAL_PORT: ${KAFKA_EXTERNAL_PORT}
+      KAFKA_PORT: 9092
       KAFKA_HOST: kafka
     ports:
       - "${NOTIFICATION_SERVICE_PORT}:8085"

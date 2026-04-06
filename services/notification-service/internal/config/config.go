@@ -43,7 +43,7 @@ func (n *NotificationService) GetNotificationServiceAddress() string {
 
 type Kafka struct {
 	Host string `env:"KAFKA_HOST" env-required:"true"`
-	Port string `env:"KAFKA_EXTERNAL_PORT" env-required:"true"`
+	Port string `env:"KAFKA_PORT" env-required:"true"`
 }
 
 func (k *Kafka) GetKafkaAddress() string {
