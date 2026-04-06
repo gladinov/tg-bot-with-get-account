@@ -1,6 +1,8 @@
 package usecases
 
-const BondReportWithPng = "bondReportWithPng"
+const (
+	BondReportsWithPngKind = "bondReportsWithPng"
+)
 
 type ReportGenerated struct {
 	ReportKind          string

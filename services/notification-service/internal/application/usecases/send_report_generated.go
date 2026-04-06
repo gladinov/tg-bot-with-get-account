@@ -10,7 +10,7 @@ import (
 
 func (s *Service) SendReportGenerated(ctx context.Context, body ReportGenerated) error {
 	switch body.ReportKind {
-	case BondReportWithPng:
+	case BondReportsWithPngKind:
 		chatID, err := strconv.Atoi(body.ChatID)
 		if err != nil {
 			return e.WrapIfErr("failed to convert chatID from string to int", err)
