@@ -88,6 +88,7 @@ func main() {
 
 	// TODO: Обернуть в струкутру с клиентом и сделать интерфейс
 	// TODO: Обернуть в app.MustInit
+	logg.InfoContext(ctx, "initialize kafka client", slog.Any("host", conf.Kafka.Host), slog.Any("port", conf.Kafka.Port))
 	kafkaClient, err := kgo.NewClient(
 		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
 	)

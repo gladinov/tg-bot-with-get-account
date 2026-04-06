@@ -30,6 +30,7 @@ func main() {
 		slog.String("notification-service_app_port", conf.Clients.NotificationService.Port))
 
 	// TODO: logg init kafkaClient
+	logg.InfoContext(ctx, "initialize kafka client", slog.Any("host", conf.Kafka.Host), slog.Any("port", conf.Kafka.Port))
 	kafkaClient, err := kgo.NewClient(
 		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
 	)

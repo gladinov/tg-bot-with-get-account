@@ -69,6 +69,7 @@ func main() {
 		kafkaClient.Close()
 	}()
 
+	logg.InfoContext(ctx, "initialize kafka client", slog.Any("host", conf.Kafka.Host), slog.Any("port", conf.Kafka.Port))
 	producer := kafka.NewProducer(logg, kafkaClient)
 
 	logg.Info("initialize TokenCrypter client")
