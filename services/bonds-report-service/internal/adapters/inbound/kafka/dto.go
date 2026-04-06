@@ -11,7 +11,7 @@ const (
 
 // TODO: Вынести в отдельную библиотеку для взаимодействия между сервисами
 const (
-	BondReportsWithPngKind = "bondRepotsWithPng"
+	BondReportsWithPngKind = "bondReportsWithPng"
 )
 
 var (

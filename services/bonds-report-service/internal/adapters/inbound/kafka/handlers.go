@@ -34,6 +34,7 @@ func (h *HandlerClient) HandleRequest(ctx context.Context, record *kgo.Record) e
 		if err != nil {
 			return err
 		}
+	default:
 		h.logger.WarnContext(ctx, "unexpected topic", slog.String("topic", record.Topic))
 	}
 	return nil

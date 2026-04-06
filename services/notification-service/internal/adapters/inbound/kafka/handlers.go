@@ -12,7 +12,6 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
-
 type HandlerClient struct {
 	logger  *slog.Logger
 	service Service
@@ -85,7 +84,13 @@ func (h *HandlerClient) handleReportFailed(ctx context.Context, value []byte) er
 	err = body.Validate()
 	if err != nil {
 		if errors.Is(err, ErrEmptyTraceID) {
-			h.logger.WarnContext(ctx, "traceId is empty", slog.Any("chatId", body.ChatID), slog.Any("reportKind", body.ReportKind), slog.Any("error from kafka", body.Error))
+			h.logger.WarnContext(
+				ctx,
+				"traceId is empty",
+				slog.Any("chatId", body.ChatID),
+				slog.Any("reportKind", body.ReportKind),
+				slog.Any("error code from kafka", body.ErrorCode),
+				slog.Any("error message from kafka", body.ErrorMessage))
 		}
 		if errors.Is(err, ErrEmptyErr) {
 			h.logger.WarnContext(ctx, err.Error(), slog.Any("chatId", body.ChatID), slog.Any("reportKind", body.ReportKind), slog.Any("traceID", body.TraceID))

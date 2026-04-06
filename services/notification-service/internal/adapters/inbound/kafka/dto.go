@@ -72,10 +72,22 @@ func (r *RequestReportGenerated) ResponceReportGeneratedToUsecaseDto() usecases.
 }
 
 type ResponceReportFailed struct {
-	ReportKind string `json:"reportkind"`
-	ChatID     string `json:"chatid"` // TODO: Можно ли передавать заголовки в контексте?
-	TraceID    string `json:"traceid"`
-	Error      error  `json:"error"`
+	ReportKind   string `json:"reportkind"`
+	ChatID       string `json:"chatid"` // TODO: Можно ли передавать заголовки в контексте?
+	TraceID      string `json:"traceid"`
+	ErrorCode    string `json:"error_code"`
+	ErrorMessage string `json:"error_message"`
+	// Retraible bool // TODO: Добавить поле о ретрае
+}
+
+func NewRepsponceReportFailed(reportKind, chatID, traceID, errorCode, errorMessage string) ResponceReportFailed {
+	return ResponceReportFailed{
+		ReportKind:   reportKind,
+		ChatID:       chatID,
+		TraceID:      traceID,
+		ErrorCode:    errorCode,
+		ErrorMessage: errorMessage,
+	}
 }
 
 func (r *ResponceReportFailed) Validate() error {
@@ -88,7 +100,10 @@ func (r *ResponceReportFailed) Validate() error {
 	if r.TraceID == "" {
 		return ErrEmptyTraceID
 	}
-	if r.Error == nil {
+	if r.ErrorCode == "" {
+		return ErrEmptyErr
+	}
+	if r.ErrorMessage == "" {
 		return ErrEmptyErr
 	}
 	return nil
@@ -96,10 +111,11 @@ func (r *ResponceReportFailed) Validate() error {
 
 func (r *ResponceReportFailed) ResponceReportFailedToUsecaseDto() usecases.ReportFailed {
 	return usecases.ReportFailed{
-		ReportKind: r.ReportKind,
-		ChatID:     r.ChatID,
-		TraceID:    r.TraceID,
-		Error:      r.Error,
+		ReportKind:   r.ReportKind,
+		ChatID:       r.ChatID,
+		TraceID:      r.TraceID,
+		ErrorCode:    r.ErrorCode,
+		ErrorMessage: r.ErrorMessage,
 	}
 }
 

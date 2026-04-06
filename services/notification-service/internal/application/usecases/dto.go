@@ -10,10 +10,11 @@ type ReportGenerated struct {
 }
 
 type ReportFailed struct {
-	ReportKind string
-	ChatID     string
-	TraceID    string
-	Error      error
+	ReportKind   string
+	ChatID       string
+	TraceID      string
+	ErrorCode    string
+	ErrorMessage string
 }
 
 type BondReports struct {
