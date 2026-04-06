@@ -29,18 +29,19 @@ func main() {
 		slog.String("notification-service_app_host", conf.Clients.NotificationService.Host),
 		slog.String("notification-service_app_port", conf.Clients.NotificationService.Port))
 
-	// TODO: logg init kafkaClient
-	logg.InfoContext(ctx, "initialize kafka client", slog.Any("host", conf.Kafka.Host), slog.Any("port", conf.Kafka.Port))
-	kafkaClient, err := kgo.NewClient(
+	logg.Info("initialize consumer kafka client")
+	consumerClient, err := kgo.NewClient(
 		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
+		kgo.ConsumerGroup("notification-service-group"),
+		kgo.ConsumeTopics(kafka.ReportFailed, kafka.ReportGenerated),
 	)
 	if err != nil {
-		logg.Error("haven't connect with kafka", slog.String("err", err.Error()))
+		logg.Error("failed to create consumer client", slog.String("err", err.Error()))
 		return
 	}
 
-	if err := kafkaClient.Ping(ctx); err != nil {
-		logg.ErrorContext(ctx, "kafka not available", slog.Any("error", err))
+	if err := consumerClient.Ping(ctx); err != nil {
+		logg.ErrorContext(ctx, "consumer kafka not available", slog.Any("error", err))
 		return
 	}
 
@@ -51,12 +52,14 @@ func main() {
 
 	handler := kafka.NewHandler(logg, service)
 
-	consumer := kafka.NewConsumer(logg, kafkaClient, handler)
+	consumer := kafka.NewConsumer(logg, consumerClient, handler)
 
 	errCh := make(chan error, 1)
 	go func() {
-		err := consumer.Run(ctx)
-		errCh <- err
+		logg.InfoContext(ctx, "run kafka consumer")
+		if err := consumer.Run(ctx); err != nil {
+			errCh <- err
+		}
 	}()
 
 	select {
@@ -66,20 +69,20 @@ func main() {
 		logg.ErrorContext(ctx, "consumer error", slog.Any("error", er))
 	}
 
-	gracefulShutdown(ctx, logg, kafkaClient, telegramClient)
+	gracefulShutdown(logg, consumerClient, telegramClient)
 }
 
-func gracefulShutdown(ctx context.Context, logg *slog.Logger, kafkaClient *kgo.Client, telegramClient *telegram.Client) {
+func gracefulShutdown(logg *slog.Logger, kafkaClient *kgo.Client, telegramClient *telegram.Client) {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	logg.InfoContext(ctx, "close kafka")
+	logg.InfoContext(shutdownCtx, "close kafka")
 	kafkaClient.LeaveGroupContext(shutdownCtx)
 	kafkaClient.Close()
-	logg.InfoContext(ctx, "close tg client")
+	logg.InfoContext(shutdownCtx, "close tg client")
 	telegramClient.Close()
 
 	<-shutdownCtx.Done()
 
-	logg.InfoContext(ctx, "Server exited gracefully")
+	logg.InfoContext(shutdownCtx, "Server exited gracefully")
 }

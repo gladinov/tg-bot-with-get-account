@@ -55,6 +55,12 @@ func (c *Consumer) Run(ctx context.Context) error {
 			if runErr != nil {
 				return
 			}
+			c.logger.InfoContext(ctx, "kafka record received",
+				slog.String("topic", record.Topic),
+				slog.Int64("partition", int64(record.Partition)),
+				slog.Int64("offset", record.Offset),
+				slog.String("value", string(record.Value)),
+			)
 			err := c.handler.HandleRequest(ctx, record)
 			if err != nil {
 				runErr = err

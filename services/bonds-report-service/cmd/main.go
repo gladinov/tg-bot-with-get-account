@@ -88,21 +88,37 @@ func main() {
 
 	// TODO: Обернуть в струкутру с клиентом и сделать интерфейс
 	// TODO: Обернуть в app.MustInit
-	logg.InfoContext(ctx, "initialize kafka client", slog.Any("host", conf.Kafka.Host), slog.Any("port", conf.Kafka.Port))
-	kafkaClient, err := kgo.NewClient(
+	logg.Info("initialize consumer kafka client")
+	consumerClient, err := kgo.NewClient(
+		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
+		kgo.ConsumerGroup("bond-report-service-group"),
+		kgo.ConsumeTopics(kafka.ReportRequested),
+	)
+	if err != nil {
+		logg.Error("failed to create consumer client", slog.String("err", err.Error()))
+		return
+	}
+
+	if err := consumerClient.Ping(ctx); err != nil {
+		logg.ErrorContext(ctx, "consumer kafka not available", slog.Any("error", err))
+		return
+	}
+
+	logg.Info("initialize producer kafka client")
+	producerClient, err := kgo.NewClient(
 		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
 	)
 	if err != nil {
-		logg.Error("haven't connect with kafka", slog.String("err", err.Error()))
+		logg.Error("failed to create producer client", slog.String("err", err.Error()))
 		return
 	}
 
-	if err := kafkaClient.Ping(ctx); err != nil {
-		logg.ErrorContext(ctx, "kafka not available", slog.Any("error", err))
+	if err := producerClient.Ping(ctx); err != nil {
+		logg.ErrorContext(ctx, "producer kafka not available", slog.Any("error", err))
 		return
 	}
 
-	producer := kafka.NewProducer(logg, kafkaClient)
+	producer := kafka.NewProducer(logg, producerClient)
 
 	logg.Info("initialize Service client")
 	serviceClient := usecases.NewService(
@@ -116,7 +132,7 @@ func main() {
 
 	handlerKafka := kafkaConsumer.NewHandler(logg, serviceClient)
 
-	consumer := kafkaConsumer.NewConsumer(logg, kafkaClient, handlerKafka)
+	consumer := kafkaConsumer.NewConsumer(logg, consumerClient, handlerKafka)
 
 	logg.Info("initialize Handlers")
 	handl := handlers.NewHandlers(logg, serviceClient)
@@ -171,24 +187,25 @@ func main() {
 	case err = <-errCh:
 		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
 	}
-	gracefulShutdown(ctx, logg, httpSrv, repo, kafkaClient)
+	gracefulShutdown(logg, httpSrv, repo, consumerClient, producerClient)
 }
 
-func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server, repo ports.Storage, kafkaClient *kgo.Client) {
+func gracefulShutdown(logg *slog.Logger, httpSrv *http.Server, repo ports.Storage, consumerClient, producerClient *kgo.Client) {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+		logg.ErrorContext(shutdownCtx, "Forced shutdown", slog.Any("err", err))
 	}
 
 	// TODO: стоит ли вынести закрытие кафки в отдельную горутину,
 	//  т.к. возможно ему ,как и серверу нежно 10 * time.Second для закрытия
-	logg.InfoContext(ctx, "close kafka")
-	kafkaClient.LeaveGroupContext(shutdownCtx)
-	kafkaClient.Close()
+	logg.InfoContext(shutdownCtx, "close kafka")
 
-	logg.InfoContext(ctx, "close DB")
+	consumerClient.Close()
+	producerClient.Close()
+
+	logg.InfoContext(shutdownCtx, "close DB")
 	repo.CloseDB()
-	logg.InfoContext(ctx, "Server exited gracefully")
+	logg.InfoContext(shutdownCtx, "Server exited gracefully")
 }
