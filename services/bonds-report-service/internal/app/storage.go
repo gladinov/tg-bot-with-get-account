@@ -1,9 +1,9 @@
 package app
 
 import (
+	"bonds-report-service/internal/adapters/outbound/repository/postgreSQL"
 	"bonds-report-service/internal/application/ports"
 	config "bonds-report-service/internal/configs"
-	"bonds-report-service/internal/infrastructure/repository/postgreSQL"
 	"context"
 	"fmt"
 	"log/slog"

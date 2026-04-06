@@ -1,11 +1,13 @@
 package main
 
 import (
+	handlers "bonds-report-service/internal/adapters/inbound/gateway"
+	kafkaConsumer "bonds-report-service/internal/adapters/inbound/kafka"
+	"bonds-report-service/internal/adapters/outbound/kafka"
 	"bonds-report-service/internal/app"
 	"bonds-report-service/internal/application/ports"
 	"bonds-report-service/internal/application/usecases"
 	config "bonds-report-service/internal/configs"
-	"bonds-report-service/internal/handlers"
 	"context"
 	"errors"
 	"log/slog"
@@ -17,7 +19,10 @@ import (
 	"github.com/gin-gonic/gin"
 	sl "github.com/gladinov/mylogger"
 	"github.com/gladinov/traceidgenerator"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
+
+// TODO: создать в internal/ adapters/inbound и adapters/outbound
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -81,6 +86,40 @@ func main() {
 		dividerByAssetType,
 	)
 
+	// TODO: Обернуть в струкутру с клиентом и сделать интерфейс
+	// TODO: Обернуть в app.MustInit
+	logg.Info("initialize consumer kafka client")
+	consumerClient, err := kgo.NewClient(
+		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
+		kgo.ConsumerGroup("bond-report-service-group"),
+		kgo.ConsumeTopics(kafka.ReportRequested),
+	)
+	if err != nil {
+		logg.Error("failed to create consumer client", slog.String("err", err.Error()))
+		return
+	}
+
+	if err := consumerClient.Ping(ctx); err != nil {
+		logg.ErrorContext(ctx, "consumer kafka not available", slog.Any("error", err))
+		return
+	}
+
+	logg.Info("initialize producer kafka client")
+	producerClient, err := kgo.NewClient(
+		kgo.SeedBrokers(conf.Kafka.GetKafkaAddress()),
+	)
+	if err != nil {
+		logg.Error("failed to create producer client", slog.String("err", err.Error()))
+		return
+	}
+
+	if err := producerClient.Ping(ctx); err != nil {
+		logg.ErrorContext(ctx, "producer kafka not available", slog.Any("error", err))
+		return
+	}
+
+	producer := kafka.NewProducer(logg, producerClient)
+
 	logg.Info("initialize Service client")
 	serviceClient := usecases.NewService(
 		logg,
@@ -88,7 +127,12 @@ func main() {
 		externalApis,
 		helpers,
 		repo,
+		producer,
 	)
+
+	handlerKafka := kafkaConsumer.NewHandler(logg, serviceClient)
+
+	consumer := kafkaConsumer.NewConsumer(logg, consumerClient, handlerKafka)
 
 	logg.Info("initialize Handlers")
 	handl := handlers.NewHandlers(logg, serviceClient)
@@ -120,6 +164,7 @@ func main() {
 	}
 
 	errCh := make(chan error, 1)
+	errChConsumer := make(chan error, 1)
 
 	go func() {
 		logg.Info("run bond-report-service", slog.String("address", address))
@@ -127,23 +172,40 @@ func main() {
 			errCh <- err
 		}
 	}()
+
+	go func() {
+		logg.InfoContext(ctx, "run kafka consumer")
+		if err := consumer.Run(ctx); err != nil {
+			errChConsumer <- err
+		}
+	}()
 	select {
 	case <-ctx.Done():
 		logg.InfoContext(ctx, "Shutdown signal received")
+	case err = <-errChConsumer:
+		logg.ErrorContext(ctx, "consumer stopped with error", slog.Any("error", err))
 	case err = <-errCh:
 		logg.ErrorContext(ctx, "server stopped with error", slog.Any("error", err))
 	}
-	gracefulShutdown(ctx, logg, httpSrv, repo)
+	gracefulShutdown(logg, httpSrv, repo, consumerClient, producerClient)
 }
 
-func gracefulShutdown(ctx context.Context, logg *slog.Logger, httpSrv *http.Server, repo ports.Storage) {
+func gracefulShutdown(logg *slog.Logger, httpSrv *http.Server, repo ports.Storage, consumerClient, producerClient *kgo.Client) {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-		logg.ErrorContext(ctx, "Forced shutdown", slog.Any("err", err))
+		logg.ErrorContext(shutdownCtx, "Forced shutdown", slog.Any("err", err))
 	}
-	logg.InfoContext(ctx, "close DB")
+
+	// TODO: стоит ли вынести закрытие кафки в отдельную горутину,
+	//  т.к. возможно ему ,как и серверу нежно 10 * time.Second для закрытия
+	logg.InfoContext(shutdownCtx, "close kafka")
+
+	consumerClient.Close()
+	producerClient.Close()
+
+	logg.InfoContext(shutdownCtx, "close DB")
 	repo.CloseDB()
-	logg.InfoContext(ctx, "Server exited gracefully")
+	logg.InfoContext(shutdownCtx, "Server exited gracefully")
 }

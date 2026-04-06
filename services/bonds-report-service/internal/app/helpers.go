@@ -1,6 +1,10 @@
 package app
 
 import (
+	"bonds-report-service/internal/adapters/outbound/tinkoffApi/client/analyticsclient"
+	"bonds-report-service/internal/adapters/outbound/tinkoffApi/client/instrumentsclient"
+	"bonds-report-service/internal/adapters/outbound/tinkoffApi/client/portfolioclient"
+	tinkofftransport "bonds-report-service/internal/adapters/outbound/tinkoffApi/transport"
 	bondreport "bonds-report-service/internal/application/helpers/bondReport"
 	cbrHelper "bonds-report-service/internal/application/helpers/cbr"
 	dividerbyassettype "bonds-report-service/internal/application/helpers/dividerByAssetType"
@@ -13,10 +17,6 @@ import (
 	"bonds-report-service/internal/application/helpers/uidprovider"
 	updateoperations "bonds-report-service/internal/application/helpers/updateOperations"
 	"bonds-report-service/internal/application/ports"
-	"bonds-report-service/internal/infrastructure/tinkoffApi/client/analyticsclient"
-	"bonds-report-service/internal/infrastructure/tinkoffApi/client/instrumentsclient"
-	"bonds-report-service/internal/infrastructure/tinkoffApi/client/portfolioclient"
-	tinkofftransport "bonds-report-service/internal/infrastructure/tinkoffApi/transport"
 	"log/slog"
 )
 

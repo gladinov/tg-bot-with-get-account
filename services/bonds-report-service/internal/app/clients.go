@@ -1,11 +1,11 @@
 package app
 
 import (
-	cbr "bonds-report-service/internal/infrastructure/cbr/client"
-	cbrtransport "bonds-report-service/internal/infrastructure/cbr/transport"
-	moex "bonds-report-service/internal/infrastructure/moex/client"
-	moextransport "bonds-report-service/internal/infrastructure/moex/transport"
-	"bonds-report-service/internal/infrastructure/sber"
+	cbr "bonds-report-service/internal/adapters/outbound/cbr/client"
+	cbrtransport "bonds-report-service/internal/adapters/outbound/cbr/transport"
+	moex "bonds-report-service/internal/adapters/outbound/moex/client"
+	moextransport "bonds-report-service/internal/adapters/outbound/moex/transport"
+	"bonds-report-service/internal/adapters/outbound/sber"
 	"log/slog"
 
 	config "bonds-report-service/internal/configs"
@@ -35,3 +35,5 @@ func InitSberClient(logger *slog.Logger, conf *config.Config) (*sber.Client, err
 	logger.Info("initialize Sber client", slog.String("address", conf.SberConfigPath))
 	return sber.NewClient(conf.RootPath, conf.SberConfigPath)
 }
+
+// func InitKafkaConsumer()

@@ -20,6 +20,7 @@ type Config struct {
 	WorkersNubmer             int          `yaml:"workersNumber"`
 	Clients                   Clients      `yaml:"clients"`
 	PostgresHost              PostgresHost `yaml:"postgresHost"`
+	Kafka                     Kafka
 }
 
 type Clients struct {
@@ -63,6 +64,15 @@ type BondReportServiceApp struct {
 
 func (b *BondReportServiceApp) GetBondReportServiceAppAddress() string {
 	return getAddress(b.Host, b.Port)
+}
+
+type Kafka struct {
+	Host string `env:"KAFKA_HOST" env-required:"true"`
+	Port string `env:"KAFKA_PORT" env-required:"true"`
+}
+
+func (k *Kafka) GetKafkaAddress() string {
+	return getAddress(k.Host, k.Port)
 }
 
 type PostgresHost struct {
