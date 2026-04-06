@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/gladinov/e"
-	bondreportservice "main.go/clients/bondReportService"
+	bondreportservice "main.go/internal/adapters/outbound/bondReportService"
 )
 
 const defaultTimeout = 10 * time.Second

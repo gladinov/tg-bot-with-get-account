@@ -6,10 +6,10 @@ import (
 	"log/slog"
 
 	"github.com/gladinov/e"
-	bondreportservice "main.go/clients/bondReportService"
-	"main.go/clients/telegram"
-	"main.go/clients/tinkoffApi"
-	"main.go/internal/app/events"
+	"main.go/internal/adapters/inbound/events"
+	bondreportservice "main.go/internal/adapters/outbound/bondReportService"
+	"main.go/internal/adapters/outbound/telegram"
+	"main.go/internal/adapters/outbound/tinkoffApi"
 	tokenauth "main.go/internal/tokenAuth"
 )
 

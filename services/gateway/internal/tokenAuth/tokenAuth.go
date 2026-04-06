@@ -11,7 +11,7 @@ import (
 	"github.com/gladinov/e"
 	"github.com/gladinov/valuefromcontext"
 	"github.com/redis/go-redis/v9"
-	"main.go/clients/tinkoffApi"
+	"main.go/internal/adapters/outbound/tinkoffApi"
 	storage "main.go/internal/repository"
 )
 

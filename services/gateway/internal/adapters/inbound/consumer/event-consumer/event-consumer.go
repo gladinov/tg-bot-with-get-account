@@ -8,8 +8,8 @@ import (
 	"github.com/gladinov/contracts/trace"
 	"github.com/gladinov/e"
 	"github.com/gladinov/traceidgenerator"
-	"main.go/internal/app/events"
-	"main.go/internal/app/events/telegram"
+	"main.go/internal/adapters/inbound/events"
+	"main.go/internal/adapters/inbound/events/telegram"
 )
 
 type Consumer struct {

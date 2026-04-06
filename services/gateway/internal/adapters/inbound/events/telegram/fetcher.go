@@ -5,8 +5,8 @@ import (
 	"log/slog"
 
 	"github.com/gladinov/e"
-	"main.go/clients/telegram"
-	"main.go/internal/app/events"
+	"main.go/internal/adapters/inbound/events"
+	"main.go/internal/adapters/outbound/telegram"
 )
 
 type Fetcher struct {

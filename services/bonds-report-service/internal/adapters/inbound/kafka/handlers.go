@@ -67,6 +67,6 @@ func (h *HandlerClient) handleReportRequested(ctx context.Context, value []byte)
 
 func setCtx(ctx context.Context, chatID, traceID string) context.Context {
 	newCtx := context.WithValue(ctx, contextkeys.ChatIDKey, chatID)
-	newCtx = context.WithValue(ctx, contextkeys.TraceIDKey, traceID)
-	return newCtx
+	newCtx2 := context.WithValue(newCtx, contextkeys.TraceIDKey, traceID)
+	return newCtx2
 }
