@@ -2,11 +2,13 @@ module github.com/gladinov/notification-service
 
 go 1.24.11
 
-require github.com/ilyakaznacheev/cleanenv v1.5.0
+require (
+	github.com/gladinov/contracts v0.1.5
+	github.com/ilyakaznacheev/cleanenv v1.5.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/gladinov/contracts v0.1.5 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.25 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
