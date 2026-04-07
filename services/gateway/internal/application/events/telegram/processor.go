@@ -6,20 +6,26 @@ import (
 	"log/slog"
 
 	"github.com/gladinov/e"
-	"main.go/internal/adapters/inbound/events"
 	bondreportservice "main.go/internal/adapters/outbound/bondReportService"
 	"main.go/internal/adapters/outbound/telegram"
 	"main.go/internal/adapters/outbound/tinkoffApi"
-	tokenauth "main.go/internal/tokenAuth"
+	"main.go/internal/application/events"
+	tokenauth "main.go/internal/application/tokenAuth"
 )
 
 type Processor struct {
 	logger            *slog.Logger
-	tg                *telegram.Client
+	tg                MessageSender
 	tinkoffApi        *tinkoffApi.Client
 	bondReportService *bondreportservice.Client
 	tokenAuthService  *tokenauth.TokenAuthService
 	kafka             Producer
+}
+
+type MessageSender interface {
+	SendImageFromBuffer(ctx context.Context, chatID int, imageData []byte, caption string) error
+	SendMediaGroupFromBuffer(ctx context.Context, chatID int, images []*bondreportservice.ImageData) error
+	SendMessage(ctx context.Context, chatID int, text string) error
 }
 
 type Producer interface {

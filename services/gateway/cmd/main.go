@@ -12,15 +12,15 @@ import (
 	"github.com/gladinov/traceidgenerator"
 	"github.com/twmb/franz-go/pkg/kgo"
 	event_consumer "main.go/internal/adapters/inbound/consumer/event-consumer"
-	"main.go/internal/adapters/inbound/events/telegram"
 	bondreportservice "main.go/internal/adapters/outbound/bondReportService"
 	"main.go/internal/adapters/outbound/kafka"
 	tgClient "main.go/internal/adapters/outbound/telegram"
 	tinkoffapi "main.go/internal/adapters/outbound/tinkoffApi"
+	"main.go/internal/application/events/telegram"
+	tokenauth "main.go/internal/application/tokenAuth"
 	"main.go/internal/config"
 	storage "main.go/internal/repository"
 	"main.go/internal/repository/redis"
-	tokenauth "main.go/internal/tokenAuth"
 )
 
 const (
@@ -118,8 +118,10 @@ func main() {
 	logg.Info("initialize Fetcher")
 	fetcher := telegram.NewFetcher(logg, telegrammClient)
 
+	hanlder := event_consumer.NewHandler(logg, processor)
+
 	logg.Info("service started")
-	consumer := event_consumer.New(logg, fetcher, processor, batchSize)
+	consumer := event_consumer.New(logg, fetcher, hanlder, batchSize)
 
 	if err := consumer.Start(ctx); err != nil {
 		logg.Error("service is stopped")

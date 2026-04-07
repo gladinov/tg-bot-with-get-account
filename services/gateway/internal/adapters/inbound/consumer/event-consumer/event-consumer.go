@@ -5,26 +5,26 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/gladinov/contracts/trace"
-	"github.com/gladinov/e"
-	"github.com/gladinov/traceidgenerator"
-	"main.go/internal/adapters/inbound/events"
-	"main.go/internal/adapters/inbound/events/telegram"
+	"main.go/internal/application/events"
 )
 
 type Consumer struct {
 	logger    *slog.Logger
 	fetcher   events.Fetcher
-	processor events.Processor
-	bathcSize int
+	handler   EventsHandler
+	batchSize int
 }
 
-func New(logger *slog.Logger, fetcher events.Fetcher, processor events.Processor, batchSize int) Consumer {
+type EventsHandler interface {
+	HandleEvents(ctx context.Context, events []events.Event) error
+}
+
+func New(logger *slog.Logger, fetcher events.Fetcher, handler EventsHandler, batchSize int) Consumer {
 	return Consumer{
 		logger:    logger,
 		fetcher:   fetcher,
-		processor: processor,
-		bathcSize: batchSize,
+		handler:   handler,
+		batchSize: batchSize,
 	}
 }
 
@@ -32,7 +32,7 @@ func (c Consumer) Start(ctx context.Context) error {
 	const op = "event_consumer.Start"
 	logg := c.logger.With(
 		slog.String("op", op),
-		slog.Any("batchSize", c.bathcSize),
+		slog.Any("batchSize", c.batchSize),
 	)
 	logg.Info("consumer started")
 	for {
@@ -40,7 +40,7 @@ func (c Consumer) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			gotEvents, err := c.fetcher.Fetch(ctx, c.bathcSize)
+			gotEvents, err := c.fetcher.Fetch(ctx, c.batchSize)
 			if err != nil {
 				logg.Warn("fetch events failed",
 					slog.Any("error", err),
@@ -49,12 +49,15 @@ func (c Consumer) Start(ctx context.Context) error {
 			}
 
 			if len(gotEvents) == 0 {
-				time.Sleep(1 * time.Second)
-
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(1 * time.Second):
+				}
 				continue
 			}
 
-			if err := c.handleEvents(gotEvents); err != nil {
+			if err := c.handler.HandleEvents(ctx, gotEvents); err != nil {
 				logg.Error("handle events failed",
 					slog.Any("error", err),
 					slog.Any("events count", len(gotEvents)))
@@ -63,50 +66,4 @@ func (c Consumer) Start(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-func (c *Consumer) handleEvents(events []events.Event) error {
-	const op = "event_consumer.handleEvents"
-
-	start := time.Now()
-	logg := c.logger.With(slog.String("op", op))
-	logg.Debug("start")
-	defer func() {
-		logg.Info("finished",
-			slog.Duration("duration", time.Since(start)),
-		)
-	}()
-
-	for _, event := range events {
-		traceID, err := traceidgenerator.New()
-		if err != nil {
-			return e.WrapIfErr(op, err)
-		}
-		ctx := trace.WithTraceID(context.Background(), traceID)
-
-		eventLog := logg.With(
-			slog.Any("event_type", event.Type),
-		)
-
-		// TODO: Подумать насколько это корректно? Разные логи для предусмотренных и не предусмотренных комманд
-		if telegram.ContainsInConstantCommands(event.Text) {
-			eventLog.DebugContext(ctx, "got new event", slog.String("event", event.Text))
-		} else {
-			eventLog.DebugContext(ctx, "got new other event")
-		}
-
-		if err := c.processor.Process(ctx, event); err != nil {
-			if telegram.ContainsInConstantCommands(event.Text) {
-				eventLog.Error("process event failed",
-					slog.String("event", event.Text),
-					slog.Any("error", err))
-			} else {
-				eventLog.Error("process other event failed",
-					slog.Any("error", err))
-			}
-			continue
-		}
-	}
-
-	return nil
 }

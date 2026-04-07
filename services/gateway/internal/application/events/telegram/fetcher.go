@@ -5,14 +5,18 @@ import (
 	"log/slog"
 
 	"github.com/gladinov/e"
-	"main.go/internal/adapters/inbound/events"
 	"main.go/internal/adapters/outbound/telegram"
+	"main.go/internal/application/events"
 )
 
 type Fetcher struct {
 	logger *slog.Logger
-	tg     *telegram.Client
+	tg     UpdatesFetcher
 	offset int
+}
+
+type UpdatesFetcher interface {
+	Updates(ctx context.Context, offset int, limit int) (updates []telegram.Update, err error)
 }
 
 func NewFetcher(logger *slog.Logger, client *telegram.Client) *Fetcher {
