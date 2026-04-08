@@ -10,7 +10,7 @@ import (
 	contextkeys "github.com/gladinov/contracts/context"
 	"github.com/gladinov/contracts/trace"
 	"github.com/gladinov/e"
-	tokenauth "main.go/internal/tokenAuth"
+	tokenauth "main.go/internal/application/tokenAuth"
 	"main.go/internal/utils/logging"
 )
 
