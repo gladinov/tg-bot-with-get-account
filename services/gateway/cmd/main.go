@@ -27,8 +27,6 @@ const (
 	batchSize = 100
 )
 
-// TODO: HealthCheck
-// TODO : Graceful shutdown
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

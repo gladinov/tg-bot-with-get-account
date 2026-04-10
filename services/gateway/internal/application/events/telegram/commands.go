@@ -26,12 +26,10 @@ const (
 	GetUnionWithSber           = "/unionpswithsber"
 )
 
-// TODO: Вынести в отдельную библиотеку для взаимодействия между сервисами
 const (
 	BondReportsWithPngKind = "bondReportsWithPng"
 )
 
-// TODO: Вынести в отдельную библиотеку для взаимодействия между сервисами
 const (
 	ReportRequested = "report.requested"
 )
