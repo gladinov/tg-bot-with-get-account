@@ -20,12 +20,12 @@ type Storage struct {
 	db *pgxpool.Pool
 }
 
-func NewStorage(postgresConfig config.Config) (*Storage, error) {
+func NewStorage(ctx context.Context, postgresConfig config.Config) (*Storage, error) {
 	postgresHost, err := postgresConfig.PostgresHost.GetStringHost()
 	if err != nil {
 		return nil, err
 	}
-	db, err := pgxpool.New(context.Background(), postgresHost)
+	db, err := pgxpool.New(ctx, postgresHost)
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@ type Storage interface {
 func NewStorage(ctx context.Context, config config.Config) (Storage, error) {
 	switch config.DbType {
 	case postreSQL:
-		storage, err := postgres.NewStorage(config)
+		storage, err := postgres.NewStorage(ctx, config)
 		if err != nil {
 			return nil, err
 		}
