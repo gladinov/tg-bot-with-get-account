@@ -12,7 +12,7 @@ COPY . .
 RUN CGO_ENABLED=1 GOOS=linux go build -o ./bin/notification-service ./cmd/main.go
 
 FROM alpine AS runner
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache ca-certificates tzdata
 
 COPY --from=builder /usr/local/src/bin/notification-service /
 
