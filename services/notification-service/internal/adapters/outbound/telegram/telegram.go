@@ -30,9 +30,15 @@ type Client struct {
 }
 
 const (
-	sendUpdateMethod     = "sendMessage"
+	sendMessageMethod    = "sendMessage"
 	sendPhotoMethod      = "sendPhoto"
 	sendMediaGroupMethod = "sendMediaGroup"
+)
+
+const (
+	chatIDValue = "chat_id"
+	textValue   = "text"
+	mediaVlaue  = "media"
 )
 
 func New(logger *slog.Logger, host string, token string) *Client {
@@ -59,10 +65,10 @@ func (c *Client) SendMessage(ctx context.Context, chatID int, text string) error
 	)
 	defer func() { logg.DebugContext(ctx, "success") }()
 	q := url.Values{}
-	q.Add("chat_id", strconv.Itoa(chatID))
-	q.Add("text", text)
+	q.Add(chatIDValue, strconv.Itoa(chatID))
+	q.Add(textValue, text)
 
-	_, err := c.doRequest(ctx, sendUpdateMethod, q)
+	_, err := c.doRequest(ctx, sendMessageMethod, q)
 	if err != nil {
 		return e.Wrap("can`t send message", err)
 	}
@@ -126,7 +132,7 @@ func (c *Client) SendImageFromBuffer(ctx context.Context, chatID int, imageData 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	writer.WriteField("chat_id", strconv.Itoa(chatID))
+	writer.WriteField(chatIDValue, strconv.Itoa(chatID))
 	if caption != "" {
 		writer.WriteField("caption", caption)
 	}
@@ -173,14 +179,14 @@ func (c *Client) SendMediaGroupFromBuffer(ctx context.Context, chatID int, image
 	writer := multipart.NewWriter(body)
 
 	// Добавляем chat_id
-	writer.WriteField("chat_id", strconv.Itoa(chatID))
+	writer.WriteField(chatIDValue, strconv.Itoa(chatID))
 
 	// Подготавливаем медиа-группу
 	media := make([]map[string]string, len(tgImages))
 	for i, img := range tgImages {
 		media[i] = map[string]string{
-			"type":  "photo",
-			"media": "attach://image_" + strconv.Itoa(i),
+			"type":     "photo",
+			mediaVlaue: "attach://image_" + strconv.Itoa(i),
 		}
 
 		// Подпись только для первого изображения
@@ -188,9 +194,9 @@ func (c *Client) SendMediaGroupFromBuffer(ctx context.Context, chatID int, image
 			media[i]["caption"] = img.Caption
 		}
 	}
-
+	// TODO: обработать err
 	mediaJSON, _ := json.Marshal(media)
-	writer.WriteField("media", string(mediaJSON))
+	writer.WriteField(mediaVlaue, string(mediaJSON))
 
 	// Добавляем изображения из буферов
 	for i, img := range tgImages {

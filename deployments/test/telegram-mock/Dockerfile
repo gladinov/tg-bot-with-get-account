@@ -9,11 +9,11 @@ COPY ["go.mod","go.sum","./"]
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -o ./bin/notification-service ./cmd/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -o ./bin/telegram-mock ./cmd/main.go
 
 FROM alpine AS runner
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache tzdata
 
-COPY --from=builder /usr/local/src/bin/notification-service /
+COPY --from=builder /usr/local/src/bin/telegram-mock /
 
-CMD ["/notification-service"]
+CMD ["/telegram-mock"]

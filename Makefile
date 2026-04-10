@@ -1,4 +1,5 @@
 -include Makefile.local
+-include Makefile.test
 
 # =========================
 # Variables
@@ -11,7 +12,7 @@ ENV_FILE = deployments/env/prod.env
 # Phony targets
 # =========================
 
-.PHONY: up build-up down 
+.PHONY: up build-up down up-services down-services build-up-services
         
 # =========================
 # Docker: production
