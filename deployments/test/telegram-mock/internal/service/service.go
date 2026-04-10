@@ -10,7 +10,7 @@ type Service struct {
 	logg    *slog.Logger
 	mu      sync.Mutex
 	updates map[int]Update
-	ID      int // TODO: Вместимость int?
+	ID      int
 }
 
 func NewService(logger *slog.Logger) *Service {
@@ -32,8 +32,9 @@ func (s *Service) Updates(ctx context.Context, offset, limit int) []Update {
 		if !exist {
 			break
 		}
-		// TODO: удалить значение из мапы
+
 		res = append(res, update)
+		delete(s.updates, i)
 	}
 
 	return res
