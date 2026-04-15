@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gladinov/cryptotoken"
 	"github.com/gladinov/e"
@@ -128,7 +129,7 @@ func (t *TokenAuthService) isToken(ctx context.Context, text string) error {
 		slog.String("chat_id", chatID),
 	)
 
-	if len(text) == 88 { // TODO:модифицировать проверку
+	if utf8.RuneCountInString(text) == 88 {
 		tokenInBase64, err := t.tokenToBase64(text)
 		if err != nil {
 			return fmt.Errorf("%s:%w", op, err)
