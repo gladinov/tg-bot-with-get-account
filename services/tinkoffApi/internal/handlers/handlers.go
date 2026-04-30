@@ -1,34 +1,41 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 	"tinkoffApi/internal/service"
 
-	"github.com/gladinov/cryptotoken"
-
 	"github.com/labstack/echo/v4"
-	"github.com/redis/go-redis/v9"
 )
 
-type Handlers struct {
-	logger       *slog.Logger
-	service      *service.Service
-	tokenCrypter *cryptotoken.TokenCrypter
-	redis        *redis.Client
+type TokenDecrypter interface {
+	DecryptTokenFromBase64(tokenInBase64 string) (string, error)
 }
 
-func NewHandlers(logger *slog.Logger, service *service.Service, tokenCrypter *cryptotoken.TokenCrypter, redis *redis.Client) *Handlers {
+type TokenStorage interface {
+	GetToken(ctx context.Context, chatID string) (string, error)
+}
+
+type Handlers struct {
+	logger         *slog.Logger
+	service        *service.Service
+	tokenDecrypter TokenDecrypter
+	tokenStorage   TokenStorage
+}
+
+func NewHandlers(logger *slog.Logger, service *service.Service, tokenDecrypter TokenDecrypter, tokenStorage TokenStorage) *Handlers {
 	return &Handlers{
-		logger:       logger,
-		service:      service,
-		tokenCrypter: tokenCrypter,
-		redis:        redis,
+		logger:         logger,
+		service:        service,
+		tokenDecrypter: tokenDecrypter,
+		tokenStorage:   tokenStorage,
 	}
 }
 
 var (
+	ErrTokenNotFound      error = errors.New("token not found")
 	errHeaderRequired     error = errors.New("header auth requierd")
 	errInvalidAuthFormat  error = errors.New("invalid Authorization format, expected: Bearer <token>")
 	errEmptyToken         error = errors.New("empty token")

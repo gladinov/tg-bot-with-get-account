@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os/signal"
 	"syscall"
+	"tinkoffApi/internal/closer"
 	"tinkoffApi/internal/configs"
 
 	sl "github.com/gladinov/mylogger"
@@ -133,11 +134,19 @@ func (a *App) Run() error {
 	defer shutdownCancel()
 
 	if err := a.httpServer.Shutdown(shutdownCtx); err != nil {
-		a.logger.ErrorContext(ctx, "forced shutdown", slog.Any("error", err))
-		return err
+		a.logger.Error("shutdown server error", slog.Any("error", err))
 	}
-	// TODO: Нет закрытия redis с помощью closer
-	a.logger.InfoContext(ctx, "server exited gracefully")
+
+	a.logger.Info("server stop")
+
+	closerCtx, closerCancel := context.WithTimeout(context.Background(), a.configs.Config.Timeouts.AppCloseTimeout)
+	defer closerCancel()
+
+	if err := closer.CloseAll(closerCtx); err != nil {
+		a.logger.Error("resource close error", slog.Any("error", err))
+	}
+
+	a.logger.Info("server exited gracefully")
 
 	return nil
 }

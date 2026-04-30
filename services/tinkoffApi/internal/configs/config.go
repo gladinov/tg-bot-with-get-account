@@ -38,6 +38,7 @@ type Timeouts struct {
 	HTTPIdleTimeout       time.Duration `yaml:"http_idle_timeout"`
 	HTTPShutdownTimeout   time.Duration `yaml:"http_shutdown_timeout"`
 	RequestTimeout        time.Duration `yaml:"request_timeout"`
+	AppCloseTimeout       time.Duration `yaml:"app_close_timeout"`
 }
 
 type RedisHTTPServer struct {

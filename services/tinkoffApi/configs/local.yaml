@@ -11,3 +11,4 @@ timeouts:
   http_idle_timeout: 60s
   http_shutdown_timeout: 7s
   request_timeout: 5s
+  app_close_timeout: 3s
