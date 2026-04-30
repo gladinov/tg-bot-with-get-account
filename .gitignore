@@ -15,3 +15,4 @@ deployments/certs/cert.pem
 deployments/certs/key.pem
 
 tests/e2e/swagger.http
+.codex
