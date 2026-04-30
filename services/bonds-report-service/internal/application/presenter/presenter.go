@@ -342,7 +342,7 @@ func sortGeneralBondReports(ctx context.Context,
 
 func ResponsePortfolioStructure(ctx context.Context, logger *slog.Logger, portfolio *domain.PortfolioByTypeAndCurrency, title int, accountName string) string {
 	const op = "service.ResponsePortfolioStructure"
-
+	// TODO: возможно! Корректней будет собирать строку через strings.Builder{}
 	defer logging.LogOperation_Debug(ctx, logger, op, nil)()
 	var accountTitle string
 	switch title {

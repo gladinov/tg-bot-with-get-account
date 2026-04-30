@@ -11,6 +11,8 @@ import (
 	config "bonds-report-service/internal/configs"
 )
 
+// TODO: Переписать с DI запуском как у козырева
+
 func InitCBRClient(logger *slog.Logger, host string) *cbr.Client {
 	logger.Info("initialize CBR client", slog.String("address", host))
 	if host == "" {
