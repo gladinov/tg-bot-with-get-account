@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 	"tinkoffApi/internal/service"
 
 	"github.com/gladinov/cryptotoken"
@@ -48,8 +46,6 @@ func (h *Handlers) CheckToken(c echo.Context) (err error) {
 	logg.Debug("start")
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	client, err := h.service.PortfolioService.GetClient(ctx)
 	if err != nil {
@@ -72,8 +68,6 @@ func (h *Handlers) GetAccounts(c echo.Context) (err error) {
 	const op = "handlers.GetAccount"
 	ctx := c.Request().Context()
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
 
@@ -98,8 +92,6 @@ func (h *Handlers) GetAccounts(c echo.Context) (err error) {
 func (h *Handlers) GetPortfolio(c echo.Context) (err error) {
 	const op = "handlers.GetPortfolio"
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.Debug("start")
@@ -131,8 +123,6 @@ func (h *Handlers) GetPortfolio(c echo.Context) (err error) {
 func (h *Handlers) GetOperations(c echo.Context) error {
 	const op = "handlers.GetOperations"
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -164,8 +154,6 @@ func (h *Handlers) GetOperations(c echo.Context) error {
 func (h *Handlers) GetAllAssetUids(c echo.Context) error {
 	const op = "handlers.GetAllAssetUids"
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -191,8 +179,6 @@ func (h *Handlers) GetFutureBy(c echo.Context) error {
 	const op = "handlers.GetFutureBy"
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -224,8 +210,6 @@ func (h *Handlers) GetBondBy(c echo.Context) error {
 	const op = "handlers.GetBondBy"
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -257,8 +241,6 @@ func (h *Handlers) GetCurrencyBy(c echo.Context) error {
 	const op = "handlers.GetCurrencyBy"
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -290,8 +272,6 @@ func (h *Handlers) GetShareCurrencyBy(c echo.Context) error {
 	const op = "handlers.GetShareCurrencyBy"
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -323,8 +303,6 @@ func (h *Handlers) FindBy(c echo.Context) error {
 	const op = "handlers.FindBy"
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -356,8 +334,6 @@ func (h *Handlers) GetBondsActions(c echo.Context) error {
 	const op = "handlers.GetBondsActions"
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
@@ -389,8 +365,6 @@ func (h *Handlers) GetLastPriceInPersentageToNominal(c echo.Context) error {
 	const op = "handlers.GetLastPriceInPersentageToNominal"
 
 	ctx := c.Request().Context()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 
 	logg := h.logger.With(slog.String("op", op))
 	logg.DebugContext(ctx, "start")
